@@ -22,10 +22,10 @@ struct table_ref : prod {
 };
 
 struct table_or_query_name : table_ref {
-  virtual void out(std::ostream &out);
-  table_or_query_name(prod *p);
-  virtual ~table_or_query_name() { }
-  named_relation *t;
+    virtual void out(std::ostream &out);
+    table_or_query_name(prod *p);
+    virtual ~table_or_query_name() { }
+    named_relation *t;
 };
 
 struct target_table : table_ref {
@@ -102,15 +102,15 @@ struct joined_table : table_ref {
 };
 
 struct from_clause : prod {
-  std::vector<shared_ptr<table_ref> > reflist;
-  virtual void out(std::ostream &out);
-  from_clause(prod *p);
-  ~from_clause() { }
-  virtual void accept(prod_visitor *v) {
-    v->visit(this);
-    for (auto p : reflist)
-      p->accept(v);
-  }
+    std::vector<shared_ptr<table_ref> > reflist;
+    virtual void out(std::ostream &out);
+    from_clause(prod *p);
+    ~from_clause() { }
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        for (auto p : reflist)
+            p->accept(v);
+    }
 };
 
 struct select_list : prod {
@@ -128,20 +128,20 @@ struct select_list : prod {
 };
 
 struct query_spec : prod {
-  std::string set_quantifier;
-  shared_ptr<struct from_clause> from_clause;
-  shared_ptr<struct select_list> select_list;
-  shared_ptr<bool_expr> search;
-  std::string limit_clause;
-  struct scope myscope;
-  virtual void out(std::ostream &out);
-  query_spec(prod *p, struct scope *s, bool lateral = 0);
-  virtual void accept(prod_visitor *v) {
-    v->visit(this);
-    select_list->accept(v);
-    from_clause->accept(v);
-    search->accept(v);
-  }
+    std::string set_quantifier;
+    shared_ptr<struct from_clause> from_clause;
+    shared_ptr<struct select_list> select_list;
+    shared_ptr<bool_expr> search;
+    std::string limit_clause;
+    struct scope myscope;
+    virtual void out(std::ostream &out);
+    query_spec(prod *p, struct scope *s, bool lateral = 0);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        select_list->accept(v);
+        from_clause->accept(v);
+        search->accept(v);
+    }
 };
 
 struct select_for_update : query_spec {

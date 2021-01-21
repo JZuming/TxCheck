@@ -13,19 +13,19 @@ extern "C"  {
 #include "dut.hh"
 
 struct sqlite_connection {
-  sqlite3 *db;
-  char *zErrMsg = 0;
-  int rc;
-  void q(const char *query);
-  sqlite_connection(std::string &conninfo);
-  ~sqlite_connection();
+    sqlite3 *db;
+    char *zErrMsg = 0;
+    int rc;
+    void q(const char *query);
+    sqlite_connection(std::string &conninfo);
+    ~sqlite_connection();
 };
 
 struct schema_sqlite : schema, sqlite_connection {
-  schema_sqlite(std::string &conninfo, bool no_catalog);
-  virtual std::string quote_name(const std::string &id) {
-    return id;
-  }
+    schema_sqlite(std::string &conninfo, bool no_catalog);
+    virtual std::string quote_name(const std::string &id) {
+        return id;
+    }
 };
 
 struct dut_sqlite : dut_base, sqlite_connection {

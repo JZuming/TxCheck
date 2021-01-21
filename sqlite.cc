@@ -42,21 +42,21 @@ extern "C" int callback(void *arg, int argc, char **argv, char **azColName)
 
 extern "C" int table_callback(void *arg, int argc, char **argv, char **azColName)
 {
-  (void) argc; (void) azColName;
-  auto tables = (vector<table> *)arg;
-  bool view = (string("view") == argv[0]);
-  table tab(argv[2], "main", !view, !view);
-  tables->push_back(tab);
-  return 0;
+    (void) argc; (void) azColName;
+    auto tables = (vector<table> *)arg;
+    bool view = (string("view") == argv[0]);
+    table tab(argv[2], "main", !view, !view);
+    tables->push_back(tab);
+    return 0;
 }
 
 extern "C" int column_callback(void *arg, int argc, char **argv, char **azColName)
 {
-  (void) argc; (void) azColName;
-  table *tab = (table *)arg;
-  column c(argv[1], sqltype::get(argv[2]));
-  tab->columns().push_back(c);
-  return 0;
+    (void) argc; (void) azColName;
+    table *tab = (table *)arg;
+    column c(argv[1], sqltype::get(argv[2]));
+    tab->columns().push_back(c);
+    return 0;
 }
 
 sqlite_connection::sqlite_connection(std::string &conninfo)
@@ -131,7 +131,13 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     cerr << "done." << endl;
 
-#define BINOP(n,t) do {op o(#n,sqltype::get(#t),sqltype::get(#t),sqltype::get(#t)); register_operator(o); } while(0)
+#define BINOP(n, t) do {\
+    op o(#n, \
+         sqltype::get(#t), \
+         sqltype::get(#t), \
+         sqltype::get(#t)); \
+    register_operator(o); \
+} while(0)
 
     BINOP(||, TEXT);
     BINOP(*, INTEGER);
@@ -159,103 +165,103 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     BINOP(AND, INTEGER);
     BINOP(OR, INTEGER);
   
-#define FUNC(n,r) do {							\
+#define FUNC(n, r) do {							\
     routine proc("", "", sqltype::get(#r), #n);				\
     register_routine(proc);						\
-  } while(0)
+} while(0)
 
-#define FUNC1(n,r,a) do {						\
+#define FUNC1(n, r, a) do {						\
     routine proc("", "", sqltype::get(#r), #n);				\
     proc.argtypes.push_back(sqltype::get(#a));				\
     register_routine(proc);						\
-  } while(0)
+} while(0)
 
-#define FUNC2(n,r,a,b) do {						\
+#define FUNC2(n, r, a, b) do {						\
     routine proc("", "", sqltype::get(#r), #n);				\
     proc.argtypes.push_back(sqltype::get(#a));				\
     proc.argtypes.push_back(sqltype::get(#b));				\
     register_routine(proc);						\
-  } while(0)
+} while(0)
 
-#define FUNC3(n,r,a,b,c) do {						\
+#define FUNC3(n, r, a, b, c) do {						\
     routine proc("", "", sqltype::get(#r), #n);				\
     proc.argtypes.push_back(sqltype::get(#a));				\
     proc.argtypes.push_back(sqltype::get(#b));				\
     proc.argtypes.push_back(sqltype::get(#c));				\
     register_routine(proc);						\
-  } while(0)
+} while(0)
 
-  FUNC(last_insert_rowid, INTEGER);
-  FUNC(random, INTEGER);
-  FUNC(sqlite_source_id, TEXT);
-  FUNC(sqlite_version, TEXT);
-  FUNC(total_changes, INTEGER);
+    FUNC(last_insert_rowid, INTEGER);
+    FUNC(random, INTEGER);
+    FUNC(sqlite_source_id, TEXT);
+    FUNC(sqlite_version, TEXT);
+    FUNC(total_changes, INTEGER);
 
-  FUNC1(abs, INTEGER, REAL);
-  FUNC1(hex, TEXT, TEXT);
-  FUNC1(length, INTEGER, TEXT);
-  FUNC1(lower, TEXT, TEXT);
-  FUNC1(ltrim, TEXT, TEXT);
-  FUNC1(quote, TEXT, TEXT);
-  FUNC1(randomblob, TEXT, INTEGER);
-  FUNC1(round, INTEGER, REAL);
-  FUNC1(rtrim, TEXT, TEXT);
-  FUNC1(soundex, TEXT, TEXT);
-  FUNC1(sqlite_compileoption_get, TEXT, INTEGER);
-  FUNC1(sqlite_compileoption_used, INTEGER, TEXT);
-  FUNC1(trim, TEXT, TEXT);
-  FUNC1(typeof, TEXT, INTEGER);
-  FUNC1(typeof, TEXT, NUMERIC);
-  FUNC1(typeof, TEXT, REAL);
-  FUNC1(typeof, TEXT, TEXT);
-  FUNC1(unicode, INTEGER, TEXT);
-  FUNC1(upper, TEXT, TEXT);
-  FUNC1(zeroblob, TEXT, INTEGER);
+    FUNC1(abs, INTEGER, REAL);
+    FUNC1(hex, TEXT, TEXT);
+    FUNC1(length, INTEGER, TEXT);
+    FUNC1(lower, TEXT, TEXT);
+    FUNC1(ltrim, TEXT, TEXT);
+    FUNC1(quote, TEXT, TEXT);
+    FUNC1(randomblob, TEXT, INTEGER);
+    FUNC1(round, INTEGER, REAL);
+    FUNC1(rtrim, TEXT, TEXT);
+    FUNC1(soundex, TEXT, TEXT);
+    FUNC1(sqlite_compileoption_get, TEXT, INTEGER);
+    FUNC1(sqlite_compileoption_used, INTEGER, TEXT);
+    FUNC1(trim, TEXT, TEXT);
+    FUNC1(typeof, TEXT, INTEGER);
+    FUNC1(typeof, TEXT, NUMERIC);
+    FUNC1(typeof, TEXT, REAL);
+    FUNC1(typeof, TEXT, TEXT);
+    FUNC1(unicode, INTEGER, TEXT);
+    FUNC1(upper, TEXT, TEXT);
+    FUNC1(zeroblob, TEXT, INTEGER);
 
-  FUNC2(glob, INTEGER, TEXT, TEXT);
-  FUNC2(instr, INTEGER, TEXT, TEXT);
-  FUNC2(like, INTEGER, TEXT, TEXT);
-  FUNC2(ltrim, TEXT, TEXT, TEXT);
-  FUNC2(rtrim, TEXT, TEXT, TEXT);
-  FUNC2(trim, TEXT, TEXT, TEXT);
-  FUNC2(round, INTEGER, REAL, INTEGER);
-  FUNC2(substr, TEXT, TEXT, INTEGER);
+    FUNC2(glob, INTEGER, TEXT, TEXT);
+    FUNC2(instr, INTEGER, TEXT, TEXT);
+    FUNC2(like, INTEGER, TEXT, TEXT);
+    FUNC2(ltrim, TEXT, TEXT, TEXT);
+    FUNC2(rtrim, TEXT, TEXT, TEXT);
+    FUNC2(trim, TEXT, TEXT, TEXT);
+    FUNC2(round, INTEGER, REAL, INTEGER);
+    FUNC2(substr, TEXT, TEXT, INTEGER);
 
-  FUNC3(substr, TEXT, TEXT, INTEGER, INTEGER);
-  FUNC3(replace, TEXT, TEXT, TEXT, TEXT);
+    FUNC3(substr, TEXT, TEXT, INTEGER, INTEGER);
+    FUNC3(replace, TEXT, TEXT, TEXT, TEXT);
 
 
-#define AGG(n,r, a) do {						\
+#define AGG(n, r, a) do {						\
     routine proc("", "", sqltype::get(#r), #n);				\
     proc.argtypes.push_back(sqltype::get(#a));				\
     register_aggregate(proc);						\
-  } while(0)
+} while(0)
 
-  AGG(avg, INTEGER, INTEGER);
-  AGG(avg, REAL, REAL);
-  AGG(count, INTEGER, REAL);
-  AGG(count, INTEGER, TEXT);
-  AGG(count, INTEGER, INTEGER);
-  AGG(group_concat, TEXT, TEXT);
-  AGG(max, REAL, REAL);
-  AGG(max, INTEGER, INTEGER);
-  AGG(sum, REAL, REAL);
-  AGG(sum, INTEGER, INTEGER);
-  AGG(total, REAL, INTEGER);
-  AGG(total, REAL, REAL);
+    AGG(avg, INTEGER, INTEGER);
+    AGG(avg, REAL, REAL);
+    AGG(count, INTEGER, REAL);
+    AGG(count, INTEGER, TEXT);
+    AGG(count, INTEGER, INTEGER);
+    AGG(group_concat, TEXT, TEXT);
+    AGG(max, REAL, REAL);
+    AGG(max, INTEGER, INTEGER);
+    AGG(sum, REAL, REAL);
+    AGG(sum, INTEGER, INTEGER);
+    AGG(total, REAL, INTEGER);
+    AGG(total, REAL, REAL);
 
-  booltype = sqltype::get("INTEGER");
-  inttype = sqltype::get("INTEGER");
+    booltype = sqltype::get("INTEGER");
+    inttype = sqltype::get("INTEGER");
 
-  internaltype = sqltype::get("internal");
-  arraytype = sqltype::get("ARRAY");
+    internaltype = sqltype::get("internal");
+    arraytype = sqltype::get("ARRAY");
 
-  true_literal = "1";
-  false_literal = "0";
+    true_literal = "1";
+    false_literal = "0";
 
-  generate_indexes();
-  sqlite3_close(db);
-  db = 0;
+    generate_indexes();
+    sqlite3_close(db);
+    db = 0;
 }
 
 dut_sqlite::dut_sqlite(std::string &conninfo)

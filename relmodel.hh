@@ -18,20 +18,20 @@ using std::make_pair;
 using std::shared_ptr;
 
 struct sqltype {
-  string name;
-  static map<string, struct sqltype*> typemap;
-  static struct sqltype *get(string s);
-  sqltype(string n) : name(n) { }
+    string name;
+    static map<string, struct sqltype*> typemap;
+    static struct sqltype *get(string s);
+    sqltype(string n) : name(n) { }
 
-  /** This function is used to model postgres-style pseudotypes.
-      A generic type is consistent with a more concrete type.
-      E.G., anyarray->consistent(intarray) is true
-            while int4array->consistent(anyarray) is false
+    /** This function is used to model postgres-style pseudotypes.
+        A generic type is consistent with a more concrete type.
+        E.G., anyarray->consistent(intarray) is true
+              while int4array->consistent(anyarray) is false
 
-      There must not be cycles in the consistency graph, since the
-      grammar will use fixpoint iteration to resolve type conformance
-      situations in the direction of more concrete types  */
-  virtual bool consistent(struct sqltype *rvalue);
+        There must not be cycles in the consistency graph, since the
+        grammar will use fixpoint iteration to resolve type conformance
+        situations in the direction of more concrete types  */
+    virtual bool consistent(struct sqltype *rvalue);
 };
 
 struct column {
@@ -125,21 +125,22 @@ struct op {
 };
 
 struct routine {
-  string specific_name;
-  string schema;
-  vector<sqltype *> argtypes;
-  sqltype *restype;
-  string name;
-  routine(string schema, string specific_name, sqltype* data_type, string name)
-    : specific_name(specific_name), schema(schema), restype(data_type), name(name) {
-    assert(data_type);
-  }
-  virtual string ident() {
-    if (schema.size())
-      return schema + "." + name;
-    else
-      return name;
-  }
+    string specific_name;
+    string schema;
+    vector<sqltype *> argtypes;
+    sqltype *restype;
+    string name;
+    routine(string schema, string specific_name, sqltype* data_type, string name)
+        : specific_name(specific_name), schema(schema), restype(data_type), name(name) {
+        assert(data_type);
+    }
+    
+    virtual string ident() {
+        if (schema.size())
+            return schema + "." + name;
+        else
+            return name;
+    }
 };
 
 #endif

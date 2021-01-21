@@ -13,26 +13,26 @@
 using namespace std;
 
 shared_ptr<table_ref> table_ref::factory(prod *p) {
-  try {
-    if (p->level < 3 + d6()) {
-      if (d6() > 3 && p->level < d6())
-	return make_shared<table_subquery>(p);
-      if (d6() > 3)
-	return make_shared<joined_table>(p);
+    try {
+        if (p->level < 3 + d6()) {
+            if (d6() > 3 && p->level < d6())
+	            return make_shared<table_subquery>(p);
+            if (d6() > 3)
+	            return make_shared<joined_table>(p);
+        }
+        if (d6() > 3)
+            return make_shared<table_or_query_name>(p);
+        else
+            return make_shared<table_sample>(p);
+    } catch (runtime_error &e) {
+        p->retry();
     }
-    if (d6() > 3)
-      return make_shared<table_or_query_name>(p);
-    else
-      return make_shared<table_sample>(p);
-  } catch (runtime_error &e) {
-    p->retry();
-  }
-  return factory(p);
+    return factory(p);
 }
 
 table_or_query_name::table_or_query_name(prod *p) : table_ref(p) {
-  t = random_pick(scope->tables);
-  refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("ref"), t));
+    t = random_pick(scope->tables);
+    refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("ref"), t));
 }
 
 void table_or_query_name::out(std::ostream &out) {
@@ -198,9 +198,9 @@ void from_clause::out(std::ostream &out) {
 }
 
 from_clause::from_clause(prod *p) : prod(p) {
-  reflist.push_back(table_ref::factory(this));
-  for (auto r : reflist.back()->refs)
-    scope->refs.push_back(&*r);
+    reflist.push_back(table_ref::factory(this));
+    for (auto r : reflist.back()->refs)
+        scope->refs.push_back(&*r);
 
   while (d6() > 5) {
     // add a lateral subquery
@@ -314,18 +314,18 @@ void select_for_update::out(std::ostream &out) {
 query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
   prod(p), myscope(s)
 {
-  scope = &myscope;
-  scope->tables = s->tables;
+    scope = &myscope;
+    scope->tables = s->tables;
 
-  if (lateral)
-    scope->refs = s->refs;
+    if (lateral)
+        scope->refs = s->refs;
   
-  from_clause = make_shared<struct from_clause>(this);
-  select_list = make_shared<struct select_list>(this);
+    from_clause = make_shared<struct from_clause>(this);
+    select_list = make_shared<struct select_list>(this);
   
-  set_quantifier = (d100() == 1) ? "distinct" : "";
+    set_quantifier = (d100() == 1) ? "distinct" : "";
 
-  search = bool_expr::factory(this);
+    search = bool_expr::factory(this);
 
   if (d6() > 2) {
     ostringstream cons;
@@ -465,26 +465,26 @@ upsert_stmt::upsert_stmt(prod *p, struct scope *s, table *v)
 
 shared_ptr<prod> statement_factory(struct scope *s)
 {
-  try {
-    s->new_stmt();
-    if (d42() == 1)
-      return make_shared<merge_stmt>((struct prod *)0, s);
-    if (d42() == 1)
-      return make_shared<insert_stmt>((struct prod *)0, s);
-    else if (d42() == 1)
-      return make_shared<delete_returning>((struct prod *)0, s);
-    else if (d42() == 1) {
-      return make_shared<upsert_stmt>((struct prod *)0, s);
-    } else if (d42() == 1)
-      return make_shared<update_returning>((struct prod *)0, s);
-    else if (d6() > 4)
-      return make_shared<select_for_update>((struct prod *)0, s);
-    else if (d6() > 5)
-      return make_shared<common_table_expression>((struct prod *)0, s);
-    return make_shared<query_spec>((struct prod *)0, s);
-  } catch (runtime_error &e) {
-    return statement_factory(s);
-  }
+    try {
+        s->new_stmt();
+        if (d42() == 1)
+            return make_shared<merge_stmt>((struct prod *)0, s);
+        if (d42() == 1)
+            return make_shared<insert_stmt>((struct prod *)0, s);
+        else if (d42() == 1)
+            return make_shared<delete_returning>((struct prod *)0, s);
+        else if (d42() == 1) 
+            return make_shared<upsert_stmt>((struct prod *)0, s);
+        else if (d42() == 1)
+            return make_shared<update_returning>((struct prod *)0, s);
+        else if (d6() > 4)
+            return make_shared<select_for_update>((struct prod *)0, s);
+        else if (d6() > 5)
+            return make_shared<common_table_expression>((struct prod *)0, s);
+        return make_shared<query_spec>((struct prod *)0, s);
+    } catch (runtime_error &e) {
+        return statement_factory(s);
+    }
 }
 
 void common_table_expression::accept(prod_visitor *v)
