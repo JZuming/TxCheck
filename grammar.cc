@@ -174,11 +174,13 @@ joined_table::joined_table(prod *p) : table_ref(p) {
 }
 
 void joined_table::out(std::ostream &out) {
-  out << *lhs;
-  indent(out);
-  out << type << " join " << *rhs;
-  indent(out);
-  out << "on (" << *condition << ")";
+    out << "(";
+    out << *lhs;
+    indent(out);
+    out << type << " join " << *rhs;
+    indent(out);
+    out << "on (" << *condition << ")";
+    out << ")";
 }
 
 void table_subquery::out(std::ostream &out) {
