@@ -31,3 +31,4 @@ stamp-h1
 .deps/schema.Po
 .deps/sqlite.Po
 .deps/sqlsmith.Po
+test/

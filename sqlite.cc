@@ -61,104 +61,103 @@ extern "C" int column_callback(void *arg, int argc, char **argv, char **azColNam
 
 sqlite_connection::sqlite_connection(std::string &conninfo)
 {
-  assert(sqlite3_libversion_number()==SQLITE_VERSION_NUMBER);
-  assert(strcmp(sqlite3_sourceid(),SQLITE_SOURCE_ID)==0);
-  assert(strcmp(sqlite3_libversion(),SQLITE_VERSION)==0);
-  rc = sqlite3_open_v2(conninfo.c_str(), &db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI, 0);
-  if (rc) {
-    throw std::runtime_error(sqlite3_errmsg(db));
-  }
+//   assert(sqlite3_libversion_number()==SQLITE_VERSION_NUMBER);
+//   assert(strcmp(sqlite3_sourceid(),SQLITE_SOURCE_ID)==0);
+//   assert(strcmp(sqlite3_libversion(),SQLITE_VERSION)==0);
+    rc = sqlite3_open_v2(conninfo.c_str(), &db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI, 0);
+    if (rc) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
 }
 
 void sqlite_connection::q(const char *query)
 {
-  rc = sqlite3_exec(db, query, callback, 0, &zErrMsg);
-  if( rc!=SQLITE_OK ){
-    auto e = std::runtime_error(zErrMsg);
-    sqlite3_free(zErrMsg);
-    throw e;
-  }
+    rc = sqlite3_exec(db, query, callback, 0, &zErrMsg);
+    if( rc != SQLITE_OK ){
+        auto e = std::runtime_error(zErrMsg);
+        sqlite3_free(zErrMsg);
+        throw e;
+    }
 }
 
 sqlite_connection::~sqlite_connection()
 {
-  if (db)
-    sqlite3_close(db);
+    if (db)
+        sqlite3_close(db);
 }
 
 schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
   : sqlite_connection(conninfo)
 {
-	std::string query = "SELECT * FROM main.sqlite_master where type in ('table', 'view')";
+    std::string query = "SELECT * FROM main.sqlite_master where type in ('table', 'view')";
 
-	if (no_catalog)
-		query+= " AND name NOT like 'sqlite_%%'";
+    if (no_catalog)
+        query+= " AND name NOT like 'sqlite_%%'";
   
-  version = "SQLite " SQLITE_VERSION " " SQLITE_SOURCE_ID;
+    version = "SQLite " SQLITE_VERSION " " SQLITE_SOURCE_ID;
 
 //   sqlite3_busy_handler(db, my_sqlite3_busy_handler, 0);
-  cerr << "Loading tables...";
+    cerr << "Loading tables...";
 
-  rc = sqlite3_exec(db, query.c_str(), table_callback, (void *)&tables, &zErrMsg);
-  if (rc!=SQLITE_OK) {
-    auto e = std::runtime_error(zErrMsg);
-    sqlite3_free(zErrMsg);
-    throw e;
-  }
+    rc = sqlite3_exec(db, query.c_str(), table_callback, (void *)&tables, &zErrMsg);
+    if (rc!=SQLITE_OK) {
+        auto e = std::runtime_error(zErrMsg);
+        sqlite3_free(zErrMsg);
+        throw e;
+    }
 
-  if (!no_catalog)
-  {
+    if (!no_catalog) {
 		// sqlite_master doesn't list itself, do it manually
 		table tab("sqlite_master", "main", false, false);
 		tables.push_back(tab);
-  }
-  
-  cerr << "done." << endl;
-
-  cerr << "Loading columns and constraints...";
-
-  for (auto t = tables.begin(); t != tables.end(); ++t) {
-    string q("pragma table_info(");
-    q += t->name;
-    q += ");";
-
-    rc = sqlite3_exec(db, q.c_str(), column_callback, (void *)&*t, &zErrMsg);
-    if (rc!=SQLITE_OK) {
-      auto e = std::runtime_error(zErrMsg);
-      sqlite3_free(zErrMsg);
-      throw e;
     }
-  }
+  
+    cerr << "done." << endl;
 
-  cerr << "done." << endl;
+    cerr << "Loading columns and constraints...";
+
+    for (auto t = tables.begin(); t != tables.end(); ++t) {
+        string q("pragma table_info(");
+        q += t->name;
+        q += ");";
+
+        rc = sqlite3_exec(db, q.c_str(), column_callback, (void *)&*t, &zErrMsg);
+        if (rc!=SQLITE_OK) {
+            auto e = std::runtime_error(zErrMsg);
+            sqlite3_free(zErrMsg);
+            throw e;
+        }
+    }
+
+    cerr << "done." << endl;
 
 #define BINOP(n,t) do {op o(#n,sqltype::get(#t),sqltype::get(#t),sqltype::get(#t)); register_operator(o); } while(0)
 
-  BINOP(||, TEXT);
-  BINOP(*, INTEGER);
-  BINOP(/, INTEGER);
+    BINOP(||, TEXT);
+    BINOP(*, INTEGER);
+    BINOP(/, INTEGER);
 
-  BINOP(+, INTEGER);
-  BINOP(-, INTEGER);
+    BINOP(+, INTEGER);
+    BINOP(-, INTEGER);
 
-  BINOP(>>, INTEGER);
-  BINOP(<<, INTEGER);
+    BINOP(>>, INTEGER);
+    BINOP(<<, INTEGER);
 
-  BINOP(&, INTEGER);
-  BINOP(|, INTEGER);
+    BINOP(&, INTEGER);
+    BINOP(|, INTEGER);
 
-  BINOP(<, INTEGER);
-  BINOP(<=, INTEGER);
-  BINOP(>, INTEGER);
-  BINOP(>=, INTEGER);
+    BINOP(<, INTEGER);
+    BINOP(<=, INTEGER);
+    BINOP(>, INTEGER);
+    BINOP(>=, INTEGER);
 
-  BINOP(=, INTEGER);
-  BINOP(<>, INTEGER);
-  BINOP(IS, INTEGER);
-  BINOP(IS NOT, INTEGER);
+    BINOP(=, INTEGER);
+    BINOP(<>, INTEGER);
+    BINOP(IS, INTEGER);
+    BINOP(IS NOT, INTEGER);
 
-  BINOP(AND, INTEGER);
-  BINOP(OR, INTEGER);
+    BINOP(AND, INTEGER);
+    BINOP(OR, INTEGER);
   
 #define FUNC(n,r) do {							\
     routine proc("", "", sqltype::get(#r), #n);				\
