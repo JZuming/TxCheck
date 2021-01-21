@@ -1,1 +1,1 @@
-#define GITREV "v1.2.1"
+#define GITREV "0cfd0a3"
