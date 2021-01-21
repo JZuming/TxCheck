@@ -83,22 +83,22 @@ struct expr_join_cond : join_cond {
 };
 
 struct joined_table : table_ref {
-  virtual void out(std::ostream &out);  
-  joined_table(prod *p);
-  std::string type;
-  std::string alias;
-  virtual std::string ident() { return alias; }
-  shared_ptr<table_ref> lhs;
-  shared_ptr<table_ref> rhs;
-  shared_ptr<join_cond> condition;
-  virtual ~joined_table() {
-  }
-  virtual void accept(prod_visitor *v) {
-    lhs->accept(v);
-    rhs->accept(v);
-    condition->accept(v);
-    v->visit(this);
-  }
+    virtual void out(std::ostream &out);  
+    joined_table(prod *p);
+    std::string type;
+    std::string alias;
+    virtual std::string ident() { return alias; }
+    shared_ptr<table_ref> lhs;
+    shared_ptr<table_ref> rhs;
+    shared_ptr<join_cond> condition;
+    virtual ~joined_table() {
+    }
+    virtual void accept(prod_visitor *v) {
+        lhs->accept(v);
+        rhs->accept(v);
+        condition->accept(v);
+        v->visit(this);
+    }
 };
 
 struct from_clause : prod {

@@ -151,23 +151,26 @@ void expr_join_cond::out(std::ostream &out) {
 }
 
 joined_table::joined_table(prod *p) : table_ref(p) {
-  lhs = table_ref::factory(this);
-  rhs = table_ref::factory(this);
+    lhs = table_ref::factory(this);
+    rhs = table_ref::factory(this);
 
-  condition = join_cond::factory(this, *lhs, *rhs);
+    condition = join_cond::factory(this, *lhs, *rhs);
 
-  if (d6()<4) {
-    type = "inner";
-  } else if (d6()<4) {
-    type = "left";
-  } else {
-    type = "right";
-  }
+    if (d6()<4) {
+        type = "inner";
+    } else {
+        type = "left outer";
+    }
+//   } else if (d6()<4) {
+//     type = "left";
+//   } else {
+//     type = "right";
+//   }
 
-  for (auto ref: lhs->refs)
-    refs.push_back(ref);
-  for (auto ref: rhs->refs)
-    refs.push_back(ref);
+    for (auto ref: lhs->refs)
+        refs.push_back(ref);
+    for (auto ref: rhs->refs)
+        refs.push_back(ref);
 }
 
 void joined_table::out(std::ostream &out) {
