@@ -205,14 +205,14 @@ from_clause::from_clause(prod *p) : prod(p) {
     for (auto r : reflist.back()->refs)
         scope->refs.push_back(&*r);
 
-  while (d6() > 5) {
-    // add a lateral subquery
-    if (!impedance::matched(typeid(lateral_subquery)))
-      break;
-    reflist.push_back(make_shared<lateral_subquery>(this));
-    for (auto r : reflist.back()->refs)
-      scope->refs.push_back(&*r);
-  }
+//   while (d6() > 5) {
+//     // add a lateral subquery
+//     if (!impedance::matched(typeid(lateral_subquery)))
+//       break;
+//     reflist.push_back(make_shared<lateral_subquery>(this));
+//     for (auto r : reflist.back()->refs)
+//       scope->refs.push_back(&*r);
+//   }
 }
 
 select_list::select_list(prod *p) : prod(p)

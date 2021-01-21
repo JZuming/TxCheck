@@ -24,6 +24,7 @@
         "cstdlib": "cpp",
         "regex": "cpp",
         "type_traits": "cpp",
-        "tuple": "cpp"
+        "tuple": "cpp",
+        "iosfwd": "cpp"
     }
 }
