@@ -201,8 +201,8 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     expr = to_string(d100());
   else if (type == scope->schema->booltype)
     expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
-  else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
-    expr += "default";
+//   else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
+//     expr += "default";
   else
     expr += "cast(null as " + type->name + ")";
 }
