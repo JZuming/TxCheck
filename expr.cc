@@ -16,27 +16,27 @@ using impedance::matched;
 
 shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
 {
-  try {
-    if (1 == d20() && p->level < d6() && window_function::allowed(p))
-      return make_shared<window_function>(p, type_constraint);
-    else if (1 == d42() && p->level < d6())
-      return make_shared<coalesce>(p, type_constraint);
-    else if (1 == d42() && p->level < d6())
-      return make_shared<nullif>(p, type_constraint);
-    else if (p->level < d6() && d6() == 1)
-      return make_shared<funcall>(p, type_constraint);
-    else if (d12()==1)
-      return make_shared<atomic_subselect>(p, type_constraint);
-    else if (p->level< d6() && d9()==1)
-      return make_shared<case_expr>(p, type_constraint);
-    else if (p->scope->refs.size() && d20() > 1)
-      return make_shared<column_reference>(p, type_constraint);
-    else
-      return make_shared<const_expr>(p, type_constraint);
-  } catch (runtime_error &e) {
-  }
-  p->retry();
-  return factory(p, type_constraint);
+    try {
+        if (1 == d20() && p->level < d6() && window_function::allowed(p))
+            return make_shared<window_function>(p, type_constraint);
+        else if (1 == d42() && p->level < d6())
+            return make_shared<coalesce>(p, type_constraint);
+        else if (1 == d42() && p->level < d6())
+            return make_shared<nullif>(p, type_constraint);
+        else if (p->level < d6() && d6() == 1)
+            return make_shared<funcall>(p, type_constraint);
+        else if (d12()==1)
+            return make_shared<atomic_subselect>(p, type_constraint);
+        else if (p->level< d6() && d9()==1)
+            return make_shared<case_expr>(p, type_constraint);
+        else if (p->scope->refs.size() && d20() > 1)
+            return make_shared<column_reference>(p, type_constraint);
+        else
+            return make_shared<const_expr>(p, type_constraint);
+    } catch (runtime_error &e) {
+    }
+    p->retry();
+    return factory(p, type_constraint);
 }
 
 case_expr::case_expr(prod *p, sqltype *type_constraint)

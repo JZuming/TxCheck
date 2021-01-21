@@ -217,15 +217,15 @@ from_clause::from_clause(prod *p) : prod(p) {
 
 select_list::select_list(prod *p) : prod(p)
 {
-  do {
-    shared_ptr<value_expr> e = value_expr::factory(this);
-    value_exprs.push_back(e);
-    ostringstream name;
-    name << "c" << columns++;
-    sqltype *t=e->type;
-    assert(t);
-    derived_table.columns().push_back(column(name.str(), t));
-  } while (d6() > 1);
+    do {
+        shared_ptr<value_expr> e = value_expr::factory(this);
+        value_exprs.push_back(e);
+        ostringstream name;
+        name << "c" << columns++;
+        sqltype *t=e->type;
+        assert(t);
+        derived_table.columns().push_back(column(name.str(), t));
+    } while (d6() > 1);
 }
 
 void select_list::out(std::ostream &out)
@@ -470,8 +470,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
-        if (d42() == 1)
-            return make_shared<merge_stmt>((struct prod *)0, s);
+        // if (d42() == 1)
+        //     return make_shared<merge_stmt>((struct prod *)0, s);
         if (d42() == 1)
             return make_shared<insert_stmt>((struct prod *)0, s);
         else if (d42() == 1)
