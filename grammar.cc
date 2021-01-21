@@ -20,10 +20,10 @@ shared_ptr<table_ref> table_ref::factory(prod *p) {
             if (d6() > 3)
 	            return make_shared<joined_table>(p);
         }
-        if (d6() > 3)
+        // if (d6() > 3)
             return make_shared<table_or_query_name>(p);
-        else
-            return make_shared<table_sample>(p);
+        // else
+        //     return make_shared<table_sample>(p);
     } catch (runtime_error &e) {
         p->retry();
     }
