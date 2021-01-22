@@ -479,16 +479,16 @@ shared_ptr<prod> statement_factory(struct scope *s)
         if (d42() == 1)
             return make_shared<delete_stmt>((struct prod *)0, s);
         // else if (d42() == 1)
-        //     return make_shared<delete_returning>((struct prod *)0, s);
+            // return make_shared<delete_returning>((struct prod *)0, s);
         if (d42() == 1) 
             return make_shared<upsert_stmt>((struct prod *)0, s);
         if (d42() == 1) 
             return make_shared<update_stmt>((struct prod *)0, s);
         // else if (d42() == 1)
             // return make_shared<update_returning>((struct prod *)0, s);
-        else if (d6() > 4)
+        if (d6() > 4)
             return make_shared<select_for_update>((struct prod *)0, s);
-        else if (d6() > 5)
+        if (d6() > 5)
             return make_shared<common_table_expression>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
     } catch (runtime_error &e) {
