@@ -19,17 +19,17 @@ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
     try {
         if (1 == d20() && p->level < d6() && window_function::allowed(p))
             return make_shared<window_function>(p, type_constraint);
-        else if (1 == d42() && p->level < d6())
+        if (1 == d42() && p->level < d6())
             return make_shared<coalesce>(p, type_constraint);
-        else if (1 == d42() && p->level < d6())
+        if (1 == d42() && p->level < d6())
             return make_shared<nullif>(p, type_constraint);
-        else if (p->level < d6() && d6() == 1)
+        if (p->level < d6() && d6() == 1)
             return make_shared<funcall>(p, type_constraint);
-        else if (d12()==1)
+        if (d12()==1)
             return make_shared<atomic_subselect>(p, type_constraint);
-        else if (p->level< d6() && d9()==1)
+        if (p->level< d6() && d9()==1)
             return make_shared<case_expr>(p, type_constraint);
-        else if (p->scope->refs.size() && d20() > 1)
+        if (p->scope->refs.size() && d20() > 1)
             return make_shared<column_reference>(p, type_constraint);
         else
             return make_shared<const_expr>(p, type_constraint);
@@ -195,16 +195,16 @@ void coalesce::out(std::ostream &out)
 const_expr::const_expr(prod *p, sqltype *type_constraint)
     : value_expr(p), expr("")
 {
-  type = type_constraint ? type_constraint : scope->schema->inttype;
+    type = type_constraint ? type_constraint : scope->schema->inttype;
       
-  if (type == scope->schema->inttype)
-    expr = to_string(d100());
-  else if (type == scope->schema->booltype)
-    expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
+    if (type == scope->schema->inttype)
+        expr = to_string(d100());
+    else if (type == scope->schema->booltype)
+        expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
 //   else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
 //     expr += "default";
-  else
-    expr += "cast(null as " + type->name + ")";
+    else
+        expr += "cast(null as " + type->name + ")";
 }
 
 funcall::funcall(prod *p, sqltype *type_constraint, bool agg)
@@ -278,42 +278,42 @@ void funcall::out(std::ostream &out)
 atomic_subselect::atomic_subselect(prod *p, sqltype *type_constraint)
   : value_expr(p), offset((d6() == 6) ? d100() : d6())
 {
-  match();
-  if (d6() < 3) {
-    if (type_constraint) {
-      auto idx = scope->schema->aggregates_returning_type;
-      auto iters = idx.equal_range(type_constraint);
-      agg = random_pick<>(iters)->second;
+    match();
+    if (d6() < 3) {
+        if (type_constraint) {
+            auto idx = scope->schema->aggregates_returning_type;
+            auto iters = idx.equal_range(type_constraint);
+            agg = random_pick<>(iters)->second;
+        } else {
+            agg = &random_pick<>(scope->schema->aggregates);
+        }
+        if (agg->argtypes.size() != 1)
+            agg = 0;
+        else
+            type_constraint = agg->argtypes[0];
     } else {
-      agg = &random_pick<>(scope->schema->aggregates);
+        agg = 0;
     }
-    if (agg->argtypes.size() != 1)
-      agg = 0;
-    else
-      type_constraint = agg->argtypes[0];
-  } else {
-    agg = 0;
-  }
 
-  if (type_constraint) {
-    auto idx = scope->schema->tables_with_columns_of_type;
-    col = 0;
-    auto iters = idx.equal_range(type_constraint);
-    tab = random_pick<>(iters)->second;
+    if (type_constraint) {
+        auto idx = scope->schema->tables_with_columns_of_type;
+        col = 0;
+        auto iters = idx.equal_range(type_constraint);
+        tab = random_pick<>(iters)->second;
 
-    for (auto &cand : tab->columns()) {
-      if (type_constraint->consistent(cand.type)) {
-	col = &cand;
-	break;
-      }
+        for (auto &cand : tab->columns()) {
+            if (type_constraint->consistent(cand.type)) {
+	            col = &cand;
+	            break;
+            }
+        }
+        assert(col);
+    } else {
+        tab = &random_pick<>(scope->schema->tables);
+        col = &random_pick<>(tab->columns());
     }
-    assert(col);
-  } else {
-    tab = &random_pick<>(scope->schema->tables);
-    col = &random_pick<>(tab->columns());
-  }
 
-  type = agg ? agg->restype : col->type;
+    type = agg ? agg->restype : col->type;
 }
 
 void atomic_subselect::out(std::ostream &out)

@@ -20,12 +20,12 @@ struct value_expr: prod {
 };
 
 struct case_expr : value_expr {
-  shared_ptr<value_expr> condition;
-  shared_ptr<value_expr> true_expr;
-  shared_ptr<value_expr> false_expr;
-  case_expr(prod *p, sqltype *type_constraint = 0);
-  virtual void out(std::ostream &out);
-  virtual void accept(prod_visitor *v);
+    shared_ptr<value_expr> condition;
+    shared_ptr<value_expr> true_expr;
+    shared_ptr<value_expr> false_expr;
+    case_expr(prod *p, sqltype *type_constraint = 0);
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v);
 };
 
 struct funcall : value_expr {
@@ -43,26 +43,26 @@ struct funcall : value_expr {
 };
 
 struct atomic_subselect : value_expr {
-  table *tab;
-  column *col;
-  int offset;
-  routine *agg;
-  atomic_subselect(prod *p, sqltype *type_constraint = 0);
-  virtual void out(std::ostream &out);
+    table *tab;
+    column *col;
+    int offset;
+    routine *agg;
+    atomic_subselect(prod *p, sqltype *type_constraint = 0);
+    virtual void out(std::ostream &out);
 };
 
 struct const_expr: value_expr {
-  std::string expr;
-  const_expr(prod *p, sqltype *type_constraint = 0);
-  virtual void out(std::ostream &out) { out << expr; }
-  virtual ~const_expr() { }
+    std::string expr;
+    const_expr(prod *p, sqltype *type_constraint = 0);
+    virtual void out(std::ostream &out) { out << expr; }
+    virtual ~const_expr() { }
 };
 
 struct column_reference: value_expr {
-  column_reference(prod *p, sqltype *type_constraint = 0);
-  virtual void out(std::ostream &out) { out << reference; }
-  std::string reference;
-  virtual ~column_reference() { }
+    column_reference(prod *p, sqltype *type_constraint = 0);
+    virtual void out(std::ostream &out) { out << reference; }
+    std::string reference;
+    virtual ~column_reference() { }
 };
 
 struct coalesce : value_expr {

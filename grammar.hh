@@ -204,26 +204,28 @@ struct delete_returning : delete_stmt {
 };
 
 struct insert_stmt : modifying_stmt {
-  vector<shared_ptr<value_expr> > value_exprs;
-  insert_stmt(prod *p, struct scope *s, table *victim = 0);
-  virtual ~insert_stmt() {  }
-  virtual void out(std::ostream &out);
-  virtual void accept(prod_visitor *v) {
-    v->visit(this);
-    for (auto p : value_exprs) p->accept(v);
-  }
+    vector<shared_ptr<value_expr> > value_exprs;
+    insert_stmt(prod *p, struct scope *s, table *victim = 0);
+    virtual ~insert_stmt() {  }
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        for (auto p : value_exprs) 
+            p->accept(v);
+    }
 };
 
 struct set_list : prod {
-  vector<shared_ptr<value_expr> > value_exprs;
-  vector<string> names;
-  set_list(prod *p, table *target);
-  virtual ~set_list() {  }
-  virtual void out(std::ostream &out);
-  virtual void accept(prod_visitor *v) {
-    v->visit(this);
-    for (auto p : value_exprs) p->accept(v);
-  }
+    vector<shared_ptr<value_expr> > value_exprs;
+    vector<string> names;
+    set_list(prod *p, table *target);
+    virtual ~set_list() {  }
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        for (auto p : value_exprs) 
+            p->accept(v);
+    }
 };
 
 struct upsert_stmt : insert_stmt {

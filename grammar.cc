@@ -356,11 +356,11 @@ void modifying_stmt::pick_victim()
 modifying_stmt::modifying_stmt(prod *p, struct scope *s, table *victim)
   : prod(p), myscope(s)
 {
-  scope = &myscope;
-  scope->tables = s->tables;
+    scope = &myscope;
+    scope->tables = s->tables;
 
-  if (!victim)
-    pick_victim();
+    if (!victim)
+        pick_victim();
 }
 
 
@@ -379,13 +379,13 @@ delete_returning::delete_returning(prod *p, struct scope *s, table *victim)
 insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
   : modifying_stmt(p, s, v)
 {
-  match();
+    match();
 
-  for (auto col : victim->columns()) {
-    auto expr = value_expr::factory(this, col.type);
-    assert(expr->type == col.type);
-    value_exprs.push_back(expr);
-  }
+    for (auto col : victim->columns()) {
+        auto expr = value_expr::factory(this, col.type);
+        assert(expr->type == col.type);
+        value_exprs.push_back(expr);
+    }
 }
 
 void insert_stmt::out(std::ostream &out)
