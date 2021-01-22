@@ -138,12 +138,12 @@ void simple_join_cond::out(std::ostream &out) {
 expr_join_cond::expr_join_cond(prod *p, table_ref &lhs, table_ref &rhs)
      : join_cond(p, lhs, rhs), joinscope(p->scope)
 {
-     scope = &joinscope;
-     for (auto ref: lhs.refs)
-	  joinscope.refs.push_back(&*ref);
-     for (auto ref: rhs.refs)
-	  joinscope.refs.push_back(&*ref);
-     search = bool_expr::factory(this);
+    scope = &joinscope;
+    for (auto ref: lhs.refs)
+        joinscope.refs.push_back(&*ref);
+    for (auto ref: rhs.refs)
+        joinscope.refs.push_back(&*ref);
+    search = bool_expr::factory(this);
 }
 
 void expr_join_cond::out(std::ostream &out) {
@@ -184,22 +184,22 @@ void joined_table::out(std::ostream &out) {
 }
 
 void table_subquery::out(std::ostream &out) {
-  if (is_lateral)
-    out << "lateral ";
-  out << "(" << *query << ") as " << refs[0]->ident();
+    if (is_lateral)
+        out << "lateral ";
+    out << "(" << *query << ") as " << refs[0]->ident();
 }
 
 void from_clause::out(std::ostream &out) {
-  if (! reflist.size())
-    return;
-  out << "from ";
+    if (! reflist.size())
+        return;
+    out << "from ";
 
-  for (auto r = reflist.begin(); r < reflist.end(); r++) {
-    indent(out);
-    out << **r;
-    if (r + 1 != reflist.end())
-      out << ",";
-  }
+    for (auto r = reflist.begin(); r < reflist.end(); r++) {
+        indent(out);
+        out << **r;
+        if (r + 1 != reflist.end())
+            out << ",";
+    }
 }
 
 from_clause::from_clause(prod *p) : prod(p) {
@@ -224,7 +224,7 @@ select_list::select_list(prod *p) : prod(p)
         value_exprs.push_back(e);
         ostringstream name;
         name << "c" << columns++;
-        sqltype *t=e->type;
+        sqltype *t = e->type;
         assert(t);
         derived_table.columns().push_back(column(name.str(), t));
     } while (d6() > 1);
@@ -232,28 +232,28 @@ select_list::select_list(prod *p) : prod(p)
 
 void select_list::out(std::ostream &out)
 {
-  int i = 0;
-  for (auto expr = value_exprs.begin(); expr != value_exprs.end(); expr++) {
-    indent(out);
-    out << **expr << " as " << derived_table.columns()[i].name;
-    i++;
-    if (expr+1 != value_exprs.end())
-      out << ", ";
-  }
+    int i = 0;
+    for (auto expr = value_exprs.begin(); expr != value_exprs.end(); expr++) {
+        indent(out);
+        out << **expr << " as " << derived_table.columns()[i].name;
+        i++;
+        if (expr+1 != value_exprs.end())
+        out << ", ";
+    }
 }
 
 void query_spec::out(std::ostream &out) {
-  out << "select " << set_quantifier << " "
-      << *select_list;
-  indent(out);
-  out << *from_clause;
-  indent(out);
-  out << "where ";
-  out << *search;
-  if (limit_clause.length()) {
+    out << "select " << set_quantifier << " "
+        << *select_list;
     indent(out);
-    out << limit_clause;
-  }
+    out << *from_clause;
+    indent(out);
+    out << "where ";
+    out << *search;
+    if (limit_clause.length()) {
+        indent(out);
+        out << limit_clause;
+    }
 }
 
 struct for_update_verify : prod_visitor {
@@ -332,11 +332,11 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
 
     search = bool_expr::factory(this);
 
-  if (d6() > 2) {
-    ostringstream cons;
-    cons << "limit " << d100() + d100();
-    limit_clause = cons.str();
-  }
+    if (d6() > 2) {
+        ostringstream cons;
+        cons << "limit " << d100() + d100();
+        limit_clause = cons.str();
+    }
 }
 
 long prepare_stmt::seq;

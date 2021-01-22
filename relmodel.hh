@@ -98,7 +98,7 @@ struct scope {
         for (auto r : refs)
             for (auto c : r->columns())
 	            if (t->consistent(c.type))
-	            result.push_back(make_pair(r,c));
+	                result.push_back(make_pair(r,c));
         return result;
     }
     /** Generate unique identifier with prefix. */
