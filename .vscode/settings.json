@@ -44,6 +44,24 @@
         "algorithm": "cpp",
         "tablereader": "cpp",
         "tablestream": "cpp",
-        "tablewriter": "cpp"
+        "tablewriter": "cpp",
+        "array": "cpp",
+        "complex": "cpp",
+        "cstdint": "cpp",
+        "list": "cpp",
+        "unordered_map": "cpp",
+        "exception": "cpp",
+        "iterator": "cpp",
+        "map": "cpp",
+        "memory_resource": "cpp",
+        "ratio": "cpp",
+        "set": "cpp",
+        "system_error": "cpp",
+        "utility": "cpp",
+        "initializer_list": "cpp",
+        "iostream": "cpp",
+        "new": "cpp",
+        "stdexcept": "cpp",
+        "typeindex": "cpp"
     }
 }
