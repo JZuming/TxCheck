@@ -80,17 +80,17 @@ void table_sample::out(std::ostream &out) {
 
 table_subquery::table_subquery(prod *p, bool lateral)
   : table_ref(p), is_lateral(lateral) {
-  query = make_shared<query_spec>(this, scope, lateral);
-  string alias = scope->stmt_uid("subq");
-  relation *aliased_rel = &query->select_list->derived_table;
-  refs.push_back(make_shared<aliased_relation>(alias, aliased_rel));
+    query = make_shared<query_spec>(this, scope, lateral);
+    string alias = scope->stmt_uid("subq");
+    relation *aliased_rel = &query->select_list->derived_table;
+    refs.push_back(make_shared<aliased_relation>(alias, aliased_rel));
 }
 
 table_subquery::~table_subquery() { }
 
 void table_subquery::accept(prod_visitor *v) {
-  query->accept(v);
-  v->visit(this);
+    query->accept(v);
+    v->visit(this);
 }
 
 shared_ptr<join_cond> join_cond::factory(prod *p, table_ref &lhs, table_ref &rhs)
