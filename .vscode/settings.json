@@ -41,6 +41,9 @@
         "cwctype": "cpp",
         "typeinfo": "cpp",
         "bitset": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "tablereader": "cpp",
+        "tablestream": "cpp",
+        "tablewriter": "cpp"
     }
 }

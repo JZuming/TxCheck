@@ -35,24 +35,24 @@ struct sqltype {
 };
 
 struct column {
-  string name;
-  sqltype *type;
-  column(string name) : name(name) { }
-  column(string name, sqltype *t) : name(name), type(t) {
-    assert(t);
-  }
+    string name;
+    sqltype *type;
+    column(string name) : name(name) { }
+    column(string name, sqltype *t) : name(name), type(t) {
+        assert(t);
+    }
 };
 
 struct relation {
-  vector<column> cols;
-  virtual vector<column> &columns() { return cols; }
+    vector<column> cols;
+    virtual vector<column> &columns() { return cols; }
 };
 
 struct named_relation : relation {
-  string name;
-  virtual string ident() { return name; }
-  virtual ~named_relation() { }
-  named_relation(string n) : name(n) { }
+    string name;
+    virtual string ident() { return name; }
+    virtual ~named_relation() { }
+    named_relation(string n) : name(n) { }
 };
 
 struct aliased_relation : named_relation {
@@ -63,65 +63,65 @@ struct aliased_relation : named_relation {
 };
 
 struct table : named_relation {
-  string schema;
-  bool is_insertable;
-  bool is_base_table;
-  vector<string> constraints;
-  table(string name, string schema, bool insertable, bool base_table)
-    : named_relation(name),
-      schema(schema),
-      is_insertable(insertable),
-      is_base_table(base_table) { }
-  virtual string ident() { return schema + "." + name; }
-  virtual ~table() { };
+    string schema;
+    bool is_insertable;
+    bool is_base_table;
+    vector<string> constraints;
+    table(string name, string schema, bool insertable, bool base_table)
+        : named_relation(name),
+        schema(schema),
+        is_insertable(insertable),
+        is_base_table(base_table) { }
+    virtual string ident() { return schema + "." + name; }
+    virtual ~table() { };
 };
 
 struct scope {
-  struct scope *parent;
-  /// available to table_ref productions
-  vector<named_relation*> tables;
- /// available to column_ref productions
-  vector<named_relation*> refs;
-  struct schema *schema;
-  /// Counters for prefixed stmt-unique identifiers
-  shared_ptr<map<string,unsigned int> > stmt_seq;
-  scope(struct scope *parent = 0) : parent(parent) {
-    if (parent) {
-      schema = parent->schema;
-      tables = parent->tables;
-      refs = parent->refs;
-      stmt_seq = parent->stmt_seq;
+    struct scope *parent;
+    /// available to table_ref productions
+    vector<named_relation*> tables;
+    /// available to column_ref productions
+    vector<named_relation*> refs;
+    struct schema *schema;
+    /// Counters for prefixed stmt-unique identifiers
+    shared_ptr<map<string,unsigned int> > stmt_seq;
+    scope(struct scope *parent = 0) : parent(parent) {
+        if (parent) {
+            schema = parent->schema;
+            tables = parent->tables;
+            refs = parent->refs;
+            stmt_seq = parent->stmt_seq;
+        }
     }
-  }
-  vector<pair<named_relation*, column> > refs_of_type(sqltype *t) {
-    vector<pair<named_relation*, column> > result;
-    for (auto r : refs)
-      for (auto c : r->columns())
-	if (t->consistent(c.type))
-	  result.push_back(make_pair(r,c));
-    return result;
-  }
-  /** Generate unique identifier with prefix. */
-  string stmt_uid(const char* prefix) {
-    string result(prefix);
-    result += "_";
-    result += std::to_string((*stmt_seq)[result]++);
-    return result;
-  }
-  /** Reset unique identifier counters. */
-  void new_stmt() {
-    stmt_seq = std::make_shared<map<string,unsigned int> >();
-  }
+    vector<pair<named_relation*, column> > refs_of_type(sqltype *t) {
+        vector<pair<named_relation*, column> > result;
+        for (auto r : refs)
+            for (auto c : r->columns())
+	            if (t->consistent(c.type))
+	            result.push_back(make_pair(r,c));
+        return result;
+    }
+    /** Generate unique identifier with prefix. */
+    string stmt_uid(const char* prefix) {
+        string result(prefix);
+        result += "_";
+        result += std::to_string((*stmt_seq)[result]++);
+        return result;
+    }
+    /** Reset unique identifier counters. */
+    void new_stmt() {
+        stmt_seq = std::make_shared<map<string, unsigned int> >();
+    }
 };
 
 struct op {
-  string name;
-  sqltype *left;
-  sqltype *right;
-  sqltype *result;
-  op(string n,sqltype *l,sqltype *r, sqltype *res)
-    : name(n), left(l), right(r), result(res) { }
-  op() { }
+    string name;
+    sqltype *left;
+    sqltype *right;
+    sqltype *result;
+    op(string n,sqltype *l,sqltype *r, sqltype *res)
+        : name(n), left(l), right(r), result(res) { }
+    op() { }
 };
 
 struct routine {
