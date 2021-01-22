@@ -29,8 +29,8 @@ struct schema_sqlite : schema, sqlite_connection {
 };
 
 struct dut_sqlite : dut_base, sqlite_connection {
-  virtual void test(const std::string &stmt);
-  dut_sqlite(std::string &conninfo);
+    virtual void test(const std::string &stmt);
+    dut_sqlite(std::string &conninfo);
 };
 
 #endif
