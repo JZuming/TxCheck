@@ -25,19 +25,19 @@ extern "C"  {
 
 extern "C" int my_sqlite3_busy_handler(void *, int)
 {
-  throw std::runtime_error("sqlite3 timeout");
+    throw std::runtime_error("sqlite3 timeout");
 }
 
 extern "C" int callback(void *arg, int argc, char **argv, char **azColName)
 {
-  (void)arg;
+    (void)arg;
 
-  int i;
-  for(i=0; i<argc; i++){
-    printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-  }
-  printf("\n");
-  return 0;
+    int i;
+    for(i = 0; i < argc; i++){
+        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    }
+    printf("\n");
+    return 0;
 }
 
 extern "C" int table_callback(void *arg, int argc, char **argv, char **azColName)
@@ -267,32 +267,32 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 dut_sqlite::dut_sqlite(std::string &conninfo)
   : sqlite_connection(conninfo)
 {
-  q("PRAGMA main.auto_vacuum = 2");
+    q("PRAGMA main.auto_vacuum = 2");
 }
 
 extern "C" int dut_callback(void *arg, int argc, char **argv, char **azColName)
 {
-  (void) arg; (void) argc; (void) argv; (void) azColName;
-  return SQLITE_ABORT;
+    (void) arg; (void) argc; (void) argv; (void) azColName;
+    return SQLITE_ABORT;
 }
 
 void dut_sqlite::test(const std::string &stmt)
 {
-  alarm(6);
-  rc = sqlite3_exec(db, stmt.c_str(), dut_callback, 0, &zErrMsg);
-  if( rc!=SQLITE_OK ){
-    try {
-      if (regex_match(zErrMsg, e_syntax))
-	throw dut::syntax(zErrMsg);
-      else if (regex_match(zErrMsg, e_user_abort)) {
-	sqlite3_free(zErrMsg);
-	return;
-      } else 
-	throw dut::failure(zErrMsg);
-    } catch (dut::failure &e) {
-      sqlite3_free(zErrMsg);
-      throw;
+    alarm(6);
+    rc = sqlite3_exec(db, stmt.c_str(), dut_callback, 0, &zErrMsg);
+    if(rc != SQLITE_OK){
+        try {
+            if (regex_match(zErrMsg, e_syntax))
+	            throw dut::syntax(zErrMsg);
+            else if (regex_match(zErrMsg, e_user_abort)) {
+	            sqlite3_free(zErrMsg);
+	            return;
+            } else 
+	            throw dut::failure(zErrMsg);
+        } catch (dut::failure &e) {
+            sqlite3_free(zErrMsg);
+            throw;
+        }
     }
-  }
 }
 
