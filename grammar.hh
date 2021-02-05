@@ -167,26 +167,26 @@ struct prepare_stmt : prod {
 };
 
 struct modifying_stmt : prod {
-  table *victim;
-  struct scope myscope;
-  modifying_stmt(prod *p, struct scope *s, struct table *victim = 0);
+    table *victim;
+    struct scope myscope;
+    modifying_stmt(prod *p, struct scope *s, struct table *victim = 0);
 //   shared_ptr<modifying_stmt> modifying_stmt::factory(prod *p, struct scope *s);
-  virtual void pick_victim();
+    virtual void pick_victim();
 };
 
 struct delete_stmt : modifying_stmt {
-  shared_ptr<bool_expr> search;
-  delete_stmt(prod *p, struct scope *s, table *v = 0);
-  virtual ~delete_stmt() { }
-  virtual void out(std::ostream &out) {
-    out << "delete from " << victim->ident();
-    indent(out);
-    out << "where " << std::endl << *search;
-  }
-  virtual void accept(prod_visitor *v) {
-    v->visit(this);
-    search->accept(v);
-  }
+    shared_ptr<bool_expr> search;
+    delete_stmt(prod *p, struct scope *s, table *v = 0);
+    virtual ~delete_stmt() { }
+    virtual void out(std::ostream &out) {
+        out << "delete from " << victim->ident();
+        indent(out);
+        out << "where " << std::endl << *search;
+    }
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        search->accept(v);
+    }
 };
 
 struct delete_returning : delete_stmt {
@@ -247,15 +247,15 @@ struct upsert_stmt : insert_stmt {
 };
 
 struct update_stmt : modifying_stmt {
-  shared_ptr<bool_expr> search;
-  shared_ptr<struct set_list> set_list;
-  update_stmt(prod *p, struct scope *s, table *victim = 0);
-  virtual ~update_stmt() {  }
-  virtual void out(std::ostream &out);
-  virtual void accept(prod_visitor *v) {
-    v->visit(this);
-    search->accept(v);
-  }
+    shared_ptr<bool_expr> search;
+    shared_ptr<struct set_list> set_list;
+    update_stmt(prod *p, struct scope *s, table *victim = 0);
+    virtual ~update_stmt() {  }
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        search->accept(v);
+    }
 };
 
 struct when_clause : prod {
@@ -315,13 +315,25 @@ struct update_returning : update_stmt {
 shared_ptr<prod> statement_factory(struct scope *s);
 
 struct common_table_expression : prod {
-  vector<shared_ptr<prod> > with_queries;
-  shared_ptr<prod> query;
-  vector<shared_ptr<named_relation> > refs;
-  struct scope myscope;
-  virtual void out(std::ostream &out);
-  virtual void accept(prod_visitor *v);
-  common_table_expression(prod *parent, struct scope *s);
+    vector<shared_ptr<prod> > with_queries;
+    shared_ptr<prod> query;
+    vector<shared_ptr<named_relation> > refs;
+    struct scope myscope;
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v);
+    common_table_expression(prod *parent, struct scope *s);
+};
+
+struct create_table_stmt: prod {
+    struct table *created_table;
+    struct scope myscope;
+    int key_idx;
+    virtual void out(std::ostream &out);
+    create_table_stmt(prod *parent, struct scope *s);
+    ~create_table_stmt();
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+    }
 };
 
 #endif

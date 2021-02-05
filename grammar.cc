@@ -472,6 +472,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
+        if (d42() == 1)
+            return make_shared<create_table_stmt>((struct prod *)0, s);
         // if (d42() == 1)
             // return make_shared<merge_stmt>((struct prod *)0, s);
         if (d42() == 1)
@@ -507,44 +509,44 @@ void common_table_expression::accept(prod_visitor *v)
 common_table_expression::common_table_expression(prod *parent, struct scope *s)
   : prod(parent), myscope(s)
 {
-  scope = &myscope;
-  do {
-    shared_ptr<query_spec> query = make_shared<query_spec>(this, s);
-    with_queries.push_back(query);
-    string alias = scope->stmt_uid("jennifer");
-    relation *relation = &query->select_list->derived_table;
-    auto aliased_rel = make_shared<aliased_relation>(alias, relation);
-    refs.push_back(aliased_rel);
-    scope->tables.push_back(&*aliased_rel);
+    scope = &myscope;
+    do {
+        shared_ptr<query_spec> query = make_shared<query_spec>(this, s);
+        with_queries.push_back(query);
+        string alias = scope->stmt_uid("jennifer");
+        relation *relation = &query->select_list->derived_table;
+        auto aliased_rel = make_shared<aliased_relation>(alias, relation);
+        refs.push_back(aliased_rel);
+        scope->tables.push_back(&*aliased_rel);
 
-  } while (d6() > 2);
+    } while (d6() > 2);
 
- retry:
-  do {
-    auto pick = random_pick(s->tables);
-    scope->tables.push_back(pick);
-  } while (d6() > 3);
-  try {
-    query = make_shared<query_spec>(this, scope);
-  } catch (runtime_error &e) {
-    retry();
-    goto retry;
-  }
+retry:
+    do {
+        auto pick = random_pick(s->tables);
+        scope->tables.push_back(pick);
+    } while (d6() > 3);
+    try {
+        query = make_shared<query_spec>(this, scope);
+    } catch (runtime_error &e) {
+        retry();
+        goto retry;
+    }
 
 }
 
 void common_table_expression::out(std::ostream &out)
 {
-  out << "WITH " ;
-  for (size_t i = 0; i < with_queries.size(); i++) {
+    out << "WITH " ;
+    for (size_t i = 0; i < with_queries.size(); i++) {
+        indent(out);
+        out << refs[i]->ident() << " AS " << "(" << *with_queries[i] << ")";
+        if (i+1 != with_queries.size())
+            out << ", ";
+        indent(out);
+    }
+    out << *query;
     indent(out);
-    out << refs[i]->ident() << " AS " << "(" << *with_queries[i] << ")";
-    if (i+1 != with_queries.size())
-      out << ", ";
-    indent(out);
-  }
-  out << *query;
-  indent(out);
 }
 
 merge_stmt::merge_stmt(prod *p, struct scope *s, table *v)
@@ -690,3 +692,68 @@ shared_ptr<when_clause> when_clause::factory(struct merge_stmt *p)
   return factory(p);
 }
 
+create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
+: prod(parent), myscope(s)
+{
+    // create table
+    string table_name;
+    table_name = random_identifier_generate();
+
+    auto table_vec = myscope.tables;
+    int table_num = table_vec.size();
+    while (1) {
+        int flag = 0;
+        for (int i = 0; i < table_num; i++) {
+            if (table_name == table_vec[i]->name) {
+                table_name = table_name + "_";
+                flag = 1;
+            }
+        }
+
+        if (flag == 0)
+            break;
+    }
+
+    created_table = new table(table_name, "main", true, true);
+
+    // create its columns
+    int column_num = dx(10);
+    for (int i = 0; i < column_num; i++) {
+        string column_name = random_identifier_generate();
+        int type_idx = dx(sqltype::typemap.size()) - 1;
+        auto type_ptr = sqltype::typemap.begin();
+        for (int j = 0; j < type_idx; j++) 
+            type_ptr++;
+
+        auto type = type_ptr->second;
+
+        column create_column(column_name, type);
+        created_table->columns().push_back(create_column);
+    }
+
+    // primary key
+    key_idx = dx(column_num) - 1;
+}
+
+create_table_stmt::~create_table_stmt()
+{
+    delete created_table;
+}
+
+void create_table_stmt::out(std::ostream &out)
+{
+    out << "CREATE TABLE " << created_table->ident() << " ( ";
+    indent(out);
+
+    auto columns_in_table = created_table->columns();
+    int column_num = columns_in_table.size();
+    for (int i = 0; i < column_num; i++) {
+        out << columns_in_table[i].name << " " << columns_in_table[i].type->name << ", ";
+        indent(out);
+    }
+
+    out << "PRIMARY KEY (" << columns_in_table[key_idx].name << ")";
+    indent(out);
+
+    out << ")";
+}

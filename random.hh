@@ -37,5 +37,7 @@ I random_pick(std::pair<I,I> iters) {
 }
 
 int d6(), d9(), d12(), d20(), d42(), d100();
+std::string random_identifier_generate();
+int dx(int x);
 
 #endif
