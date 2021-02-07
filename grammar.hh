@@ -325,13 +325,24 @@ struct common_table_expression : prod {
 };
 
 struct create_table_stmt: prod {
-    struct table *created_table;
+    shared_ptr<struct table> created_table;
     struct scope myscope;
     int key_idx;
     virtual void out(std::ostream &out);
     create_table_stmt(prod *parent, struct scope *s);
-    ~create_table_stmt();
     virtual void accept(prod_visitor *v) {
+        v->visit(this);
+    }
+};
+
+struct create_table_select_stmt: prod {
+    string tatble_name;
+    shared_ptr<struct query_spec> subquery;
+    struct scope myscope;
+    virtual void out(std::ostream &out);
+    create_table_select_stmt(prod *parent, struct scope *s);
+    virtual void accept(prod_visitor *v) {
+        subquery->accept(v);
         v->visit(this);
     }
 };

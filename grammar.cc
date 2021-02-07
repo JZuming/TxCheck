@@ -474,6 +474,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
         s->new_stmt();
         if (d42() == 1)
             return make_shared<create_table_stmt>((struct prod *)0, s);
+        if (d42() == 1)
+            return make_shared<create_table_select_stmt>((struct prod *)0, s);
         // if (d42() == 1)
             // return make_shared<merge_stmt>((struct prod *)0, s);
         if (d42() == 1)
@@ -714,7 +716,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
             break;
     }
 
-    created_table = new table(table_name, "main", true, true);
+    created_table = make_shared<struct table>(table_name, "main", true, true);
 
     // create its columns
     int column_num = dx(10);
@@ -735,14 +737,9 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     key_idx = dx(column_num) - 1;
 }
 
-create_table_stmt::~create_table_stmt()
-{
-    delete created_table;
-}
-
 void create_table_stmt::out(std::ostream &out)
 {
-    out << "CREATE TABLE " << created_table->ident() << " ( ";
+    out << "CREATE TABLE " << created_table->name << " ( ";
     indent(out);
 
     auto columns_in_table = created_table->columns();
@@ -756,4 +753,23 @@ void create_table_stmt::out(std::ostream &out)
     indent(out);
 
     out << ")";
+}
+
+create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s)
+: prod(parent), myscope(s)
+{
+    scope = &myscope;
+    scope->tables = s->tables;
+
+    subquery = make_shared<struct query_spec>(this, scope);
+
+    tatble_name = random_identifier_generate();
+}
+
+void create_table_select_stmt::out(std::ostream &out)
+{
+    out << "CREATE TABLE " << tatble_name << " AS ";
+    indent(out);
+
+    out << *subquery;
 }
