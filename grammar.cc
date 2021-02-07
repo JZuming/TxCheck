@@ -489,7 +489,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
             // return make_shared<delete_returning>((struct prod *)0, s);
         if (d42() == 1) 
             return make_shared<upsert_stmt>((struct prod *)0, s);
-        // if (d42() == 1) 
+        if (d42() == 1) 
             return make_shared<update_stmt>((struct prod *)0, s);
         // else if (d42() == 1)
             // return make_shared<update_returning>((struct prod *)0, s);
