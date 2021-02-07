@@ -390,61 +390,64 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
 
 void insert_stmt::out(std::ostream &out)
 {
-  out << "insert into " << victim->ident() << " ";
+    out << "insert into " << victim->ident() << " ";
 
-  if (!value_exprs.size()) {
-    out << "default values";
-    return;
-  }
+    if (!value_exprs.size()) {
+        out << "default values";
+        return;
+    }
 
-  out << "values (";
+    out << "values (";
   
-  for (auto expr = value_exprs.begin();
-       expr != value_exprs.end();
-       expr++) {
-    indent(out);
-    out << **expr;
-    if (expr+1 != value_exprs.end())
-      out << ", ";
-  }
-  out << ")";
+    for (auto expr = value_exprs.begin();
+      expr != value_exprs.end();
+      expr++) {
+        indent(out);
+        out << **expr;
+        if (expr + 1 != value_exprs.end())
+            out << ", ";
+    }
+    out << ")";
 }
 
 set_list::set_list(prod *p, table *target) : prod(p)
 {
-  do {
-    for (auto col : target->columns()) {
-      if (d6() < 4)
-	continue;
-      auto expr = value_expr::factory(this, col.type);
-      value_exprs.push_back(expr);
-      names.push_back(col.name);
-    }
-  } while (!names.size());
+    do {
+        for (auto col : target->columns()) {
+            if (d6() < 4)
+	            continue;
+            auto expr = value_expr::factory(this, col.type);
+            value_exprs.push_back(expr);
+            names.push_back(col.name);
+        }
+    } while (!names.size());
 }
 
 void set_list::out(std::ostream &out)
 {
-  assert(names.size());
-  out << " set ";
-  for (size_t i = 0; i < names.size(); i++) {
-    indent(out);
-    out << names[i] << " = " << *value_exprs[i];
-    if (i+1 != names.size())
-      out << ", ";
-  }
+    assert(names.size());
+    out << " set ";
+    for (size_t i = 0; i < names.size(); i++) {
+        indent(out);
+        out << names[i] << " = " << *value_exprs[i];
+        if (i + 1 != names.size())
+            out << ", ";
+    }
 }
 
 update_stmt::update_stmt(prod *p, struct scope *s, table *v)
   : modifying_stmt(p, s, v) {
-  scope->refs.push_back(victim);
-  search = bool_expr::factory(this);
-  set_list = make_shared<struct set_list>(this, victim);
+    scope->refs.push_back(victim);
+    search = bool_expr::factory(this);
+    set_list = make_shared<struct set_list>(this, victim);
 }
 
 void update_stmt::out(std::ostream &out)
 {
-  out << "update " << victim->ident() << *set_list;
+    out << "update " << victim->ident() << *set_list;
+    indent(out);
+    out << "where ";
+    out << *search;
 }
 
 update_returning::update_returning(prod *p, struct scope *s, table *v)
@@ -486,7 +489,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
             // return make_shared<delete_returning>((struct prod *)0, s);
         if (d42() == 1) 
             return make_shared<upsert_stmt>((struct prod *)0, s);
-        if (d42() == 1) 
+        // if (d42() == 1) 
             return make_shared<update_stmt>((struct prod *)0, s);
         // else if (d42() == 1)
             // return make_shared<update_returning>((struct prod *)0, s);
