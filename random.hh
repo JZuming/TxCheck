@@ -16,6 +16,7 @@
 #include <string>
 #include <memory>
 #include <iostream>
+#include <cstring>
 
 namespace smith {
   extern std::mt19937_64 rng;
@@ -27,6 +28,8 @@ using std::map;
 using std::pair;
 using std::make_pair;
 using std::shared_ptr;
+using std::cout;
+using std::endl;
 
 int d6(), d9(), d12(), d20(), d42(), d100();
 std::string random_identifier_generate();
@@ -34,7 +37,8 @@ int dx(int x);
 
 struct file_random_machine {
     string filename;
-    ifstream fin;
+    char * buffer;
+    int cur_pos;
     int end_pos;
     static map<string, struct file_random_machine*> stream_map;
     static struct file_random_machine *get(string filename);

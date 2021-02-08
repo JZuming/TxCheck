@@ -113,15 +113,27 @@ std::string random_identifier_generate() {
 file_random_machine::file_random_machine(string s)
 : filename(s)
 {
-    fin.open(filename, std::ios::binary);
+    ifstream fin(filename, std::ios::binary);
     fin.seekg(0, std::ios::end);
     end_pos = fin.tellg();
     fin.seekg(0, std::ios::beg);
+
+    if (end_pos == 0) {
+        buffer = NULL;
+        return;
+    }
+
+    buffer = new char[end_pos + 5];
+    cur_pos = 0;
+
+    fin.read(buffer, end_pos);
+    fin.close();
 }
 
 file_random_machine::~file_random_machine()
 {
-    fin.close();
+    if (buffer != NULL)
+        delete[] buffer;
 }
 
 map<string, struct file_random_machine*> file_random_machine::stream_map;
@@ -136,26 +148,24 @@ struct file_random_machine *file_random_machine::get(string filename)
 
 int file_random_machine::get_random_num(int min, int max, int byte_num)
 {
-    if (!fin.good())
+    if (buffer == NULL)
         return 0;
-
-    int scope = max - min;
-    if (scope <= 0) {
-        // std::cout << "[Error] max <= min " << std::endl;
-        return min;
-    }
     
-    auto readable = end_pos - fin.tellg();
+    int scope = max - min;
+    if (scope <= 0) 
+        return min;
+    
+    auto readable = end_pos - cur_pos;
     if (readable <= 0) {
-        fin.clear();
-        fin.seekg(0, std::ios::beg);
+        cur_pos = 0;
         return min;
     }
 
     // default: small endian
     auto read_num = readable < byte_num ? readable : byte_num;
     int rand_num = 0;
-    fin.read((char *)(&rand_num), read_num);
-
+    memcpy(&rand_num, buffer + cur_pos, read_num);
+    cur_pos += read_num;
+    
     return min + rand_num % scope;
 }
