@@ -475,7 +475,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
-        if (d42() == 1)
+        if (s->tables.empty() || d42() == 1)
             return make_shared<create_table_stmt>((struct prod *)0, s);
         if (d42() == 1)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
@@ -493,8 +493,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<update_stmt>((struct prod *)0, s);
         // else if (d42() == 1)
             // return make_shared<update_returning>((struct prod *)0, s);
-        if (d6() > 4)
-            return make_shared<select_for_update>((struct prod *)0, s);
+        // if (d6() > 4)
+            // return make_shared<select_for_update>((struct prod *)0, s);
         if (d6() > 5)
             return make_shared<common_table_expression>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
