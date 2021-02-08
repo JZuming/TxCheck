@@ -122,7 +122,11 @@ file_random_machine::file_random_machine(string s)
         buffer = NULL;
         return;
     }
-
+    
+    if (end_pos < 100) {
+        std::cerr << "Exit: rand file is too small (should larger than 100 byte)" << endl;
+        exit(0);
+    }
     buffer = new char[end_pos + 5];
     cur_pos = 0;
 
