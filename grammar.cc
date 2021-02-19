@@ -722,6 +722,11 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     created_table = make_shared<struct table>(table_name, "main", true, true);
 
     // create its columns
+    string key_column_name = random_identifier_generate();
+    auto key_type = sqltype::get("INTEGER");
+    column key_column(key_column_name, key_type);
+    created_table->columns().push_back(key_column);
+
     int column_num = dx(10);
     for (int i = 0; i < column_num; i++) {
         string column_name = random_identifier_generate();
@@ -729,6 +734,13 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         auto type_ptr = sqltype::typemap.begin();
         for (int j = 0; j < type_idx; j++) 
             type_ptr++;
+        
+        while (type_ptr->first == "internal" || 
+               type_ptr->first == "ARRAY") {
+            type_ptr++;
+            if (type_ptr == sqltype::typemap.end())
+                type_ptr = sqltype::typemap.begin();
+        }
 
         auto type = type_ptr->second;
 
@@ -737,7 +749,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     }
 
     // primary key
-    key_idx = dx(column_num) - 1;
+    key_idx = 0;
 }
 
 void create_table_stmt::out(std::ostream &out)
