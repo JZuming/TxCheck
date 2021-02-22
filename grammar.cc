@@ -697,6 +697,19 @@ shared_ptr<when_clause> when_clause::factory(struct merge_stmt *p)
   return factory(p);
 }
 
+string create_unique_table_name(void)
+{
+    static std::set<string> created_names;
+
+    std::string table_name = random_identifier_generate();
+    while (created_names.count(table_name)) {
+        table_name += "_2";
+    }
+
+    created_names.insert(table_name);
+    return table_name;
+}
+
 create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 : prod(parent), myscope(s)
 {
@@ -721,15 +734,17 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
     created_table = make_shared<struct table>(table_name, "main", true, true);
 
+    std::vector<string> created_names;
+    
     // create its columns
-    string key_column_name = random_identifier_generate();
+    string key_column_name = create_unique_table_name();
     auto key_type = sqltype::get("INTEGER");
     column key_column(key_column_name, key_type);
     created_table->columns().push_back(key_column);
 
     int column_num = dx(10);
     for (int i = 0; i < column_num; i++) {
-        string column_name = random_identifier_generate();
+        string column_name = create_unique_table_name();
         int type_idx = dx(sqltype::typemap.size()) - 1;
         auto type_ptr = sqltype::typemap.begin();
         for (int j = 0; j < type_idx; j++) 

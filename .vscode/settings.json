@@ -62,6 +62,9 @@
         "iostream": "cpp",
         "new": "cpp",
         "stdexcept": "cpp",
-        "typeindex": "cpp"
+        "typeindex": "cpp",
+        "condition_variable": "cpp",
+        "shared_mutex": "cpp",
+        "bit": "cpp"
     }
 }
