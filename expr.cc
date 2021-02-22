@@ -39,6 +39,19 @@ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
     return factory(p, type_constraint);
 }
 
+string cast_type_name_wrapper(string origin_type_name)
+{
+    string cast_type_name;
+    if (origin_type_name == "NUMERIC")
+        cast_type_name = "SIGNED";
+    else if (origin_type_name == "TEXT")
+        cast_type_name = "CHAR";
+    else
+        cast_type_name = origin_type_name;
+    
+    return cast_type_name;
+}
+
 case_expr::case_expr(prod *p, sqltype *type_constraint)
   : value_expr(p)
 {
@@ -163,18 +176,18 @@ comparison_op::comparison_op(prod *p) : bool_binop(p)
 coalesce::coalesce(prod *p, sqltype *type_constraint, const char *abbrev)
      : value_expr(p), abbrev_(abbrev)
 {
-  auto first_expr = value_expr::factory(this, type_constraint);
-  auto second_expr = value_expr::factory(this, first_expr->type);
+    auto first_expr = value_expr::factory(this, type_constraint);
+    auto second_expr = value_expr::factory(this, first_expr->type);
 
-  retry_limit = 20;
-  while(first_expr->type != second_expr->type) {
-    retry();
-    if (first_expr->type->consistent(second_expr->type))
-      first_expr = value_expr::factory(this, second_expr->type);
-    else 
-      second_expr = value_expr::factory(this, first_expr->type);
-  }
-  type = second_expr->type;
+    retry_limit = 20;
+    while(first_expr->type != second_expr->type) {
+        retry();
+        if (first_expr->type->consistent(second_expr->type))
+            first_expr = value_expr::factory(this, second_expr->type);
+        else 
+            second_expr = value_expr::factory(this, first_expr->type);
+    }
+    type = second_expr->type;
 
   value_exprs.push_back(first_expr);
   value_exprs.push_back(second_expr);
@@ -182,14 +195,14 @@ coalesce::coalesce(prod *p, sqltype *type_constraint, const char *abbrev)
  
 void coalesce::out(std::ostream &out)
 {
-  out << "cast(" << abbrev_ << "(";
-  for (auto expr = value_exprs.begin(); expr != value_exprs.end(); expr++) {
+    out << "cast(" << abbrev_ << "(";
+    for (auto expr = value_exprs.begin(); expr != value_exprs.end(); expr++) {
     out << **expr;
     if (expr+1 != value_exprs.end())
-      out << ",", indent(out);
-  }
-  out << ")";
-  out << " as " << type->name << ")";
+        out << ",", indent(out);
+    }
+    out << ")";
+    out << " as " << cast_type_name_wrapper(type->name) << ")";
 }
 
 const_expr::const_expr(prod *p, sqltype *type_constraint)
@@ -204,7 +217,7 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
 //   else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
 //     expr += "default";
     else
-        expr += "cast(null as " + type->name + ")";
+        expr += "cast(null as " + cast_type_name_wrapper(type->name) + ")";
 }
 
 funcall::funcall(prod *p, sqltype *type_constraint, bool agg)
@@ -265,7 +278,7 @@ void funcall::out(std::ostream &out)
   out << proc->ident() << "(";
   for (auto expr = parms.begin(); expr != parms.end(); expr++) {
     indent(out);
-    out << "cast(" << **expr << " as " << (*expr)->type->name << ")";
+    out << "cast(" << **expr << " as " << cast_type_name_wrapper((*expr)->type->name) << ")";
     if (expr+1 != parms.end())
       out << ",";
   }
