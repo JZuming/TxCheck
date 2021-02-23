@@ -481,7 +481,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
         // if (d42() == 1)
             // return make_shared<merge_stmt>((struct prod *)0, s);
-        if (d42() == 1)
+        if (d6() == 1) // have more chance to insert data
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (d42() == 1)
             return make_shared<delete_stmt>((struct prod *)0, s);

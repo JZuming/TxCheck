@@ -32,3 +32,4 @@ stamp-h1
 .deps/sqlite.Po
 .deps/sqlsmith.Po
 test/
+gitrev.h
