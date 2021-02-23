@@ -161,8 +161,12 @@ int main(int argc, char *argv[])
 	            queries_generated++;
 
 	            if (options.count("max-queries")
-	                && (queries_generated >= stol(options["max-queries"])))
-	            return 0;
+	                && (queries_generated >= stol(options["max-queries"]))) {
+	            
+                    auto frand = file_random_machine::get(__RAND_FILE_NAME__);
+                    delete frand;
+                    return 0;
+                }
 	        }
         }
 

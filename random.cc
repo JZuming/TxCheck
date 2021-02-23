@@ -129,6 +129,7 @@ file_random_machine::file_random_machine(string s)
     }
     buffer = new char[end_pos + 5];
     cur_pos = 0;
+    read_byte = 0;
 
     fin.read(buffer, end_pos);
     fin.close();
@@ -138,6 +139,10 @@ file_random_machine::~file_random_machine()
 {
     if (buffer != NULL)
         delete[] buffer;
+    
+    std::ofstream fout(__READ_BYTE_NUM__);
+    fout << read_byte << endl;
+    fout.close();
 }
 
 map<string, struct file_random_machine*> file_random_machine::stream_map;
@@ -159,17 +164,17 @@ int file_random_machine::get_random_num(int min, int max, int byte_num)
     if (scope <= 0) 
         return min;
     
-    auto readable = end_pos - cur_pos;
-    if (readable <= 0) {
-        cur_pos = 0;
-        return min;
-    }
-
     // default: small endian
+    auto readable = end_pos - cur_pos;
     auto read_num = readable < byte_num ? readable : byte_num;
     int rand_num = 0;
     memcpy(&rand_num, buffer + cur_pos, read_num);
     cur_pos += read_num;
+
+    if (cur_pos >= end_pos)
+        cur_pos = 0;
+
+    read_byte += read_num;
     
     return min + rand_num % scope;
 }

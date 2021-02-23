@@ -6,6 +6,7 @@
 
 #define __FILE_RANDOM__
 #define __RAND_FILE_NAME__ "rand_file.txt"
+#define __READ_BYTE_NUM__ "read_byte.txt"
 
 #include <random>
 #include <utility>
@@ -40,6 +41,7 @@ struct file_random_machine {
     char * buffer;
     int cur_pos;
     int end_pos;
+    int read_byte;
     static map<string, struct file_random_machine*> stream_map;
     static struct file_random_machine *get(string filename);
     file_random_machine(string s);
