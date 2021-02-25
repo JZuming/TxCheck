@@ -334,6 +334,23 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
 
     if (d6() > 2) {
         ostringstream cons;
+        
+        cons << "order by ";
+        auto &selected_columns = select_list->derived_table.columns();
+        auto select_list_size = selected_columns.size();
+        for (std::size_t i = 0; i < select_list_size; i++) {
+            cons << selected_columns[i].name;
+            if (i + 1 < select_list_size)
+                cons << ", ";
+            else
+                cons << " ";
+        }
+
+        if (d6() > 3) 
+            cons << "asc ";
+        else
+            cons << "desc ";
+
         cons << "limit " << d100() + d100();
         limit_clause = cons.str();
     }
@@ -370,7 +387,7 @@ delete_stmt::delete_stmt(prod *p, struct scope *s, table *v)
     
     // dont select the target table
     vector<named_relation *> exclude_tables;
-    for (auto i = 0; i < scope->tables.size(); i++) {
+    for (std::size_t i = 0; i < scope->tables.size(); i++) {
         if (scope->tables[i]->ident() == victim->ident()) {
             exclude_tables.push_back(scope->tables[i]);
             scope->tables.erase(scope->tables.begin() + i);
@@ -380,7 +397,7 @@ delete_stmt::delete_stmt(prod *p, struct scope *s, table *v)
 
     search = bool_expr::factory(this);
     
-    for (auto i = 0; i < exclude_tables.size(); i++) {
+    for (std::size_t i = 0; i < exclude_tables.size(); i++) {
         scope->tables.push_back(exclude_tables[i]);
     }
 }
@@ -398,7 +415,7 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
 
     // dont select the target table
     vector<named_relation *> exclude_tables;
-    for (auto i = 0; i < scope->tables.size(); i++) {
+    for (std::size_t i = 0; i < scope->tables.size(); i++) {
         if (scope->tables[i]->ident() == victim->ident()) {
             exclude_tables.push_back(scope->tables[i]);
             scope->tables.erase(scope->tables.begin() + i);
@@ -412,7 +429,7 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
         value_exprs.push_back(expr);
     }
 
-    for (auto i = 0; i < exclude_tables.size(); i++) {
+    for (std::size_t i = 0; i < exclude_tables.size(); i++) {
         scope->tables.push_back(exclude_tables[i]);
     }
 }
@@ -470,7 +487,7 @@ update_stmt::update_stmt(prod *p, struct scope *s, table *v)
 
     // dont select the target table
     vector<named_relation *> exclude_tables;
-    for (auto i = 0; i < scope->tables.size(); i++) {
+    for (std::size_t i = 0; i < scope->tables.size(); i++) {
         if (scope->tables[i]->ident() == victim->ident()) {
             exclude_tables.push_back(scope->tables[i]);
             scope->tables.erase(scope->tables.begin() + i);
@@ -480,7 +497,7 @@ update_stmt::update_stmt(prod *p, struct scope *s, table *v)
 
     search = bool_expr::factory(this);
     
-    for (auto i = 0; i < exclude_tables.size(); i++) {
+    for (std::size_t i = 0; i < exclude_tables.size(); i++) {
         scope->tables.push_back(exclude_tables[i]);
     }
 
