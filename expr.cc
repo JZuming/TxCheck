@@ -326,7 +326,8 @@ atomic_subselect::atomic_subselect(prod *p, sqltype *type_constraint)
         }
         assert(col);
     } else {
-        tab = &random_pick<>(scope->schema->tables);
+        // tab = &random_pick<>(scope->schema->tables);
+        tab = dynamic_cast<table *>(random_pick<>(scope->tables));
         col = &random_pick<>(tab->columns());
     }
 

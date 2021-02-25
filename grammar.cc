@@ -366,8 +366,23 @@ modifying_stmt::modifying_stmt(prod *p, struct scope *s, table *victim)
 
 delete_stmt::delete_stmt(prod *p, struct scope *s, table *v)
   : modifying_stmt(p,s,v) {
-  scope->refs.push_back(victim);
-  search = bool_expr::factory(this);
+    scope->refs.push_back(victim);
+    
+    // dont select the target table
+    vector<named_relation *> exclude_tables;
+    for (auto i = 0; i < scope->tables.size(); i++) {
+        if (scope->tables[i]->ident() == victim->ident()) {
+            exclude_tables.push_back(scope->tables[i]);
+            scope->tables.erase(scope->tables.begin() + i);
+            i--;
+        }
+    }
+
+    search = bool_expr::factory(this);
+    
+    for (auto i = 0; i < exclude_tables.size(); i++) {
+        scope->tables.push_back(exclude_tables[i]);
+    }
 }
 
 delete_returning::delete_returning(prod *p, struct scope *s, table *victim)
@@ -381,10 +396,24 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
 {
     match();
 
+    // dont select the target table
+    vector<named_relation *> exclude_tables;
+    for (auto i = 0; i < scope->tables.size(); i++) {
+        if (scope->tables[i]->ident() == victim->ident()) {
+            exclude_tables.push_back(scope->tables[i]);
+            scope->tables.erase(scope->tables.begin() + i);
+            i--;
+        }
+    }
+
     for (auto col : victim->columns()) {
         auto expr = value_expr::factory(this, col.type);
         assert(expr->type == col.type);
         value_exprs.push_back(expr);
+    }
+
+    for (auto i = 0; i < exclude_tables.size(); i++) {
+        scope->tables.push_back(exclude_tables[i]);
     }
 }
 
@@ -438,7 +467,23 @@ void set_list::out(std::ostream &out)
 update_stmt::update_stmt(prod *p, struct scope *s, table *v)
   : modifying_stmt(p, s, v) {
     scope->refs.push_back(victim);
+
+    // dont select the target table
+    vector<named_relation *> exclude_tables;
+    for (auto i = 0; i < scope->tables.size(); i++) {
+        if (scope->tables[i]->ident() == victim->ident()) {
+            exclude_tables.push_back(scope->tables[i]);
+            scope->tables.erase(scope->tables.begin() + i);
+            i--;
+        }
+    }
+
     search = bool_expr::factory(this);
+    
+    for (auto i = 0; i < exclude_tables.size(); i++) {
+        scope->tables.push_back(exclude_tables[i]);
+    }
+
     set_list = make_shared<struct set_list>(this, victim);
 }
 
