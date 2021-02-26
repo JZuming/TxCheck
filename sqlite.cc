@@ -211,7 +211,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     FUNC1(sqlite_compileoption_used, INTEGER, TEXT);
     FUNC1(trim, TEXT, TEXT);
     FUNC1(typeof, TEXT, INTEGER);
-    FUNC1(typeof, TEXT, NUMERIC);
+    // FUNC1(typeof, TEXT, NUMERIC);
     FUNC1(typeof, TEXT, REAL);
     FUNC1(typeof, TEXT, TEXT);
     FUNC1(unicode, INTEGER, TEXT);
@@ -231,24 +231,32 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     FUNC3(replace, TEXT, TEXT, TEXT, TEXT);
 
 
-#define AGG(n, r, a) do {						\
+#define AGG1(n, r, a) do {						\
     routine proc("", "", sqltype::get(#r), #n);				\
     proc.argtypes.push_back(sqltype::get(#a));				\
     register_aggregate(proc);						\
 } while(0)
 
-    AGG(avg, INTEGER, INTEGER);
-    AGG(avg, REAL, REAL);
-    AGG(count, INTEGER, REAL);
-    AGG(count, INTEGER, TEXT);
-    AGG(count, INTEGER, INTEGER);
-    AGG(group_concat, TEXT, TEXT);
-    AGG(max, REAL, REAL);
-    AGG(max, INTEGER, INTEGER);
-    AGG(sum, REAL, REAL);
-    AGG(sum, INTEGER, INTEGER);
-    AGG(total, REAL, INTEGER);
-    AGG(total, REAL, REAL);
+#define AGG(n, r) do {						\
+    routine proc("", "", sqltype::get(#r), #n);				\
+    register_aggregate(proc);						\
+} while(0)
+
+    AGG1(avg, INTEGER, INTEGER);
+    AGG1(avg, REAL, REAL);
+    AGG(count, INTEGER);
+    AGG1(count, INTEGER, REAL);
+    AGG1(count, INTEGER, TEXT);
+    AGG1(count, INTEGER, INTEGER);
+    AGG1(group_concat, TEXT, TEXT);
+    AGG1(max, REAL, REAL);
+    AGG1(max, INTEGER, INTEGER);
+    AGG1(min, REAL, REAL);
+    AGG1(min, INTEGER, INTEGER);
+    AGG1(sum, REAL, REAL);
+    AGG1(sum, INTEGER, INTEGER);
+    // AGG(total, REAL, INTEGER);
+    // AGG(total, REAL, REAL);
 
     booltype = sqltype::get("INTEGER");
     inttype = sqltype::get("INTEGER");
