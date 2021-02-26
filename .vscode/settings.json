@@ -65,6 +65,7 @@
         "typeindex": "cpp",
         "condition_variable": "cpp",
         "shared_mutex": "cpp",
-        "bit": "cpp"
+        "bit": "cpp",
+        "result": "cpp"
     }
 }

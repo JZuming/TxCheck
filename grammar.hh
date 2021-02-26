@@ -128,12 +128,28 @@ struct select_list : prod {
     }
 };
 
+struct group_clause: prod {
+    struct scope myscope;
+    shared_ptr<struct select_list> modified_select_list;
+    
+    group_clause(prod *p, struct scope *s, shared_ptr<struct select_list> select_list);
+    string target_ref;
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+    }
+};
+
 struct query_spec : prod {
     std::string set_quantifier;
     shared_ptr<struct from_clause> from_clause;
     shared_ptr<struct select_list> select_list;
     shared_ptr<bool_expr> search;
     std::string limit_clause;
+    
+    shared_ptr<struct group_clause> group_clause;
+    bool has_group;
+    
     struct scope myscope;
     virtual void out(std::ostream &out);
     query_spec(prod *p, struct scope *s, bool lateral = 0);

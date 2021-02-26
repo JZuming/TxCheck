@@ -250,6 +250,12 @@ void query_spec::out(std::ostream &out) {
     indent(out);
     out << "where ";
     out << *search;
+
+    if (has_group) {
+        indent(out);
+        out << "group by ";
+        out << *group_clause;
+    }
     if (limit_clause.length()) {
         indent(out);
         out << limit_clause;
@@ -319,7 +325,7 @@ void select_for_update::out(std::ostream &out) {
 query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
   prod(p), myscope(s)
 {
-    scope = &myscope;
+    scope = &myscope; // isolate the scope, dont effect the upper ones
     scope->tables = s->tables;
 
     if (lateral)
@@ -331,6 +337,17 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
     set_quantifier = (d100() == 1) ? "distinct" : "";
 
     search = bool_expr::factory(this);
+
+    has_group = false;
+    if (d6() > 4) {
+        try {
+            group_clause = make_shared<struct group_clause>(this, this->scope, select_list);
+            has_group = true;
+        }
+        catch (runtime_error &e) {
+            cerr << "catch a runtime error: make_shared<funcall>" << endl;
+        }
+    }
 
     if (d6() > 2) {
         ostringstream cons;
@@ -561,6 +578,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<common_table_expression>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
     } catch (runtime_error &e) {
+        cerr << "catch a runtime error" << endl;
         return statement_factory(s);
     }
 }
@@ -864,4 +882,37 @@ void create_table_select_stmt::out(std::ostream &out)
     indent(out);
 
     out << *subquery;
+}
+
+group_clause::group_clause(prod *p, struct scope *s, shared_ptr<struct select_list> select_list)
+: prod(p), myscope(s), modified_select_list(select_list)
+{
+    scope = &myscope;
+    scope->tables = s->tables;
+
+    auto size = modified_select_list->derived_table.columns().size();
+    auto chosen_index = dx(size) - 1;
+    target_ref = modified_select_list->derived_table.columns()[chosen_index].name;
+
+    auto& select_exprs = modified_select_list->value_exprs;
+    auto& select_columns = modified_select_list->derived_table.columns();
+
+    for (size_t i = 0; i < size; i++) {
+        if (select_columns[i].name == target_ref)
+            continue;
+        
+        auto expr = select_exprs[i];
+
+        // replace the column_ref
+        if (auto column_ref = dynamic_pointer_cast<struct column_reference>(expr)) {
+            auto new_expr = make_shared<funcall>(p, (sqltype *)0, true);
+            select_exprs.erase(select_exprs.begin() + i);
+            select_exprs.insert(select_exprs.begin() + i, new_expr);
+        }
+    }
+}
+
+void group_clause::out(std::ostream &out)
+{
+    out << target_ref;
 }

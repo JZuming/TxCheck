@@ -260,6 +260,12 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     false_literal = "0";
 
     generate_indexes();
+    for(auto &r: aggregates) {
+        assert(r.restype);
+        aggregates_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
+    }
+    // cerr << "aggregates: " << aggregates.size() << endl;
+    // cerr << "aggregates_returning_type: " << aggregates_returning_type.size() << endl;
     sqlite3_close(db);
     db = 0;
 }

@@ -29,17 +29,17 @@ struct case_expr : value_expr {
 };
 
 struct funcall : value_expr {
-  routine *proc;
-  bool is_aggregate;
-  vector<shared_ptr<value_expr> > parms;
-  virtual void out(std::ostream &out);
-  virtual ~funcall() { }
-  funcall(prod *p, sqltype *type_constraint = 0, bool agg = 0);
-  virtual void accept(prod_visitor *v) {
-    v->visit(this);
-    for (auto p : parms)
-      p->accept(v);
-  }
+    routine *proc;
+    bool is_aggregate;
+    vector<shared_ptr<value_expr> > parms;
+    virtual void out(std::ostream &out);
+    virtual ~funcall() { }
+    funcall(prod *p, sqltype *type_constraint = 0, bool agg = 0);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        for (auto p : parms)
+            p->accept(v);
+    }
 };
 
 struct atomic_subselect : value_expr {
