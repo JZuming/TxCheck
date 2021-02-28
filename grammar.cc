@@ -331,7 +331,7 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
     scope->tables = s->tables;
 
     if (use_group == 2) { // confirm whether use group
-        if (d6() > 5) use_group = 1;
+        if (d6() == 1) use_group = 1;
         else use_group = 0;
     }
 
