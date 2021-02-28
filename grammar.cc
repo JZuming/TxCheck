@@ -337,26 +337,27 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
 
     if (lateral)
         scope->refs = s->refs;
-  
-    from_clause = make_shared<struct from_clause>(this);
-    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs);
-  
-    set_quantifier = (d100() == 1) ? "distinct" : "";
-
+    
     int tmp_group = use_group;
-    use_group = 0;
+    use_group = 2; // from clause can use group or not.
+    from_clause = make_shared<struct from_clause>(this);
+    use_group = tmp_group;
+
+    tmp_group = use_group;
+    use_group = 0; // cannot use aggregate in later son select statement
+
+    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs);
+    
+    set_quantifier = (d100() == 1) ? "distinct" : "";
+    
     search = bool_expr::factory(this); // cannot use group in where
+
     use_group = tmp_group;
 
     has_group = false;
     if (use_group == 1) {
-        try {
-            group_clause = make_shared<struct group_clause>(this, this->scope, select_list);
-            has_group = true;
-        }
-        catch (runtime_error &e) {
-            cerr << "catch a runtime error: make_shared<funcall>" << endl;
-        }
+        group_clause = make_shared<struct group_clause>(this, this->scope, select_list, &from_clause->reflist.back()->refs);
+        has_group = true;
     }
 
     if (has_group == false && d6() > 2) {
@@ -895,27 +896,60 @@ void create_table_select_stmt::out(std::ostream &out)
 }
 
 group_clause::group_clause(prod *p, struct scope *s, 
-    shared_ptr<struct select_list> select_list)
+            shared_ptr<struct select_list> select_list,
+            std::vector<shared_ptr<named_relation> > *from_refs)
 : prod(p), myscope(s), modified_select_list(select_list)
 {
     scope = &myscope;
     scope->tables = s->tables;
 
-    auto size = modified_select_list->derived_table.columns().size();
-    auto chosen_index = dx(size) - 1;
-    target_ref = modified_select_list->derived_table.columns()[chosen_index].name;
-
     auto& select_exprs = modified_select_list->value_exprs;
     auto& select_columns = modified_select_list->derived_table.columns();
 
+    auto size = select_columns.size();
+    auto chosen_index = dx(size) - 1;
+
+    // target_ref = modified_select_list->derived_table.columns()[chosen_index].name; // cannot use alias
+
+    int try_time = 0;
+    while (1) { // only choose column_reference as target ref
+        if (auto columns_ref = dynamic_pointer_cast<column_reference>(select_exprs[chosen_index])) {
+            bool suitable_one = false;
+            
+            for (auto &r : *from_refs) {
+                if (columns_ref->table_ref == r->ident()) {// the table from from_clause
+                    suitable_one = true;
+                    break;
+                }
+            }
+
+            if (suitable_one == true)
+                break;
+        }
+        
+        chosen_index = (chosen_index + 1) % size;
+        try_time++;
+        if (try_time >= size) {
+            throw std::runtime_error(std::string("excessive retries in ")
+			   + typeid(*this).name());
+        }
+    }
+
+    std::stringstream strout;
+    strout << *select_exprs[chosen_index];
+    target_ref = strout.str();
+
+    int tmp_group = use_group;
+    use_group = 0; // cannot use aggregate function in aggregate function
     for (size_t i = 0; i < size; i++) {
-        if (select_columns[i].name == target_ref)
+        if (i == chosen_index)
             continue;
         
         auto new_expr = make_shared<funcall>(p, (sqltype *)0, true);
         select_exprs.erase(select_exprs.begin() + i);
         select_exprs.insert(select_exprs.begin() + i, new_expr);
     }
+    use_group = tmp_group;
 }
 
 void group_clause::out(std::ostream &out)

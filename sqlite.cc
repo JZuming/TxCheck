@@ -248,7 +248,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     AGG1(count, INTEGER, REAL);
     AGG1(count, INTEGER, TEXT);
     AGG1(count, INTEGER, INTEGER);
-    AGG1(group_concat, TEXT, TEXT);
+    // AGG1(group_concat, TEXT, TEXT);
     AGG1(max, REAL, REAL);
     AGG1(max, INTEGER, INTEGER);
     AGG1(min, REAL, REAL);

@@ -132,9 +132,9 @@ struct select_list : prod {
 struct group_clause: prod {
     struct scope myscope;
     shared_ptr<struct select_list> modified_select_list;
-    
     group_clause(prod *p, struct scope *s, 
-            shared_ptr<struct select_list> select_list);
+            shared_ptr<struct select_list> select_list,
+            std::vector<shared_ptr<named_relation> > *from_refs);
     string target_ref;
     virtual void out(std::ostream &out);
     virtual void accept(prod_visitor *v) {

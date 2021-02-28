@@ -101,6 +101,7 @@ value_expr(p)
         auto picked = random_pick(pairs);
         reference += picked.first->ident()
                         + "." + picked.second.name;
+        table_ref = picked.first->ident();
         type = picked.second.type;
         assert(type_constraint->consistent(type));
     } else {
@@ -109,6 +110,8 @@ value_expr(p)
             r = &*random_pick(*prefer_refs);
         else 
             r = random_pick(scope->refs);
+        
+        table_ref = r->ident();
 
         reference += r->ident() + ".";
         column &c = random_pick(r->columns());

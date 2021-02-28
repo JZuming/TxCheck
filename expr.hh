@@ -62,6 +62,7 @@ struct const_expr: value_expr {
 struct column_reference: value_expr {
     column_reference(prod *p, sqltype *type_constraint = 0, 
         vector<shared_ptr<named_relation> > *prefer_refs = 0);
+    string table_ref;
     virtual void out(std::ostream &out) { out << reference; }
     std::string reference;
     virtual ~column_reference() { }
