@@ -116,9 +116,10 @@ struct from_clause : prod {
 
 struct select_list : prod {
     std::vector<shared_ptr<value_expr> > value_exprs;
+    std::vector<shared_ptr<named_relation> > *prefer_refs;
     relation derived_table;
     int columns = 0;
-    select_list(prod *p);
+    select_list(prod *p, std::vector<shared_ptr<named_relation> > *refs = 0);
     virtual void out(std::ostream &out);
     ~select_list() { }
     virtual void accept(prod_visitor *v) {
@@ -132,7 +133,8 @@ struct group_clause: prod {
     struct scope myscope;
     shared_ptr<struct select_list> modified_select_list;
     
-    group_clause(prod *p, struct scope *s, shared_ptr<struct select_list> select_list);
+    group_clause(prod *p, struct scope *s, 
+            shared_ptr<struct select_list> select_list);
     string target_ref;
     virtual void out(std::ostream &out);
     virtual void accept(prod_visitor *v) {

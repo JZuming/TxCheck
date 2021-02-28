@@ -12,11 +12,12 @@ using std::vector;
 using std::string;
 
 struct value_expr: prod {
-  sqltype *type;
-  virtual void out(std::ostream &out) = 0;
-  virtual ~value_expr() { }
-  value_expr(prod *p) : prod(p) { }
-  static shared_ptr<value_expr> factory(prod *p, sqltype *type_constraint = 0);
+    sqltype *type;
+    virtual void out(std::ostream &out) = 0;
+    virtual ~value_expr() { }
+    value_expr(prod *p) : prod(p) { }
+    static shared_ptr<value_expr> factory(prod *p, sqltype *type_constraint = 0, 
+        vector<shared_ptr<named_relation> > *prefer_refs = 0);
 };
 
 struct case_expr : value_expr {
@@ -59,7 +60,8 @@ struct const_expr: value_expr {
 };
 
 struct column_reference: value_expr {
-    column_reference(prod *p, sqltype *type_constraint = 0);
+    column_reference(prod *p, sqltype *type_constraint = 0, 
+        vector<shared_ptr<named_relation> > *prefer_refs = 0);
     virtual void out(std::ostream &out) { out << reference; }
     std::string reference;
     virtual ~column_reference() { }

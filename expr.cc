@@ -14,7 +14,8 @@
 using namespace std;
 using impedance::matched;
 
-shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
+shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint, 
+vector<shared_ptr<named_relation> > *prefer_refs)
 {
     try {
         if (1 == d20() && p->level < d6() && window_function::allowed(p))
@@ -30,7 +31,7 @@ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
         if (p->level< d6() && d9()==1)
             return make_shared<case_expr>(p, type_constraint);
         if (p->scope->refs.size() && d20() > 1)
-            return make_shared<column_reference>(p, type_constraint);
+            return make_shared<column_reference>(p, type_constraint, prefer_refs);
         else
             return make_shared<const_expr>(p, type_constraint);
     } catch (runtime_error &e) {
@@ -91,7 +92,9 @@ void case_expr::accept(prod_visitor *v)
   false_expr->accept(v);
 }
 
-column_reference::column_reference(prod *p, sqltype *type_constraint) : value_expr(p)
+column_reference::column_reference(prod *p, sqltype *type_constraint, 
+vector<shared_ptr<named_relation> > *prefer_refs) : 
+value_expr(p)
 {
     if (type_constraint) {
         auto pairs = scope->refs_of_type(type_constraint);
@@ -101,7 +104,11 @@ column_reference::column_reference(prod *p, sqltype *type_constraint) : value_ex
         type = picked.second.type;
         assert(type_constraint->consistent(type));
     } else {
-        named_relation *r = random_pick(scope->refs);
+        named_relation *r;
+        if (prefer_refs != 0 && d6() > 2) 
+            r = &*random_pick(*prefer_refs);
+        else 
+            r = random_pick(scope->refs);
 
         reference += r->ident() + ".";
         column &c = random_pick(r->columns());

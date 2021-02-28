@@ -12,6 +12,8 @@
 
 using namespace std;
 
+int use_group = 2; // 0->no group, 1->use group, 2->to_be_define
+
 shared_ptr<table_ref> table_ref::factory(prod *p) {
     try {
         if (p->level < 3 + d6()) {
@@ -217,10 +219,10 @@ from_clause::from_clause(prod *p) : prod(p) {
 //   }
 }
 
-select_list::select_list(prod *p) : prod(p)
+select_list::select_list(prod *p, vector<shared_ptr<named_relation> > *refs) : prod(p), prefer_refs(refs)
 {
     do {
-        shared_ptr<value_expr> e = value_expr::factory(this);
+        shared_ptr<value_expr> e = value_expr::factory(this, 0, prefer_refs);
         value_exprs.push_back(e);
         ostringstream name;
         name << "c" << columns++;
@@ -328,18 +330,26 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
     scope = &myscope; // isolate the scope, dont effect the upper ones
     scope->tables = s->tables;
 
+    if (use_group == 2) { // confirm whether use group
+        if (d6() > 5) use_group = 1;
+        else use_group = 0;
+    }
+
     if (lateral)
         scope->refs = s->refs;
   
     from_clause = make_shared<struct from_clause>(this);
-    select_list = make_shared<struct select_list>(this);
+    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs);
   
     set_quantifier = (d100() == 1) ? "distinct" : "";
 
-    search = bool_expr::factory(this);
+    int tmp_group = use_group;
+    use_group = 0;
+    search = bool_expr::factory(this); // cannot use group in where
+    use_group = tmp_group;
 
     has_group = false;
-    if (d6() > 4) {
+    if (use_group == 1) {
         try {
             group_clause = make_shared<struct group_clause>(this, this->scope, select_list);
             has_group = true;
@@ -349,7 +359,7 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
         }
     }
 
-    if (d6() > 2) {
+    if (has_group == false && d6() > 2) {
         ostringstream cons;
         
         cons << "order by ";
@@ -884,7 +894,8 @@ void create_table_select_stmt::out(std::ostream &out)
     out << *subquery;
 }
 
-group_clause::group_clause(prod *p, struct scope *s, shared_ptr<struct select_list> select_list)
+group_clause::group_clause(prod *p, struct scope *s, 
+    shared_ptr<struct select_list> select_list)
 : prod(p), myscope(s), modified_select_list(select_list)
 {
     scope = &myscope;
@@ -901,14 +912,9 @@ group_clause::group_clause(prod *p, struct scope *s, shared_ptr<struct select_li
         if (select_columns[i].name == target_ref)
             continue;
         
-        auto expr = select_exprs[i];
-
-        // replace the column_ref
-        if (auto column_ref = dynamic_pointer_cast<struct column_reference>(expr)) {
-            auto new_expr = make_shared<funcall>(p, (sqltype *)0, true);
-            select_exprs.erase(select_exprs.begin() + i);
-            select_exprs.insert(select_exprs.begin() + i, new_expr);
-        }
+        auto new_expr = make_shared<funcall>(p, (sqltype *)0, true);
+        select_exprs.erase(select_exprs.begin() + i);
+        select_exprs.insert(select_exprs.begin() + i, new_expr);
     }
 }
 

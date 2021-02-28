@@ -71,6 +71,9 @@ int dx(int x) {
     return pick(smith::rng);
 #else
     static struct file_random_machine* frand = file_random_machine::get(__RAND_FILE_NAME__);
+    if (x == 1)
+        return 1;
+    
     int bytenum;
     if (x <= 0xff / 10) 
         bytenum = 1;
