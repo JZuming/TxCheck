@@ -569,6 +569,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<create_table_stmt>((struct prod *)0, s);
         if (d42() == 1)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
+        if (d42() == 1)
+            return make_shared<alter_table_stmt>((struct prod *)0, s);
         // if (d42() == 1)
             // return make_shared<merge_stmt>((struct prod *)0, s);
         if (d6() == 1) // have more chance to insert data
@@ -955,4 +957,54 @@ group_clause::group_clause(prod *p, struct scope *s,
 void group_clause::out(std::ostream &out)
 {
     out << target_ref;
+}
+
+alter_table_stmt::alter_table_stmt(prod *parent, struct scope *s):
+prod(parent), myscope(s)
+{
+    scope = &myscope;
+    scope->tables = s->tables;
+
+    int type_chosen = d6();
+    if (type_chosen <= 2)
+        stmt_type = 0;
+    else if (type_chosen <= 4)
+        stmt_type = 1;
+    else
+        stmt_type = 2;
+
+    auto table_ref = random_pick(scope->tables);
+    if (stmt_type == 0) {
+        auto new_table_name = random_identifier_generate();
+        stmt_string = "alter table " + table_ref->ident() + " rename to " + new_table_name;
+    }
+    else if (stmt_type == 1) {
+        auto& column_ref = random_pick(table_ref->columns());
+        auto new_column_name = random_identifier_generate();
+        stmt_string = "alter table " + table_ref->ident() + " rename column " + column_ref.name
+                        + " to " + new_column_name;
+    }
+    else {
+        auto new_column_name = random_identifier_generate();
+        int type_idx = dx(sqltype::typemap.size()) - 1;
+        auto type_ptr = sqltype::typemap.begin();
+        for (int j = 0; j < type_idx; j++) 
+            type_ptr++;
+        
+        while (type_ptr->first == "internal" || 
+            type_ptr->first == "ARRAY") {
+            type_ptr++;
+            if (type_ptr == sqltype::typemap.end())
+                type_ptr = sqltype::typemap.begin();
+        }
+
+        auto type = type_ptr->second;
+        stmt_string = "alter table " + table_ref->ident() + " add column " + new_column_name 
+                        + " " + type->name;
+    }
+}
+
+void alter_table_stmt::out(std::ostream &out)
+{
+    out << stmt_string;
 }

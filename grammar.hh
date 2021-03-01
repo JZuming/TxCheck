@@ -366,4 +366,16 @@ struct create_table_select_stmt: prod {
     }
 };
 
+struct alter_table_stmt: prod {
+    shared_ptr<struct table> created_table;
+    struct scope myscope;
+    int stmt_type; // 0: rename table, 1: rename column, 2: add column
+    string stmt_string;
+    virtual void out(std::ostream &out);
+    alter_table_stmt(prod *parent, struct scope *s);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+    }
+};
+
 #endif
