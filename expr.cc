@@ -14,6 +14,9 @@
 using namespace std;
 using impedance::matched;
 
+extern int in_update_set_list;
+extern set<string> update_used_column_ref;
+
 shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint, 
 vector<shared_ptr<named_relation> > *prefer_refs)
 {
@@ -97,26 +100,46 @@ vector<shared_ptr<named_relation> > *prefer_refs) :
 value_expr(p)
 {
     if (type_constraint) {
-        auto pairs = scope->refs_of_type(type_constraint);
-        auto picked = random_pick(pairs);
-        reference += picked.first->ident()
+        while (1) {
+            auto pairs = scope->refs_of_type(type_constraint);
+            auto picked = random_pick(pairs);
+            reference = picked.first->ident()
                         + "." + picked.second.name;
-        table_ref = picked.first->ident();
-        type = picked.second.type;
-        assert(type_constraint->consistent(type));
-    } else {
-        named_relation *r;
-        if (prefer_refs != 0 && d6() > 2) 
-            r = &*random_pick(*prefer_refs);
-        else 
-            r = random_pick(scope->refs);
-        
-        table_ref = r->ident();
+            table_ref = picked.first->ident();
+            type = picked.second.type;
+            assert(type_constraint->consistent(type));
 
-        reference += r->ident() + ".";
-        column &c = random_pick(r->columns());
-        type = c.type;
-        reference += c.name;
+            // in update_stmt, the column_ref cannot be used twice.
+            if (in_update_set_list == 0)
+                break;
+            if (update_used_column_ref.count(reference) == 0) {
+                update_used_column_ref.insert(reference);
+                break;
+            }
+            retry();
+        }
+    } else {
+        while (1) {
+            named_relation *r;
+            if (prefer_refs != 0 && d6() > 2) 
+                r = &*random_pick(*prefer_refs);
+            else 
+                r = random_pick(scope->refs);
+            
+            column &c = random_pick(r->columns());
+            type = c.type;
+            reference = r->ident() + "." + c.name;
+            table_ref = r->ident();
+
+            // in update_stmt, the column_ref cannot be used twice.
+            if (in_update_set_list == 0)
+                break;
+            if (update_used_column_ref.count(reference) == 0) {
+                update_used_column_ref.insert(reference);
+                break;
+            }
+            retry();
+        }
     }
 }
 

@@ -13,6 +13,8 @@
 using namespace std;
 
 int use_group = 2; // 0->no group, 1->use group, 2->to_be_define
+int in_update_set_list = 0;
+set<string> update_used_column_ref;
 
 shared_ptr<table_ref> table_ref::factory(prod *p) {
     try {
@@ -486,15 +488,21 @@ void insert_stmt::out(std::ostream &out)
 
 set_list::set_list(prod *p, table *target) : prod(p)
 {
+    in_update_set_list = 1;
+    update_used_column_ref.clear();
     do {
         for (auto col : target->columns()) {
             if (d6() < 4)
 	            continue;
+            
+            update_used_column_ref.insert(target->ident() + "." + col.name);
+
             auto expr = value_expr::factory(this, col.type);
             value_exprs.push_back(expr);
             names.push_back(col.name);
         }
     } while (!names.size());
+    in_update_set_list = 0;
 }
 
 void set_list::out(std::ostream &out)
@@ -909,11 +917,11 @@ group_clause::group_clause(prod *p, struct scope *s,
     auto& select_columns = modified_select_list->derived_table.columns();
 
     auto size = select_columns.size();
-    auto chosen_index = dx(size) - 1;
+    size_t chosen_index = dx(size) - 1;
 
     // target_ref = modified_select_list->derived_table.columns()[chosen_index].name; // cannot use alias
 
-    int try_time = 0;
+    size_t try_time = 0;
     while (1) { // only choose column_reference as target ref
         if (auto columns_ref = dynamic_pointer_cast<column_reference>(select_exprs[chosen_index])) {
             bool suitable_one = false;
@@ -973,14 +981,30 @@ prod(parent), myscope(s)
     else
         stmt_type = 2;
 
+    set<string> exist_table_name;
+    for (auto t : scope->tables) {
+        exist_table_name.insert(t->ident());
+    }
+
     auto table_ref = random_pick(scope->tables);
+    set<string> exist_column_name;
+    for (auto &c : table_ref->columns()) {
+        exist_column_name.insert(c.name);
+    }
+
     if (stmt_type == 0) {
         auto new_table_name = random_identifier_generate();
+        while (exist_table_name.count(new_table_name)) {
+            new_table_name = new_table_name + "_2";
+        }
         stmt_string = "alter table " + table_ref->ident() + " rename to " + new_table_name;
     }
     else if (stmt_type == 1) {
         auto& column_ref = random_pick(table_ref->columns());
         auto new_column_name = random_identifier_generate();
+        while (exist_column_name.count(new_column_name)) {
+            new_column_name = new_column_name + "_2";
+        }
         stmt_string = "alter table " + table_ref->ident() + " rename column " + column_ref.name
                         + " to " + new_column_name;
     }
