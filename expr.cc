@@ -21,22 +21,25 @@ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint,
 vector<shared_ptr<named_relation> > *prefer_refs)
 {
     try {
-        if (1 == d20() && p->level < d6() && window_function::allowed(p))
-            return make_shared<window_function>(p, type_constraint);
-        if (1 == d42() && p->level < d6())
-            return make_shared<coalesce>(p, type_constraint);
-        if (1 == d42() && p->level < d6())
-            return make_shared<nullif>(p, type_constraint);
-        if (p->level < d6() && d6() == 1)
-            return make_shared<funcall>(p, type_constraint);
-        if (d12()==1)
+        if (p->level < d6()) {
+            auto choice = d42();
+            if ((choice <= 2) && window_function::allowed(p))
+                return make_shared<window_function>(p, type_constraint);
+            if (choice == 3)
+                return make_shared<coalesce>(p, type_constraint);
+            if (choice == 4)
+                return make_shared<nullif>(p, type_constraint);
+            if (choice <= 11)
+                return make_shared<funcall>(p, type_constraint);
+            if (choice <= 16)
+                return make_shared<case_expr>(p, type_constraint);
+        }
+        auto choice = d42();
+        if (choice <= 4)
             return make_shared<atomic_subselect>(p, type_constraint);
-        if (p->level< d6() && d9()==1)
-            return make_shared<case_expr>(p, type_constraint);
-        if (p->scope->refs.size() && d20() > 1)
+        if (p->scope->refs.size() && choice <= 40)
             return make_shared<column_reference>(p, type_constraint, prefer_refs);
-        else
-            return make_shared<const_expr>(p, type_constraint);
+        return make_shared<const_expr>(p, type_constraint);
     } catch (runtime_error &e) {
     }
     p->retry();
@@ -360,8 +363,7 @@ atomic_subselect::atomic_subselect(prod *p, sqltype *type_constraint)
         }
         assert(col);
     } else {
-        // tab = &random_pick<>(scope->schema->tables);
-        tab = dynamic_cast<table *>(random_pick<>(scope->tables));
+        tab = random_pick<>(scope->tables);
         col = &random_pick<>(tab->columns());
     }
 
@@ -370,20 +372,19 @@ atomic_subselect::atomic_subselect(prod *p, sqltype *type_constraint)
 
 void atomic_subselect::out(std::ostream &out)
 {
-  out << "(select ";
+    out << "(select ";
+    if (agg) 
+        out << agg->ident() << "(" << col->name << ")";
+    else
+        out << col->name;
+    
+    out << " from " << tab->ident();
 
-  if (agg)
-    out << agg->ident() << "(" << col->name << ")";
-  else
-    out << col->name;
-  
-  out << " from " << tab->ident();
-
-  if (!agg)
-    out << " limit 1 offset " << offset;
-
-  out << ")";
-  indent(out);
+    if (!agg)
+        out << " limit 1 offset " << offset;
+    
+    out << ")";
+    indent(out);
 }
 
 void window_function::out(std::ostream &out)

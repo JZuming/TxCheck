@@ -573,31 +573,34 @@ shared_ptr<prod> statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
-        if (s->tables.empty() || d42() == 1)
+        auto choice = d20();
+        if (s->tables.empty() || choice == 1)
             return make_shared<create_table_stmt>((struct prod *)0, s);
-        if (d42() == 1)
+        if (choice == 2)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
-        if (d42() == 1)
+        if (choice == 3)
             return make_shared<alter_table_stmt>((struct prod *)0, s);
-        // if (d42() == 1)
-            // return make_shared<merge_stmt>((struct prod *)0, s);
-        if (d6() == 1) // have more chance to insert data
-            return make_shared<insert_stmt>((struct prod *)0, s);
-        if (d42() == 1)
+        if (choice == 4)
             return make_shared<delete_stmt>((struct prod *)0, s);
-        // else if (d42() == 1)
-            // return make_shared<delete_returning>((struct prod *)0, s);
-        // if (d42() == 1) 
-            // return make_shared<upsert_stmt>((struct prod *)0, s);
-        if (d42() == 1) 
+        if (choice == 5) 
             return make_shared<update_stmt>((struct prod *)0, s);
-        // else if (d42() == 1)
-            // return make_shared<update_returning>((struct prod *)0, s);
-        // if (d6() > 4)
-            // return make_shared<select_for_update>((struct prod *)0, s);
-        if (d6() > 5)
+        if (choice <= 9) // have more chance to insert data
+            return make_shared<insert_stmt>((struct prod *)0, s);
+        if (choice <= 12)
             return make_shared<common_table_expression>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
+        /* TODO:
+        if (d42() == 1)
+            return make_shared<merge_stmt>((struct prod *)0, s);
+        else if (d42() == 1)
+            return make_shared<delete_returning>((struct prod *)0, s);
+        if (d42() == 1) 
+            return make_shared<upsert_stmt>((struct prod *)0, s);
+        else if (d42() == 1)
+            return make_shared<update_returning>((struct prod *)0, s);
+        if (d6() > 4)
+            return make_shared<select_for_update>((struct prod *)0, s);
+        */
     } catch (runtime_error &e) {
         cerr << "catch a runtime error" << endl;
         return statement_factory(s);

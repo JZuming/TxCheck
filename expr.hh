@@ -44,7 +44,7 @@ struct funcall : value_expr {
 };
 
 struct atomic_subselect : value_expr {
-    table *tab;
+    named_relation *tab;
     column *col;
     int offset;
     routine *agg;
