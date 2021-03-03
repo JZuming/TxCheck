@@ -97,7 +97,8 @@ struct joined_table : table_ref {
     virtual void accept(prod_visitor *v) {
         lhs->accept(v);
         rhs->accept(v);
-        condition->accept(v);
+        if (type == "inner" || type == "left outer")
+            condition->accept(v);
         v->visit(this);
     }
 };
