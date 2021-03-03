@@ -158,18 +158,16 @@ joined_table::joined_table(prod *p) : table_ref(p) {
     lhs = table_ref::factory(this);
     rhs = table_ref::factory(this);
 
-    condition = join_cond::factory(this, *lhs, *rhs);
-
-    if (d6()<4) {
+    auto choice = d6();
+    if (choice <= 2) 
+        type = "cross";
+    else if (choice <= 4)
         type = "inner";
-    } else {
+    else 
         type = "left outer";
-    }
-//   } else if (d6()<4) {
-//     type = "left";
-//   } else {
-//     type = "right";
-//   }
+    
+    if (type == "inner" || type == "left outer")
+        condition = join_cond::factory(this, *lhs, *rhs);
 
     for (auto ref: lhs->refs)
         refs.push_back(ref);
@@ -183,7 +181,8 @@ void joined_table::out(std::ostream &out) {
     indent(out);
     out << type << " join " << *rhs;
     indent(out);
-    out << "on (" << *condition << ")";
+    if (type == "inner" || type == "left outer")
+        out << "on (" << *condition << ")";
     out << ")";
 }
 
