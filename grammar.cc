@@ -817,6 +817,14 @@ string create_unique_table_name(void)
 create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 : prod(parent), myscope(s)
 {
+    scope = &myscope;
+    scope->tables = s->tables;
+    
+    if (scope->tables.empty() || d6() <= 4)
+        is_base_table = true;
+    else
+        is_base_table = false;
+
     // create table
     string table_name;
     table_name = random_identifier_generate();
@@ -873,7 +881,9 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
 void create_table_stmt::out(std::ostream &out)
 {
-    out << "CREATE TABLE " << created_table->name << " ( ";
+    out << "CREATE ";
+    out << (is_base_table ? "TABLE " : "VIEW ");
+    out << created_table->name << " ( ";
     indent(out);
 
     auto columns_in_table = created_table->columns();
@@ -895,6 +905,11 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
     scope = &myscope;
     scope->tables = s->tables;
 
+    if (d6() <= 4)
+        is_base_table = true;
+    else
+        is_base_table = false;
+
     subquery = make_shared<struct query_spec>(this, scope);
 
     tatble_name = random_identifier_generate();
@@ -902,7 +917,9 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
 
 void create_table_select_stmt::out(std::ostream &out)
 {
-    out << "CREATE TABLE " << tatble_name << " AS ";
+    out << "CREATE ";
+    out << (is_base_table ? "TABLE " : "VIEW ");
+    out << tatble_name << " AS ";
     indent(out);
 
     out << *subquery;
