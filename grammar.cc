@@ -800,16 +800,30 @@ shared_ptr<when_clause> when_clause::factory(struct merge_stmt *p)
   return factory(p);
 }
 
+string upper_translate(string str)
+{
+    string ret;
+    for (auto i = 0; i < str.length(); i++) {
+        if(str[i] >= 'a' && str[i] <= 'z') {
+            ret.push_back(str[i] + 'A' - 'a');
+            continue;
+        }
+        
+        ret.push_back(str[i]);
+    }
+    return ret;
+}
+
 string create_unique_column_name(void)
 {
     static std::set<string> created_names;
 
     std::string table_name = random_identifier_generate();
-    while (created_names.count(table_name)) {
+    while (created_names.count(upper_translate(table_name))) {
         table_name += "_2";
     }
 
-    created_names.insert(table_name);
+    created_names.insert(upper_translate(table_name));
     return table_name;
 }
 
@@ -817,15 +831,16 @@ string unique_table_name(scope *s)
 {
     static set<string> exist_table_name;
     static bool init = false;
+
     if (init == false) {
         for (auto t : s->tables) {
-            exist_table_name.insert(t->ident());
+            exist_table_name.insert(upper_translate(t->ident()));
         }
         init = true;
     }
 
     auto new_table_name = random_identifier_generate();
-    while (exist_table_name.count(new_table_name)) {
+    while (exist_table_name.count(upper_translate(new_table_name))) {
             new_table_name = new_table_name + "_2";
     }
     return new_table_name;
@@ -1006,7 +1021,7 @@ prod(parent), myscope(s)
     auto table_ref = random_pick(scope->tables);
     set<string> exist_column_name;
     for (auto &c : table_ref->columns()) {
-        exist_column_name.insert(c.name);
+        exist_column_name.insert(upper_translate(c.name));
     }
 
     if (stmt_type == 0) {
@@ -1016,7 +1031,7 @@ prod(parent), myscope(s)
     else if (stmt_type == 1) {
         auto& column_ref = random_pick(table_ref->columns());
         auto new_column_name = random_identifier_generate();
-        while (exist_column_name.count(new_column_name)) {
+        while (exist_column_name.count(upper_translate(new_column_name))) {
             new_column_name = new_column_name + "_2";
         }
 
@@ -1025,7 +1040,7 @@ prod(parent), myscope(s)
     }
     else {
         auto new_column_name = random_identifier_generate();
-        while (exist_column_name.count(new_column_name)) {
+        while (exist_column_name.count(upper_translate(new_column_name))) {
             new_column_name = new_column_name + "_2";
         }
 
