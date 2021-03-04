@@ -800,7 +800,7 @@ shared_ptr<when_clause> when_clause::factory(struct merge_stmt *p)
   return factory(p);
 }
 
-string create_unique_table_name(void)
+string create_unique_column_name(void)
 {
     static std::set<string> created_names;
 
@@ -811,6 +811,24 @@ string create_unique_table_name(void)
 
     created_names.insert(table_name);
     return table_name;
+}
+
+string unique_table_name(scope *s)
+{
+    static set<string> exist_table_name;
+    static bool init = false;
+    if (init == false) {
+        for (auto t : s->tables) {
+            exist_table_name.insert(t->ident());
+        }
+        init = true;
+    }
+
+    auto new_table_name = random_identifier_generate();
+    while (exist_table_name.count(new_table_name)) {
+            new_table_name = new_table_name + "_2";
+    }
+    return new_table_name;
 }
 
 create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
@@ -826,36 +844,21 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
     // create table
     string table_name;
-    table_name = random_identifier_generate();
-
-    auto table_vec = myscope.tables;
-    int table_num = table_vec.size();
-    while (1) {
-        int flag = 0;
-        for (int i = 0; i < table_num; i++) {
-            if (table_name == table_vec[i]->name) {
-                table_name = table_name + "_";
-                flag = 1;
-            }
-        }
-
-        if (flag == 0)
-            break;
-    }
+    table_name = unique_table_name(scope);
 
     created_table = make_shared<struct table>(table_name, "main", true, true);
 
     std::vector<string> created_names;
     
     // create its columns
-    string key_column_name = create_unique_table_name();
+    string key_column_name = create_unique_column_name();
     auto key_type = sqltype::get("INTEGER");
     column key_column(key_column_name, key_type);
     created_table->columns().push_back(key_column);
 
     int column_num = dx(10);
     for (int i = 0; i < column_num; i++) {
-        string column_name = create_unique_table_name();
+        string column_name = create_unique_column_name();
         int type_idx = dx(sqltype::typemap.size()) - 1;
         auto type_ptr = sqltype::typemap.begin();
         for (int j = 0; j < type_idx; j++) 
@@ -911,7 +914,7 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
 
     subquery = make_shared<struct query_spec>(this, scope);
 
-    tatble_name = random_identifier_generate();
+    tatble_name = unique_table_name(scope);
 }
 
 void create_table_select_stmt::out(std::ostream &out)
@@ -1000,11 +1003,6 @@ prod(parent), myscope(s)
     else
         stmt_type = 2;
 
-    set<string> exist_table_name;
-    for (auto t : scope->tables) {
-        exist_table_name.insert(t->ident());
-    }
-
     auto table_ref = random_pick(scope->tables);
     set<string> exist_column_name;
     for (auto &c : table_ref->columns()) {
@@ -1012,10 +1010,7 @@ prod(parent), myscope(s)
     }
 
     if (stmt_type == 0) {
-        auto new_table_name = random_identifier_generate();
-        while (exist_table_name.count(new_table_name)) {
-            new_table_name = new_table_name + "_2";
-        }
+        auto new_table_name = unique_table_name(scope);
         stmt_string = "alter table " + table_ref->ident() + " rename to " + new_table_name;
     }
     else if (stmt_type == 1) {
@@ -1024,11 +1019,16 @@ prod(parent), myscope(s)
         while (exist_column_name.count(new_column_name)) {
             new_column_name = new_column_name + "_2";
         }
+
         stmt_string = "alter table " + table_ref->ident() + " rename column " + column_ref.name
                         + " to " + new_column_name;
     }
     else {
         auto new_column_name = random_identifier_generate();
+        while (exist_column_name.count(new_column_name)) {
+            new_column_name = new_column_name + "_2";
+        }
+
         int type_idx = dx(sqltype::typemap.size()) - 1;
         auto type_ptr = sqltype::typemap.begin();
         for (int j = 0; j < type_idx; j++) 
