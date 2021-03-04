@@ -348,7 +348,6 @@ struct create_table_stmt: prod {
     shared_ptr<struct table> created_table;
     struct scope myscope;
     int key_idx;
-    bool is_base_table;
     virtual void out(std::ostream &out);
     create_table_stmt(prod *parent, struct scope *s);
     virtual void accept(prod_visitor *v) {

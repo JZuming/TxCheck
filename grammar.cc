@@ -851,11 +851,6 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 {
     scope = &myscope;
     scope->tables = s->tables;
-    
-    if (scope->tables.empty() || d6() <= 4)
-        is_base_table = true;
-    else
-        is_base_table = false;
 
     // create table
     string table_name;
@@ -898,8 +893,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
 void create_table_stmt::out(std::ostream &out)
 {
-    out << "CREATE ";
-    out << (is_base_table ? "TABLE " : "VIEW ");
+    out << "CREATE TABLE ";
     out << created_table->name << " ( ";
     indent(out);
 
