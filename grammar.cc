@@ -531,12 +531,11 @@ update_stmt::update_stmt(prod *p, struct scope *s, table *v)
     }
 
     search = bool_expr::factory(this);
-    
+    set_list = make_shared<struct set_list>(this, victim);
+
     for (std::size_t i = 0; i < exclude_tables.size(); i++) {
         scope->tables.push_back(exclude_tables[i]);
     }
-
-    set_list = make_shared<struct set_list>(this, victim);
 }
 
 void update_stmt::out(std::ostream &out)
@@ -875,7 +874,8 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
             type_ptr++;
         
         while (type_ptr->first == "internal" || 
-               type_ptr->first == "ARRAY") {
+               type_ptr->first == "ARRAY" ||
+               type_ptr->first == "NUM") {
             type_ptr++;
             if (type_ptr == sqltype::typemap.end())
                 type_ptr = sqltype::typemap.begin();

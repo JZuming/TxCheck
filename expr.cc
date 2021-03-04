@@ -53,6 +53,10 @@ string cast_type_name_wrapper(string origin_type_name)
         cast_type_name = "SIGNED";
     else if (origin_type_name == "INTEGER")
         cast_type_name = "SIGNED";
+    else if (origin_type_name == "INT")
+        cast_type_name = "SIGNED";
+    else if (origin_type_name == "")
+        cast_type_name = "SIGNED";
     else if (origin_type_name == "REAL")
         cast_type_name = "SIGNED";
     else if (origin_type_name == "TEXT")
