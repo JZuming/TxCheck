@@ -321,43 +321,44 @@ dut_libpq::dut_libpq(std::string conninfo)
 void dut_libpq::command(const std::string &stmt)
 {
     if (!conn)
-	connect(conninfo_);
+	    connect(conninfo_);
+    
     PGresult *res = PQexec(conn, stmt.c_str());
 
     switch (PQresultStatus(res)) {
 
-    case PGRES_FATAL_ERROR:
-    default:
-    {
-	const char *errmsg = PQresultErrorMessage(res);
-	if (!errmsg || !strlen(errmsg))
-	     errmsg = PQerrorMessage(conn);
+        case PGRES_FATAL_ERROR:
+        default:
+        {
+            const char *errmsg = PQresultErrorMessage(res);
+            if (!errmsg || !strlen(errmsg))
+                errmsg = PQerrorMessage(conn);
 
-	const char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
-	if (!sqlstate || !strlen(sqlstate))
-	     sqlstate =  (CONNECTION_OK != PQstatus(conn)) ? "08000" : "?????";
-	
-	std::string error_string(errmsg);
-	std::string sqlstate_string(sqlstate);
-	PQclear(res);
+            const char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+            if (!sqlstate || !strlen(sqlstate))
+                sqlstate =  (CONNECTION_OK != PQstatus(conn)) ? "08000" : "?????";
 
-	if (CONNECTION_OK != PQstatus(conn)) {
-            PQfinish(conn);
-	    conn = 0;
-	    throw dut::broken(error_string.c_str(), sqlstate_string.c_str());
-	}
-	if (sqlstate_string == "42601")
-	     throw dut::syntax(error_string.c_str(), sqlstate_string.c_str());
-	else
-	     throw dut::failure(error_string.c_str(), sqlstate_string.c_str());
-    }
+            std::string error_string(errmsg);
+            std::string sqlstate_string(sqlstate);
+            PQclear(res);
 
-    case PGRES_NONFATAL_ERROR:
-    case PGRES_TUPLES_OK:
-    case PGRES_SINGLE_TUPLE:
-    case PGRES_COMMAND_OK:
-	PQclear(res);
-	return;
+            if (CONNECTION_OK != PQstatus(conn)) {
+                PQfinish(conn);
+                conn = 0;
+                throw dut::broken(error_string.c_str(), sqlstate_string.c_str());
+            }
+            if (sqlstate_string == "42601")
+                throw dut::syntax(error_string.c_str(), sqlstate_string.c_str());
+            else
+                throw dut::failure(error_string.c_str(), sqlstate_string.c_str());
+        }
+
+        case PGRES_NONFATAL_ERROR:
+        case PGRES_TUPLES_OK:
+        case PGRES_SINGLE_TUPLE:
+        case PGRES_COMMAND_OK:
+            PQclear(res);
+            return;
     }
 }
 
