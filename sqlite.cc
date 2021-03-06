@@ -264,8 +264,8 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     internaltype = sqltype::get("internal");
     arraytype = sqltype::get("ARRAY");
 
-    true_literal = "1";
-    false_literal = "0";
+    true_literal = "1=1";
+    false_literal = "0<>0";
 
     generate_indexes();
     for(auto &r: aggregates) {
