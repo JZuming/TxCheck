@@ -165,9 +165,12 @@ joined_table::joined_table(prod *p) : table_ref(p) {
         type = "inner";
     else 
         type = "left outer";
-    
+
+    auto tmp_group = use_group;
+    use_group = 0;
     if (type == "inner" || type == "left outer")
         condition = join_cond::factory(this, *lhs, *rhs);
+    use_group = tmp_group;
 
     for (auto ref: lhs->refs)
         refs.push_back(ref);
@@ -802,7 +805,7 @@ shared_ptr<when_clause> when_clause::factory(struct merge_stmt *p)
 string upper_translate(string str)
 {
     string ret;
-    for (auto i = 0; i < str.length(); i++) {
+    for (std::size_t i = 0; i < str.length(); i++) {
         if(str[i] >= 'a' && str[i] <= 'z') {
             ret.push_back(str[i] + 'A' - 'a');
             continue;
