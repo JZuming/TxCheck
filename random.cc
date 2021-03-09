@@ -88,7 +88,7 @@ int dx(int x) {
 }
 
 std::string random_identifier_generate() {
-#define MAX_NAME_SCOPE 63
+#define MAX_NAME_SCOPE 37
     int name_length = dx(10);
     std::string name;
     for (int i = 0; i < name_length; i++) {
@@ -98,17 +98,16 @@ std::string random_identifier_generate() {
         else 
             choice = dx(MAX_NAME_SCOPE);
 
-        // 1-63
-        if (choice <= 26) // 1-26
-            name.push_back('a' - 1 + choice);
-        else if (choice <= 52)
-            name.push_back('A' - 1 + choice - 26);
-        else if (choice <= 53) 
+        // 1-37
+        if (choice <= 26) // 1 - 26
+            name.push_back('a' + choice - 1);
+        else if (choice <= 27) // 27
             name.push_back('_');
-        else if (choice <= 63)
-            name.push_back('0' - 1 + choice - 53);
-        else 
-            name.push_back(dx(256) - 1); // illegal name
+        else if (choice <= 37) // 28 - 37
+            name.push_back('0' + choice - 28);
+            
+        // else if (choice <= 52) // illegal name in pgsql
+        //     name.push_back('A' - 1 + choice - 26);
     }
     return name;
 }
