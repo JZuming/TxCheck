@@ -48,17 +48,19 @@ vector<shared_ptr<named_relation> > *prefer_refs)
 
 string cast_type_name_wrapper(string origin_type_name)
 {
+    string integer_ret = "integer"; // use SIGNED in mysql, use integer in pgsql
+    
     string cast_type_name;
     if (origin_type_name == "NUMERIC")
-        cast_type_name = "SIGNED"; // use SIGNED in mysql, use integer in pgsql
+        cast_type_name = integer_ret; 
     else if (origin_type_name == "INTEGER")
-        cast_type_name = "SIGNED"; // use SIGNED in mysql, use integer in pgsql
+        cast_type_name = integer_ret; 
     else if (origin_type_name == "INT")
-        cast_type_name = "SIGNED"; // use SIGNED in mysql, use integer in pgsql
+        cast_type_name = integer_ret;
     else if (origin_type_name == "")
-        cast_type_name = "SIGNED"; // use SIGNED in mysql, use integer in pgsql
+        cast_type_name = integer_ret;
     else if (origin_type_name == "REAL")
-        cast_type_name = "SIGNED"; // use SIGNED in mysql, use integer in pgsql
+        cast_type_name = integer_ret;
     else if (origin_type_name == "TEXT")
         cast_type_name = "CHAR";
     else

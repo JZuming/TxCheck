@@ -1015,7 +1015,20 @@ prod(parent), myscope(s)
     else
         stmt_type = 2;
 
-    auto table_ref = random_pick(scope->tables);
+    // choose the base table (not view)
+    int size = scope->tables.size();
+    int chosen_table_idx = dx(size) - 1;
+    named_relation *table_ref = NULL;
+    table * real_table = NULL;
+    while (1) {
+        table_ref = scope->tables[chosen_table_idx];
+        real_table = dynamic_cast<table *>(table_ref);
+        if (real_table)
+            break;
+        
+        chosen_table_idx = (chosen_table_idx + 1) % size;
+    };
+    
     set<string> exist_column_name;
     for (auto &c : table_ref->columns()) {
         exist_column_name.insert(upper_translate(c.name));
