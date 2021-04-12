@@ -1023,9 +1023,9 @@ prod(parent), myscope(s)
     while (1) {
         table_ref = scope->tables[chosen_table_idx];
         real_table = dynamic_cast<table *>(table_ref);
-        if (real_table)
+        if (real_table && real_table->is_base_table) {
             break;
-        
+        }
         chosen_table_idx = (chosen_table_idx + 1) % size;
     };
     
