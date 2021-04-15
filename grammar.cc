@@ -586,9 +586,11 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<update_stmt>((struct prod *)0, s);
         if (choice == 6)
             return make_shared<create_index_stmt>((struct prod *)0, s);
-        if (choice <= 9) // have more chance to insert data
+        if (choice == 7)
+            return make_shared<create_trigger_stmt>((struct prod *)0, s);
+        if (choice <= 10) // have more chance to insert data
             return make_shared<insert_stmt>((struct prod *)0, s);
-        if (choice <= 12)
+        if (choice <= 13)
             return make_shared<common_table_expression>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
         /* TODO:
@@ -1124,4 +1126,56 @@ void create_index_stmt::out(std::ostream &out)
             out << ", ";
     }
     out << ")";
+}
+
+create_trigger_stmt::create_trigger_stmt(prod *parent, struct scope *s)
+: prod(parent), myscope(s)
+{
+    scope = &myscope;
+    scope->tables = s->tables;
+
+    trigger_name = unique_table_name(scope);
+    trigger_time = d6() <= 4 ? "after" : "before";
+    
+    auto choose = d9();
+    if (choose <= 3)
+        trigger_event = "insert";
+    else if (choose <= 6)
+        trigger_event = "update";
+    else
+        trigger_event = "delete";
+    
+    table_name = random_pick<>(s->tables)->ident();
+
+    int stmts_num = (d6() + 1) / 2; // 1 - 3
+    for (int i = 0; i < stmts_num; i++) {
+        shared_ptr<struct modifying_stmt> doing_stmt;
+        choose = d9();
+        if (choose <= 3)
+            doing_stmt = make_shared<insert_stmt>(this, scope);
+        else if (choose <= 6)
+            doing_stmt = make_shared<update_stmt>(this, scope);
+        else
+            doing_stmt = make_shared<delete_stmt>(this, scope);
+        
+        doing_stmts.push_back(doing_stmt);
+    }
+    
+}
+
+void create_trigger_stmt::out(std::ostream &out)
+{
+    out << "create trigger " << trigger_name << " ";
+    out << trigger_time << " ";
+    out << trigger_event << " on " << table_name;
+    indent(out);
+    out << "for each row";
+    indent(out);
+    out << "begin ";
+    indent(out);
+    for (auto &stmt : doing_stmts) {
+        out << *stmt << "; ";
+        indent(out);
+    }
+    out << "end";
 }

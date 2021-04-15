@@ -393,4 +393,21 @@ struct create_index_stmt: prod {
     }
 };
 
+struct create_trigger_stmt: prod {
+    struct scope myscope;
+    string trigger_name;
+    string trigger_time; // after or before
+    string trigger_event; // delete, insert or update
+    string table_name;
+    vector<shared_ptr<struct modifying_stmt>> doing_stmts;
+
+    virtual void out(std::ostream &out);
+    create_trigger_stmt(prod *parent, struct scope *s);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        for (auto &stmt : doing_stmts)
+            stmt->accept(v); 
+    }
+};
+
 #endif
