@@ -584,6 +584,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<delete_stmt>((struct prod *)0, s);
         if (choice == 5) 
             return make_shared<update_stmt>((struct prod *)0, s);
+        if (choice == 6)
+            return make_shared<create_index_stmt>((struct prod *)0, s);
         if (choice <= 9) // have more chance to insert data
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice <= 12)
@@ -1086,4 +1088,40 @@ prod(parent), myscope(s)
 void alter_table_stmt::out(std::ostream &out)
 {
     out << stmt_string;
+}
+
+create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
+: prod(parent), myscope(s)
+{
+    scope = &myscope;
+    scope->tables = s->tables;
+
+    is_unique = (d6() == 1);
+
+    index_name = unique_table_name(scope);
+    auto target_table = random_pick<>(s->tables);
+    table_name = target_table->ident();
+
+    auto target_columns = target_table->columns();
+    for (auto &col : target_columns) {
+        indexed_columns.push_back(col.name);
+    }
+    auto indexed_num = dx(target_columns.size());
+    while (indexed_columns.size() > indexed_num) {
+        indexed_columns.erase(indexed_columns.begin() + dx(indexed_columns.size()) -1);
+    }
+}
+
+void create_index_stmt::out(std::ostream &out)
+{
+    out << "create" << (is_unique ? " unique " : " ")
+        << "index " << index_name << " on " << table_name << " (";
+    
+    int size = indexed_columns.size();
+    for (int i = 0; i < size; i++) {
+        out << indexed_columns[i];
+        if (i + 1 < size)
+            out << ", ";
+    }
+    out << ")";
 }

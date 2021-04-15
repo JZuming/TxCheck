@@ -380,4 +380,17 @@ struct alter_table_stmt: prod {
     }
 };
 
+struct create_index_stmt: prod {
+    struct scope myscope;
+    string index_name;
+    string table_name;
+    vector<string> indexed_columns; 
+    bool is_unique;
+    create_index_stmt(prod *parent, struct scope *s);
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+    }
+};
+
 #endif
