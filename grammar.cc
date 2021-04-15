@@ -877,6 +877,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         
         while (type_ptr->first == "internal" || 
                type_ptr->first == "ARRAY" ||
+               type_ptr->first == "BOOLEAN" ||
                type_ptr->first == "NUM") {
             type_ptr++;
             if (type_ptr == sqltype::typemap.end())
@@ -923,7 +924,18 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
     else
         is_base_table = false;
 
+    // remove the "BOOLEAN" columns
     subquery = make_shared<struct query_spec>(this, scope);
+    auto &columns = subquery->select_list->derived_table.columns();
+    int size = columns.size();
+
+    for (int i = 0; i < size; i++) {
+        if (sqltype::typemap["BOOLEAN"] != columns[i].type)
+            continue;
+        
+        columns.erase(columns.begin() + i);
+        i--;
+    }
 
     tatble_name = unique_table_name(scope);
 }

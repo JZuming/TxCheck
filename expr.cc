@@ -21,6 +21,9 @@ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint,
 vector<shared_ptr<named_relation> > *prefer_refs)
 {
     try {
+        if (sqltype::typemap["BOOLEAN"] == type_constraint)
+            return bool_expr::factory(p); 
+        
         if (p->level < d6()) {
             auto choice = d42();
             if ((choice <= 2) && window_function::allowed(p))
@@ -50,7 +53,7 @@ vector<shared_ptr<named_relation> > *prefer_refs)
 
 string cast_type_name_wrapper(string origin_type_name)
 {
-    string integer_ret = "integer"; // use SIGNED in mysql, use integer in pgsql
+    string integer_ret = "INTEGER"; // use SIGNED in mysql, use integer in pgsql
     
     string cast_type_name;
     if (origin_type_name == "NUMERIC")
@@ -258,10 +261,18 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
 {
     type = type_constraint ? type_constraint : scope->schema->inttype;
       
-    if (type == scope->schema->inttype)
-        expr = to_string(d100());
+    if (type == scope->schema->inttype) {
+        if (d20() == 1) {
+            expr = "9223372036854775808";
+        }
+        else {
+            expr = to_string(d100());
+        }
+    }
     else if (type == scope->schema->booltype)
         expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
+    else if (type == sqltype::typemap["TEXT"]) 
+        expr = "'" + random_identifier_generate() + "'";
 //   else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
 //     expr += "default";
     else
