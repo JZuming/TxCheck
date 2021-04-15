@@ -3,6 +3,7 @@
 #include <cstring>
 #include "sqlite.hh"
 #include <iostream>
+#include <set>
 
 #ifndef HAVE_BOOST_REGEX
 #include <regex>
@@ -131,39 +132,40 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     cerr << "done." << endl;
 
-#define BINOP(n, t) do {\
+#define BINOP(n, a, b, r) do {\
     op o(#n, \
-         sqltype::get(#t), \
-         sqltype::get(#t), \
-         sqltype::get(#t)); \
+         sqltype::get(#a), \
+         sqltype::get(#b), \
+         sqltype::get(#r)); \
     register_operator(o); \
 } while(0)
 
-    BINOP(||, TEXT);
-    BINOP(*, INTEGER);
-    BINOP(/, INTEGER);
+    // BINOP(||, TEXT, TEXT, TEXT);
+    BINOP(*, INTEGER, INTEGER, INTEGER);
+    BINOP(/, INTEGER, INTEGER, INTEGER);
+    BINOP(%, INTEGER, INTEGER, INTEGER);
 
-    BINOP(+, INTEGER);
-    BINOP(-, INTEGER);
+    BINOP(+, INTEGER, INTEGER, INTEGER);
+    BINOP(-, INTEGER, INTEGER, INTEGER);
 
-    BINOP(>>, INTEGER);
-    BINOP(<<, INTEGER);
+    BINOP(>>, INTEGER, INTEGER, INTEGER);
+    BINOP(<<, INTEGER, INTEGER, INTEGER);
 
-    BINOP(&, INTEGER);
-    BINOP(|, INTEGER);
+    BINOP(&, INTEGER, INTEGER, INTEGER);
+    BINOP(|, INTEGER, INTEGER, INTEGER);
 
-    BINOP(<, INTEGER);
-    BINOP(<=, INTEGER);
-    BINOP(>, INTEGER);
-    BINOP(>=, INTEGER);
+    BINOP(<, INTEGER, INTEGER, BOOLEAN);
+    BINOP(<=, INTEGER, INTEGER, BOOLEAN);
+    BINOP(>, INTEGER, INTEGER, BOOLEAN);
+    BINOP(>=, INTEGER, INTEGER, BOOLEAN);
 
-    BINOP(=, INTEGER);
-    BINOP(<>, INTEGER);
-    BINOP(IS, INTEGER);
-    BINOP(IS NOT, INTEGER);
+    BINOP(=, INTEGER, INTEGER, BOOLEAN);
+    BINOP(<>, INTEGER, INTEGER, BOOLEAN);
+    BINOP(IS, INTEGER, INTEGER, BOOLEAN);
+    BINOP(IS NOT, INTEGER, INTEGER, BOOLEAN);
 
-    BINOP(AND, INTEGER);
-    BINOP(OR, INTEGER);
+    BINOP(AND, BOOLEAN, BOOLEAN, BOOLEAN);
+    BINOP(OR, BOOLEAN, BOOLEAN, BOOLEAN);
   
 #define FUNC(n, r) do {							\
     routine proc("", "", sqltype::get(#r), #n);				\
@@ -258,7 +260,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     // AGG(total, REAL, INTEGER);
     // AGG(total, REAL, REAL);
 
-    booltype = sqltype::get("INTEGER");
+    booltype = sqltype::get("BOOLEAN");
     inttype = sqltype::get("INTEGER");
 
     internaltype = sqltype::get("internal");
@@ -268,12 +270,30 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     false_literal = "0<>0";
 
     generate_indexes();
+
+    // enable "atomic_subselect" use specific tables
+    for (auto &t: tables) {
+        set<sqltype *> type_set_in_table;
+        for (auto &c: t.columns()) { // filter repeated column types
+            assert(c.type);
+            type_set_in_table.insert(c.type);
+        }
+
+        for (auto uniq_type : type_set_in_table) {
+            tables_with_columns_of_type.insert(pair<sqltype*, table*>(uniq_type, &t));
+        }
+    }
+
+    // enable operator
+    for (auto &o: operators) {
+        operators_returning_type.insert(pair<sqltype*, op*>(o.result, &o));
+    }
+
+    // enable aggregate function
     for(auto &r: aggregates) {
         assert(r.restype);
         aggregates_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
     }
-    // cerr << "aggregates: " << aggregates.size() << endl;
-    // cerr << "aggregates_returning_type: " << aggregates_returning_type.size() << endl;
     sqlite3_close(db);
     db = 0;
 }

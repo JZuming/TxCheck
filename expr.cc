@@ -33,6 +33,8 @@ vector<shared_ptr<named_relation> > *prefer_refs)
                 return make_shared<funcall>(p, type_constraint);
             if (choice <= 16)
                 return make_shared<case_expr>(p, type_constraint);
+            if (choice <= 21)
+                return make_shared<binop_expr>(p, type_constraint);
         }
         auto choice = d42();
         if (choice <= 4)
@@ -439,4 +441,32 @@ bool window_function::allowed(prod *p)
   if (dynamic_cast<value_expr *>(p))
     return allowed(p->pprod);
   return false;
+}
+
+binop_expr::binop_expr(prod *p, sqltype *type_constraint) : value_expr(p)
+{
+    auto &idx = p->scope->schema->operators_returning_type;
+retry:
+    if (type_constraint) {
+        auto iters = idx.equal_range(type_constraint);
+        oper = random_pick<>(iters)->second;
+        if (oper && !type_constraint->consistent(oper->result)) {
+            retry();
+            goto retry;
+        }
+    }
+    else {
+        oper = random_pick(idx.begin(), idx.end())->second;
+    }
+    type = oper->result;
+
+    lhs = value_expr::factory(this, oper->left);
+    rhs = value_expr::factory(this, oper->right);
+
+    if (oper->left == oper->right && lhs->type != rhs->type) {
+        if (lhs->type->consistent(rhs->type))
+            lhs = value_expr::factory(this, rhs->type);
+        else
+            rhs = value_expr::factory(this, lhs->type);
+    }
 }

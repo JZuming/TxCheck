@@ -329,7 +329,7 @@ void select_for_update::out(std::ostream &out) {
 }
 
 query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
-  prod(p), myscope(s)
+  prod(p), myscope(s), has_group(false)
 {
     scope = &myscope; // isolate the scope, dont effect the upper ones
     scope->tables = s->tables;
@@ -342,23 +342,22 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
     if (lateral)
         scope->refs = s->refs;
     
-    int tmp_group = use_group;
-    use_group = 2; // from clause can use group or not.
+    int tmp_group = use_group; // store use_group temporarily
+    
+    use_group = 2; 
+    // from clause can use "group by" or not.
     from_clause = make_shared<struct from_clause>(this);
-    use_group = tmp_group;
 
-    tmp_group = use_group;
-    use_group = 0; // cannot use aggregate in later son select statement
+    use_group = 0; 
+    // cannot use "group by" in "where" clause.
+    search = bool_expr::factory(this); 
 
+    // cannot use "group by" in "select" clause.
     select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs);
     
     set_quantifier = (d100() == 1) ? "distinct" : "";
-    
-    search = bool_expr::factory(this); // cannot use group in where
+    use_group = tmp_group; // recover use_group
 
-    use_group = tmp_group;
-
-    has_group = false;
     if (use_group == 1) {
         group_clause = make_shared<struct group_clause>(this, this->scope, select_list, &from_clause->reflist.back()->refs);
         has_group = true;

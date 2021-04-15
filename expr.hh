@@ -190,4 +190,19 @@ struct window_function : value_expr {
   }
 };
 
+struct binop_expr : value_expr {
+    shared_ptr<value_expr> lhs, rhs;
+    op *oper;
+    binop_expr(prod *p, sqltype *type_constraint = 0);
+    virtual ~binop_expr() { }
+    virtual void out(std::ostream &out) { 
+        out << "(" << *lhs << " " << oper->name << " " << *rhs << ")";
+    }
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        lhs->accept(v);
+        rhs->accept(v);
+    }
+};
+
 #endif
