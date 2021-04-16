@@ -269,6 +269,14 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
             expr = to_string(d100());
         }
     }
+    else if (type == sqltype::typemap["REAL"]) {
+        if (d20() == 1) {
+            expr = "2147483648.100000";
+        }
+        else {
+            expr = to_string(d100()) + "." +  to_string(d100());
+        }
+    }
     else if (type == scope->schema->booltype)
         expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
     else if (type == sqltype::typemap["TEXT"]) 

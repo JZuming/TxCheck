@@ -193,39 +193,40 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     register_routine(proc);						\
 } while(0)
 
-    FUNC(last_insert_rowid, INTEGER);
-    FUNC(random, INTEGER);
-    FUNC(sqlite_source_id, TEXT);
-    FUNC(sqlite_version, TEXT);
-    FUNC(total_changes, INTEGER);
+    // FUNC(last_insert_rowid, INTEGER); // mysql do not support
+    // FUNC(random, INTEGER); // mysql do not support, use rand() instead.
+    // FUNC(sqlite_source_id, TEXT); // mysql do not support
+    // FUNC(sqlite_version, TEXT); // mysql do not support
+    // FUNC(total_changes, INTEGER); // mysql do not support
 
-    FUNC1(abs, INTEGER, REAL);
+    FUNC1(abs, INTEGER, INTEGER);
+    FUNC1(abs, REAL, REAL);
     FUNC1(hex, TEXT, TEXT);
     FUNC1(length, INTEGER, TEXT);
     FUNC1(lower, TEXT, TEXT);
     FUNC1(ltrim, TEXT, TEXT);
     FUNC1(quote, TEXT, TEXT);
-    FUNC1(randomblob, TEXT, INTEGER);
+    // FUNC1(randomblob, TEXT, INTEGER); // mysql do not support
     FUNC1(round, INTEGER, REAL);
     FUNC1(rtrim, TEXT, TEXT);
     FUNC1(soundex, TEXT, TEXT);
-    FUNC1(sqlite_compileoption_get, TEXT, INTEGER);
-    FUNC1(sqlite_compileoption_used, INTEGER, TEXT);
+    // FUNC1(sqlite_compileoption_get, TEXT, INTEGER); // mysql do not support
+    // FUNC1(sqlite_compileoption_used, INTEGER, TEXT); // mysql do not support
     FUNC1(trim, TEXT, TEXT);
-    FUNC1(typeof, TEXT, INTEGER);
-    // FUNC1(typeof, TEXT, NUMERIC);
-    FUNC1(typeof, TEXT, REAL);
-    FUNC1(typeof, TEXT, TEXT);
-    FUNC1(unicode, INTEGER, TEXT);
+    // FUNC1(typeof, TEXT, INTEGER); // mysql do not support
+    // FUNC1(typeof, TEXT, NUMERIC); // mysql do not support
+    // FUNC1(typeof, TEXT, REAL); // mysql do not support
+    // FUNC1(typeof, TEXT, TEXT); // mysql do not support
+    // FUNC1(unicode, INTEGER, TEXT); // mysql do not support
     FUNC1(upper, TEXT, TEXT);
-    FUNC1(zeroblob, TEXT, INTEGER);
+    // FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
 
-    FUNC2(glob, INTEGER, TEXT, TEXT);
+    // FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
     FUNC2(instr, INTEGER, TEXT, TEXT);
-    FUNC2(like, INTEGER, TEXT, TEXT);
-    FUNC2(ltrim, TEXT, TEXT, TEXT);
-    FUNC2(rtrim, TEXT, TEXT, TEXT);
-    FUNC2(trim, TEXT, TEXT, TEXT);
+    // FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
+    // FUNC2(ltrim, TEXT, TEXT, TEXT); // mysql do not support
+    // FUNC2(rtrim, TEXT, TEXT, TEXT); // mysql do not support 
+    // FUNC2(trim, TEXT, TEXT, TEXT);  // sqlite and mysql is different
     FUNC2(round, INTEGER, REAL, INTEGER);
     FUNC2(substr, TEXT, TEXT, INTEGER);
 
@@ -293,6 +294,13 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     for(auto &r: aggregates) {
         assert(r.restype);
         aggregates_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
+    }
+
+    for(auto &r: routines) {
+        assert(r.restype);
+        routines_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
+        if(!r.argtypes.size())
+            parameterless_routines_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
     }
     sqlite3_close(db);
     db = 0;

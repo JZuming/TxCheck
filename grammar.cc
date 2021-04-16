@@ -1075,7 +1075,9 @@ prod(parent), myscope(s)
             type_ptr++;
         
         while (type_ptr->first == "internal" || 
-            type_ptr->first == "ARRAY") {
+               type_ptr->first == "ARRAY" ||
+               type_ptr->first == "BOOLEAN" ||
+               type_ptr->first == "NUM") {
             type_ptr++;
             if (type_ptr == sqltype::typemap.end())
                 type_ptr = sqltype::typemap.begin();
