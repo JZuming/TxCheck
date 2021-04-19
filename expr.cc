@@ -64,10 +64,10 @@ string cast_type_name_wrapper(string origin_type_name)
         cast_type_name = integer_ret;
     else if (origin_type_name == "")
         cast_type_name = integer_ret;
-    else if (origin_type_name == "REAL")
-        cast_type_name = integer_ret;
-    else if (origin_type_name == "TEXT")
-        cast_type_name = "CHAR";
+    // else if (origin_type_name == "REAL")
+    //     cast_type_name = integer_ret;
+    // else if (origin_type_name == "TEXT")
+    //     cast_type_name = "CHAR";
     else
         cast_type_name = origin_type_name;
     
@@ -260,9 +260,9 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     : value_expr(p), expr("")
 {
     type = type_constraint ? type_constraint : scope->schema->inttype;
-      
+
     if (type == scope->schema->inttype) {
-        if (d20() == 1) {
+        if (d100() == 1) {
             expr = "9223372036854775808";
         }
         else {
@@ -270,7 +270,7 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
         }
     }
     else if (type == sqltype::typemap["REAL"]) {
-        if (d20() == 1) {
+        if (d100() == 1) {
             expr = "2147483648.100000";
         }
         else {

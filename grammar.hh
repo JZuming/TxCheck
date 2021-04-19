@@ -148,7 +148,7 @@ struct query_spec : prod {
     shared_ptr<struct from_clause> from_clause;
     shared_ptr<struct select_list> select_list;
     shared_ptr<bool_expr> search;
-    std::string limit_clause;
+    // std::string limit_clause;
     
     shared_ptr<struct group_clause> group_clause;
     bool has_group;

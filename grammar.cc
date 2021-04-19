@@ -262,9 +262,26 @@ void query_spec::out(std::ostream &out) {
         out << "group by ";
         out << *group_clause;
     }
-    if (limit_clause.length()) {
+
+    if (has_group == false && d6() > 2) {
         indent(out);
-        out << limit_clause;
+        out << "order by ";
+        auto &selected_columns = select_list->derived_table.columns();
+        auto select_list_size = selected_columns.size();
+        for (std::size_t i = 0; i < select_list_size; i++) {
+            out << selected_columns[i].name;
+            if (i + 1 < select_list_size)
+                out << ", ";
+            else
+                out << " ";
+        }
+
+        if (d6() > 3) 
+            out << "asc ";
+        else
+            out << "desc ";
+
+        out << "limit " << d100() + d100();
     }
 }
 
@@ -361,29 +378,6 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
     if (use_group == 1) {
         group_clause = make_shared<struct group_clause>(this, this->scope, select_list, &from_clause->reflist.back()->refs);
         has_group = true;
-    }
-
-    if (has_group == false && d6() > 2) {
-        ostringstream cons;
-        
-        cons << "order by ";
-        auto &selected_columns = select_list->derived_table.columns();
-        auto select_list_size = selected_columns.size();
-        for (std::size_t i = 0; i < select_list_size; i++) {
-            cons << selected_columns[i].name;
-            if (i + 1 < select_list_size)
-                cons << ", ";
-            else
-                cons << " ";
-        }
-
-        if (d6() > 3) 
-            cons << "asc ";
-        else
-            cons << "desc ";
-
-        cons << "limit " << d100() + d100();
-        limit_clause = cons.str();
     }
 }
 
@@ -931,6 +925,7 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
     // remove the "BOOLEAN" columns
     subquery = make_shared<struct query_spec>(this, scope);
     auto &columns = subquery->select_list->derived_table.columns();
+    auto &exprs = subquery->select_list->value_exprs;
     int size = columns.size();
 
     for (int i = 0; i < size; i++) {
@@ -938,6 +933,7 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
             continue;
         
         columns.erase(columns.begin() + i);
+        exprs.erase(exprs.begin() + i);
         i--;
     }
 
@@ -1103,7 +1099,19 @@ create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
     is_unique = (d6() == 1);
 
     index_name = unique_table_name(scope);
-    auto target_table = random_pick<>(s->tables);
+
+    // only choose base table
+    auto tables_size = s->tables.size();
+    auto chosen_one = dx(tables_size) - 1;
+    while (1) {
+        auto chosen_table = dynamic_cast<struct table*>(s->tables[chosen_one]);
+        if (chosen_table && chosen_table->is_base_table)
+            break;
+        chosen_one++;
+        if (chosen_one == tables_size)
+            chosen_one = 0;
+    }
+    auto target_table = s->tables[chosen_one];
     table_name = target_table->ident();
 
     auto target_columns = target_table->columns();
@@ -1147,7 +1155,18 @@ create_trigger_stmt::create_trigger_stmt(prod *parent, struct scope *s)
     else
         trigger_event = "delete";
     
-    table_name = random_pick<>(s->tables)->ident();
+    // only choose base table
+    auto tables_size = s->tables.size();
+    auto chosen_one = dx(tables_size) - 1;
+    while (1) {
+        auto chosen_table = dynamic_cast<struct table*>(s->tables[chosen_one]);
+        if (chosen_table && chosen_table->is_base_table)
+            break;
+        chosen_one++;
+        if (chosen_one == tables_size)
+            chosen_one = 0;
+    }
+    table_name = s->tables[chosen_one]->ident();
 
     int stmts_num = (d6() + 1) / 2; // 1 - 3
     for (int i = 0; i < stmts_num; i++) {

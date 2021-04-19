@@ -4,7 +4,7 @@
 #ifndef RANDOM_HH
 #define RANDOM_HH
 
-// #define __FILE_RANDOM__
+#define __FILE_RANDOM__
 #define __RAND_FILE_NAME__ "rand_file.txt"
 #define __READ_BYTE_NUM__ "read_byte.txt"
 
