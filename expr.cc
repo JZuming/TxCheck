@@ -440,7 +440,13 @@ window_function::window_function(prod *p, sqltype *type_constraint)
   : value_expr(p)
 {
   match();
-  aggregate = make_shared<funcall>(this, type_constraint, true);
+  while (1) {
+    aggregate = make_shared<funcall>(this, type_constraint, true);
+    if (aggregate->proc->name != "zipfile")
+        break;
+    aggregate.reset();
+  }
+  
   type = aggregate->type;
   partition_by.push_back(make_shared<column_reference>(this));
   while(d6() > 4)

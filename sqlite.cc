@@ -194,7 +194,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 } while(0)
 
     FUNC(last_insert_rowid, INTEGER); // mysql do not support
-    FUNC(random, INTEGER); // mysql do not support, use rand() instead.
+    // FUNC(random, INTEGER); // mysql do not support, use rand() instead.
     FUNC(sqlite_source_id, TEXT); // mysql do not support
     FUNC(sqlite_version, TEXT); // mysql do not support
     FUNC(total_changes, INTEGER); // mysql do not support
@@ -206,7 +206,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     FUNC1(lower, TEXT, TEXT);
     FUNC1(ltrim, TEXT, TEXT);
     FUNC1(quote, TEXT, TEXT);
-    FUNC1(randomblob, TEXT, INTEGER); // mysql do not support
+    // FUNC1(randomblob, TEXT, INTEGER); // mysql do not support
     FUNC1(round, INTEGER, REAL);
     FUNC1(rtrim, TEXT, TEXT);
     // FUNC1(soundex, TEXT, TEXT); //sqlite dont support
@@ -240,6 +240,15 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     register_aggregate(proc);						\
 } while(0)
 
+#define AGG3(n, r, a, b, c, d) do {						\
+    routine proc("", "", sqltype::get(#r), #n);				\
+    proc.argtypes.push_back(sqltype::get(#a));				\
+    proc.argtypes.push_back(sqltype::get(#b));				\
+    proc.argtypes.push_back(sqltype::get(#c));				\
+    proc.argtypes.push_back(sqltype::get(#d));				\
+    register_aggregate(proc);						\
+} while(0)
+
 #define AGG(n, r) do {						\
     routine proc("", "", sqltype::get(#r), #n);				\
     register_aggregate(proc);						\
@@ -251,15 +260,17 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     AGG1(count, INTEGER, REAL);
     AGG1(count, INTEGER, TEXT);
     AGG1(count, INTEGER, INTEGER);
-    // AGG1(group_concat, TEXT, TEXT);
+    AGG1(group_concat, TEXT, TEXT);
     AGG1(max, REAL, REAL);
     AGG1(max, INTEGER, INTEGER);
     AGG1(min, REAL, REAL);
     AGG1(min, INTEGER, INTEGER);
     AGG1(sum, REAL, REAL);
     AGG1(sum, INTEGER, INTEGER);
-    // AGG(total, REAL, INTEGER);
-    // AGG(total, REAL, REAL);
+    AGG1(total, REAL, INTEGER);
+    AGG1(total, REAL, REAL);
+
+    AGG3(zipfile, TEXT, TEXT, INTEGER, INTEGER, REAL);
 
     booltype = sqltype::get("BOOLEAN");
     inttype = sqltype::get("INTEGER");
