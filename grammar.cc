@@ -16,6 +16,45 @@ int use_group = 2; // 0->no group, 1->use group, 2->to_be_define
 int in_update_set_list = 0;
 set<string> update_used_column_ref;
 
+static void exclude_tables(
+    table *victim,
+    vector<named_relation *> &target_tables,
+    multimap<sqltype*, table*> &target_t_with_c_of_type,
+    vector<named_relation *> &excluded_tables,
+    vector<pair<sqltype*, table*>> &excluded_t_with_c_of_type)
+{
+    for (std::size_t i = 0; i < target_tables.size(); i++) {
+        if (target_tables[i]->ident() == victim->ident()) {
+            excluded_tables.push_back(target_tables[i]);
+            target_tables.erase(target_tables.begin() + i);
+            i--;
+        }
+    }
+
+    for (auto iter = target_t_with_c_of_type.begin(); iter != target_t_with_c_of_type.end();) {
+        if (iter->second->ident() == victim->ident()) {
+            excluded_t_with_c_of_type.push_back(*iter);
+            iter = target_t_with_c_of_type.erase(iter);
+        }
+        else
+            iter++;
+    }
+}
+
+static void recover_tables(
+    vector<named_relation *> &target_tables,
+    multimap<sqltype*, table*> &target_t_with_c_of_type,
+    vector<named_relation *> &excluded_tables,
+    vector<pair<sqltype*, table*>> &excluded_t_with_c_of_type)
+{
+    for (std::size_t i = 0; i < excluded_tables.size(); i++) {
+        target_tables.push_back(excluded_tables[i]);
+    }
+    for (auto iter = excluded_t_with_c_of_type.begin(); iter != excluded_t_with_c_of_type.end(); iter++) {
+        target_t_with_c_of_type.insert(*iter);
+    }
+}
+
 shared_ptr<table_ref> table_ref::factory(prod *p) {
     try {
         if (p->level < 3 + d6()) {
@@ -411,20 +450,19 @@ delete_stmt::delete_stmt(prod *p, struct scope *s, table *v)
     scope->refs.push_back(victim);
     
     // dont select the target table
-    vector<named_relation *> exclude_tables;
-    for (std::size_t i = 0; i < scope->tables.size(); i++) {
-        if (scope->tables[i]->ident() == victim->ident()) {
-            exclude_tables.push_back(scope->tables[i]);
-            scope->tables.erase(scope->tables.begin() + i);
-            i--;
-        }
-    }
+    vector<named_relation *> excluded_tables;
+    vector<pair<sqltype*, table*>> excluded_t_with_c_of_type;
+    exclude_tables(victim, scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
 
     search = bool_expr::factory(this);
     
-    for (std::size_t i = 0; i < exclude_tables.size(); i++) {
-        scope->tables.push_back(exclude_tables[i]);
-    }
+    recover_tables(scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
 }
 
 delete_returning::delete_returning(prod *p, struct scope *s, table *victim)
@@ -439,14 +477,12 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
     match();
 
     // dont select the target table
-    vector<named_relation *> exclude_tables;
-    for (std::size_t i = 0; i < scope->tables.size(); i++) {
-        if (scope->tables[i]->ident() == victim->ident()) {
-            exclude_tables.push_back(scope->tables[i]);
-            scope->tables.erase(scope->tables.begin() + i);
-            i--;
-        }
-    }
+    vector<named_relation *> excluded_tables;
+    vector<pair<sqltype*, table*>> excluded_t_with_c_of_type;
+    exclude_tables(victim, scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
 
     for (auto col : victim->columns()) {
         auto expr = value_expr::factory(this, col.type);
@@ -454,9 +490,10 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
         value_exprs.push_back(expr);
     }
 
-    for (std::size_t i = 0; i < exclude_tables.size(); i++) {
-        scope->tables.push_back(exclude_tables[i]);
-    }
+    recover_tables(scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
 }
 
 void insert_stmt::out(std::ostream &out)
@@ -517,21 +554,20 @@ update_stmt::update_stmt(prod *p, struct scope *s, table *v)
     scope->refs.push_back(victim);
 
     // dont select the target table
-    vector<named_relation *> exclude_tables;
-    for (std::size_t i = 0; i < scope->tables.size(); i++) {
-        if (scope->tables[i]->ident() == victim->ident()) {
-            exclude_tables.push_back(scope->tables[i]);
-            scope->tables.erase(scope->tables.begin() + i);
-            i--;
-        }
-    }
+    vector<named_relation *> excluded_tables;
+    vector<pair<sqltype*, table*>> excluded_t_with_c_of_type;
+    exclude_tables(victim, scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
 
     search = bool_expr::factory(this);
     set_list = make_shared<struct set_list>(this, victim);
 
-    for (std::size_t i = 0; i < exclude_tables.size(); i++) {
-        scope->tables.push_back(exclude_tables[i]);
-    }
+    recover_tables(scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
 }
 
 void update_stmt::out(std::ostream &out)
@@ -868,21 +904,11 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     int column_num = dx(10);
     for (int i = 0; i < column_num; i++) {
         string column_name = create_unique_column_name();
-        int type_idx = dx(sqltype::typemap.size()) - 1;
-        auto type_ptr = sqltype::typemap.begin();
-        for (int j = 0; j < type_idx; j++) 
-            type_ptr++;
-        
-        while (type_ptr->first == "internal" || 
-               type_ptr->first == "ARRAY" ||
-               type_ptr->first == "BOOLEAN" ||
-               type_ptr->first == "NUM") {
-            type_ptr++;
-            if (type_ptr == sqltype::typemap.end())
-                type_ptr = sqltype::typemap.begin();
-        }
-
-        auto type = type_ptr->second;
+        vector<sqltype *> enable_type;
+        enable_type.push_back(sqltype::get("INTEGER"));
+        enable_type.push_back(sqltype::get("TEXT"));
+        enable_type.push_back(sqltype::get("REAL"));
+        auto type = random_pick<>(enable_type);
 
         column create_column(column_name, type);
         created_table->columns().push_back(create_column);
@@ -929,7 +955,7 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
     int size = columns.size();
 
     for (int i = 0; i < size; i++) {
-        if (sqltype::typemap["BOOLEAN"] != columns[i].type)
+        if (sqltype::get("BOOLEAN") != columns[i].type)
             continue;
         
         columns.erase(columns.begin() + i);
@@ -1116,6 +1142,8 @@ create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
 
     auto target_columns = target_table->columns();
     for (auto &col : target_columns) {
+        if (col.type == sqltype::get("TEXT"))
+            continue;
         indexed_columns.push_back(col.name);
     }
     auto indexed_num = dx(target_columns.size());

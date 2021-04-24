@@ -161,8 +161,8 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     BINOP(=, INTEGER, INTEGER, BOOLEAN);
     BINOP(<>, INTEGER, INTEGER, BOOLEAN);
-    BINOP(IS, INTEGER, INTEGER, BOOLEAN);
-    BINOP(IS NOT, INTEGER, INTEGER, BOOLEAN);
+    // BINOP(IS, INTEGER, INTEGER, BOOLEAN);
+    // BINOP(IS NOT, INTEGER, INTEGER, BOOLEAN);
 
     BINOP(AND, BOOLEAN, BOOLEAN, BOOLEAN);
     BINOP(OR, BOOLEAN, BOOLEAN, BOOLEAN);
@@ -193,11 +193,11 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     register_routine(proc);						\
 } while(0)
 
-    FUNC(last_insert_rowid, INTEGER); // mysql do not support
+    // FUNC(last_insert_rowid, INTEGER); // mysql do not support
     // FUNC(random, INTEGER); // mysql do not support, use rand() instead.
-    FUNC(sqlite_source_id, TEXT); // mysql do not support
-    FUNC(sqlite_version, TEXT); // mysql do not support
-    FUNC(total_changes, INTEGER); // mysql do not support
+    // FUNC(sqlite_source_id, TEXT); // mysql do not support
+    // FUNC(sqlite_version, TEXT); // mysql do not support
+    // FUNC(total_changes, INTEGER); // mysql do not support
 
     FUNC1(abs, INTEGER, INTEGER);
     FUNC1(abs, REAL, REAL);
@@ -210,23 +210,23 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     FUNC1(round, INTEGER, REAL);
     FUNC1(rtrim, TEXT, TEXT);
     // FUNC1(soundex, TEXT, TEXT); //sqlite dont support
-    FUNC1(sqlite_compileoption_get, TEXT, INTEGER); // mysql do not support
-    FUNC1(sqlite_compileoption_used, INTEGER, TEXT); // mysql do not support
+    // FUNC1(sqlite_compileoption_get, TEXT, INTEGER); // mysql do not support
+    // FUNC1(sqlite_compileoption_used, INTEGER, TEXT); // mysql do not support
     FUNC1(trim, TEXT, TEXT);
-    FUNC1(typeof, TEXT, INTEGER); // mysql do not support
-    FUNC1(typeof, TEXT, NUMERIC); // mysql do not support
-    FUNC1(typeof, TEXT, REAL); // mysql do not support
-    FUNC1(typeof, TEXT, TEXT); // mysql do not support
-    FUNC1(unicode, INTEGER, TEXT); // mysql do not support
+    // FUNC1(typeof, TEXT, INTEGER); // mysql do not support
+    // FUNC1(typeof, TEXT, NUMERIC); // mysql do not support
+    // FUNC1(typeof, TEXT, REAL); // mysql do not support
+    // FUNC1(typeof, TEXT, TEXT); // mysql do not support
+    // FUNC1(unicode, INTEGER, TEXT); // mysql do not support
     FUNC1(upper, TEXT, TEXT);
-    FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
+    // FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
 
-    FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
+    // FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
     FUNC2(instr, INTEGER, TEXT, TEXT);
-    FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
-    FUNC2(ltrim, TEXT, TEXT, TEXT); // mysql do not support
-    FUNC2(rtrim, TEXT, TEXT, TEXT); // mysql do not support 
-    FUNC2(trim, TEXT, TEXT, TEXT);  // sqlite and mysql is different
+    // FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
+    // FUNC2(ltrim, TEXT, TEXT, TEXT); // mysql do not support
+    // FUNC2(rtrim, TEXT, TEXT, TEXT); // mysql do not support 
+    // FUNC2(trim, TEXT, TEXT, TEXT);  // sqlite and mysql is different
     FUNC2(round, INTEGER, REAL, INTEGER);
     FUNC2(substr, TEXT, TEXT, INTEGER);
 
@@ -260,17 +260,17 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     AGG1(count, INTEGER, REAL);
     AGG1(count, INTEGER, TEXT);
     AGG1(count, INTEGER, INTEGER);
-    AGG1(group_concat, TEXT, TEXT);
+    // AGG1(group_concat, TEXT, TEXT); //mysql do not support
     AGG1(max, REAL, REAL);
     AGG1(max, INTEGER, INTEGER);
     AGG1(min, REAL, REAL);
     AGG1(min, INTEGER, INTEGER);
     AGG1(sum, REAL, REAL);
     AGG1(sum, INTEGER, INTEGER);
-    AGG1(total, REAL, INTEGER);
-    AGG1(total, REAL, REAL);
+    // AGG1(total, REAL, INTEGER); //mysql do not support
+    // AGG1(total, REAL, REAL); //mysql do not support
 
-    AGG3(zipfile, TEXT, TEXT, INTEGER, INTEGER, REAL);
+    // AGG3(zipfile, TEXT, TEXT, INTEGER, INTEGER, REAL); //mysql do not support
 
     booltype = sqltype::get("BOOLEAN");
     inttype = sqltype::get("INTEGER");

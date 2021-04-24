@@ -21,7 +21,7 @@ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint,
 vector<shared_ptr<named_relation> > *prefer_refs)
 {
     try {
-        if (sqltype::typemap["BOOLEAN"] == type_constraint)
+        if (sqltype::get("BOOLEAN") == type_constraint)
             return bool_expr::factory(p); 
         
         if (p->level < d6()) {
@@ -53,7 +53,8 @@ vector<shared_ptr<named_relation> > *prefer_refs)
 
 string cast_type_name_wrapper(string origin_type_name)
 {
-    string integer_ret = "INTEGER"; // use SIGNED in mysql, use integer in pgsql
+    string integer_ret = "SIGNED"; // use SIGNED in mysql, use integer in pgsql
+    string boolean_ret = "UNSIGNED"; // use UNSIGNED in mysql, use boolean in pgsql
     
     string cast_type_name;
     if (origin_type_name == "NUMERIC")
@@ -64,10 +65,12 @@ string cast_type_name_wrapper(string origin_type_name)
         cast_type_name = integer_ret;
     else if (origin_type_name == "")
         cast_type_name = integer_ret;
+    else if (origin_type_name == "BOOLEAN")
+        cast_type_name = boolean_ret;
     // else if (origin_type_name == "REAL")
     //     cast_type_name = integer_ret;
-    // else if (origin_type_name == "TEXT")
-    //     cast_type_name = "CHAR";
+    else if (origin_type_name == "TEXT")
+        cast_type_name = "CHAR";
     else
         cast_type_name = origin_type_name;
     
@@ -261,6 +264,11 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
 {
     type = type_constraint ? type_constraint : scope->schema->inttype;
 
+    if (d9() == 1) {
+        expr = "cast(null as " + cast_type_name_wrapper(type->name) + ")";
+        return;
+    }
+
     if (type == scope->schema->inttype) {
         if (d100() == 1) {
             expr = "9223372036854775808";
@@ -269,7 +277,7 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
             expr = to_string(d100());
         }
     }
-    else if (type == sqltype::typemap["REAL"]) {
+    else if (type == sqltype::get("REAL")) {
         if (d100() == 1) {
             expr = "2147483648.100000";
         }
@@ -279,7 +287,7 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     }
     else if (type == scope->schema->booltype)
         expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
-    else if (type == sqltype::typemap["TEXT"]) 
+    else if (type == sqltype::get("TEXT")) 
         expr = "'" + random_identifier_generate() + "'";
 //   else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
 //     expr += "default";
