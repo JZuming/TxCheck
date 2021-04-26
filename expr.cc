@@ -16,6 +16,7 @@ using impedance::matched;
 
 extern int in_update_set_list;
 extern set<string> update_used_column_ref;
+extern int use_group; // 0->no group, 1->use group, 2->to_be_define
 
 shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint, 
 vector<shared_ptr<named_relation> > *prefer_refs)
@@ -534,4 +535,59 @@ like_op::like_op(prod *p) : bool_expr(p)
         like_operator = " like ";
     else
         like_operator = " not like ";
+}
+
+in_op::in_op(prod *p) : bool_expr(p)
+{
+    lhs = value_expr::factory(this);
+    if (d6() < 4)
+        in_operator = " in ";
+    else
+        in_operator = " not in ";
+    
+    if (d6() < 6)
+        use_query = true;
+    else
+        use_query = false;
+    
+    if (!use_query) {
+        auto vec_size = dx(5);
+        for (; vec_size > 0; vec_size--) {
+            auto e = value_expr::factory(this, lhs->type);
+            expr_vec.push_back(e);
+        }
+    }
+    else {
+        auto tmp_use_group = use_group;
+        use_group = 0;
+        in_subquery = make_shared<query_spec>(this, scope);
+        use_group = tmp_use_group;
+    }
+
+}
+
+void in_op::out(std::ostream &out) {
+    out << *lhs << in_operator << "(";
+    if (!use_query) {
+        for (size_t i = 0; i < expr_vec.size(); i++) {
+            out << *expr_vec[i];
+            if (i < expr_vec.size() - 1)
+                out << ", ";
+        }
+    }
+    else {
+        out << *in_subquery;
+    }
+    out << ") ";
+}
+
+void in_op::accept(prod_visitor *v) {
+    v->visit(this);
+    lhs->accept(v);
+    if (use_query)
+        in_subquery->accept(v);
+    else {
+        for (size_t i = 0; i < expr_vec.size(); i++)
+            expr_vec[i]->accept(v);
+    }
 }

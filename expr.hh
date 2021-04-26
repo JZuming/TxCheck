@@ -235,4 +235,16 @@ struct like_op : bool_expr {
     }
 };
 
+struct in_op : bool_expr {
+    shared_ptr<value_expr> lhs;
+    string in_operator; // in or not in
+    bool use_query;
+    shared_ptr<query_spec> in_subquery;
+    vector<shared_ptr<value_expr>> expr_vec;
+    in_op(prod *p);
+    virtual ~in_op() { };
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v);
+};
+
 #endif
