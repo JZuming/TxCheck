@@ -229,6 +229,10 @@ struct like_op : bool_expr {
     virtual void out(std::ostream &o) {
         o << *lhs << like_operator << like_format;
     }
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        lhs->accept(v);
+    }
 };
 
 #endif
