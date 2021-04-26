@@ -205,4 +205,30 @@ struct binop_expr : value_expr {
     }
 };
 
+struct between_op : bool_expr {
+    shared_ptr<value_expr> lhs, rhs, mhs;
+    between_op(prod *p);
+    virtual ~between_op() { };
+    virtual void out(std::ostream &o) {
+        o << *mhs << " between " << *lhs << " and " << *rhs;
+    }
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        mhs->accept(v);
+        lhs->accept(v);
+        rhs->accept(v);
+    }
+};
+
+struct like_op : bool_expr {
+    shared_ptr<value_expr> lhs;
+    string like_operator; // like or not like
+    string like_format;
+    like_op(prod *p);
+    virtual ~like_op() { };
+    virtual void out(std::ostream &o) {
+        o << *lhs << like_operator << like_format;
+    }
+};
+
 #endif

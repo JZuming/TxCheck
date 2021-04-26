@@ -162,25 +162,30 @@ value_expr(p)
 
 shared_ptr<bool_expr> bool_expr::factory(prod *p)
 {
-  try {
-       if (p->level > d100())
-	    return make_shared<truth_value>(p);
-       if(d6() < 4)
-	    return make_shared<comparison_op>(p);
-       else if (d6() < 4)
-	    return make_shared<bool_term>(p);
-       else if (d6() < 4)
-	    return make_shared<null_predicate>(p);
-       else if (d6() < 4)
-	    return make_shared<truth_value>(p);
-       else
-	    return make_shared<exists_predicate>(p);
-//     return make_shared<distinct_pred>(q);
-  } catch (runtime_error &e) {
-  }
-  p->retry();
-  return factory(p);
-     
+    try {
+        if (p->level > d100())
+            return make_shared<truth_value>(p);
+        
+        auto choose = d42();
+        if(choose <= 20)
+            return make_shared<comparison_op>(p);
+        else if (choose <= 30)
+            return make_shared<bool_term>(p);
+        else if (choose <= 33)
+            return make_shared<null_predicate>(p);
+        else if (choose <= 36)
+            return make_shared<truth_value>(p);
+        else if (choose <= 38)
+            return make_shared<between_op>(p);
+        else if (choose <= 40)
+            return make_shared<like_op>(p);
+        else
+            return make_shared<exists_predicate>(p);
+        //     return make_shared<distinct_pred>(q);
+    } catch (runtime_error &e) {
+    }
+    p->retry();
+    return factory(p);
 }
 
 exists_predicate::exists_predicate(prod *p) : bool_expr(p)
@@ -264,33 +269,30 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
 {
     type = type_constraint ? type_constraint : scope->schema->inttype;
 
-    if (d9() == 1) {
+    if (type == scope->schema->inttype) {
+        if (d100() == 1)
+            expr = "9223372036854775808";
+        else
+            expr = to_string(d100());
+        
+        return;
+    }
+
+   if (d9() == 1) {
         expr = "cast(null as " + cast_type_name_wrapper(type->name) + ")";
         return;
     }
 
-    if (type == scope->schema->inttype) {
-        if (d100() == 1) {
-            expr = "9223372036854775808";
-        }
-        else {
-            expr = to_string(d100());
-        }
-    }
-    else if (type == sqltype::get("REAL")) {
-        if (d100() == 1) {
+    if (type == sqltype::get("REAL")) {
+        if (d100() == 1)
             expr = "2147483648.100000";
-        }
-        else {
+        else 
             expr = to_string(d100()) + "." +  to_string(d100());
-        }
     }
     else if (type == scope->schema->booltype)
         expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
     else if (type == sqltype::get("TEXT")) 
         expr = "'" + random_identifier_generate() + "'";
-//   else if (dynamic_cast<insert_stmt*>(p) && (d6() > 3))
-//     expr += "default";
     else
         expr += "cast(null as " + cast_type_name_wrapper(type->name) + ")";
 }
@@ -502,4 +504,34 @@ retry:
         else
             rhs = value_expr::factory(this, lhs->type);
     }
+}
+
+between_op::between_op(prod *p) : bool_expr(p)
+{
+    mhs = value_expr::factory(this, scope->schema->inttype);
+    lhs = value_expr::factory(this, scope->schema->inttype);
+    rhs = value_expr::factory(this, scope->schema->inttype);
+}
+
+like_op::like_op(prod *p) : bool_expr(p)
+{
+    lhs = value_expr::factory(this, sqltype::get("TEXT"));
+    
+    like_format = random_identifier_generate();
+    auto scope = like_format.size() / 3;
+    scope = scope == 0 ? 1 : scope;
+    auto change_time = dx(scope);
+    for (; change_time > 0; change_time--) {
+        auto pos = dx(like_format.size()) - 1;
+        if (d6() < 4)
+            like_format[pos] = '%';
+        else
+            like_format[pos] = '_';
+    }
+    like_format = "'" + like_format + "'";
+
+    if (d6() < 4)
+        like_operator = " like ";
+    else
+        like_operator = " not like ";
 }
