@@ -317,6 +317,11 @@ void query_spec::out(std::ostream &out) {
         out << *group_clause;
     }
 
+    if (has_window) {
+        indent(out);
+        out << *window_clause;
+    }
+
     if (has_group == false && d6() > 2) {
         indent(out);
         out << "order by ";
@@ -406,6 +411,7 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
     scope->tables = s->tables;
     has_group = false;
     has_limit = false;
+    has_window = false;
 
     if (use_group == 2) { // confirm whether use group
         if (d6() == 1) use_group = 1;
@@ -439,6 +445,23 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
     if (in_in_clause == 0 && d6() < 3) {
         has_limit = true;
         limit_num = d100() + d100();
+    }
+
+    if (has_group == false && d9() == 1) {
+        has_window = true;
+        window_clause = make_shared<named_window>(this, this->scope);
+        auto &select_exprs = select_list->value_exprs;
+        auto size = select_exprs.size();
+        
+        for (size_t i = 0; i < size; i++) {
+            if (!dynamic_pointer_cast<window_function>(select_exprs[i]))
+                continue;
+            if (d6() > 3) // 50%
+                continue;
+            auto new_expr = make_shared<win_func_using_exist_win>(this, select_exprs[i]->type, window_clause->window_name);
+            select_exprs.erase(select_exprs.begin() + i);
+            select_exprs.insert(select_exprs.begin() + i, new_expr);
+        }
     }
 }
 
@@ -1249,4 +1272,50 @@ void create_trigger_stmt::out(std::ostream &out)
         indent(out);
     }
     out << "end";
+}
+
+named_window::named_window(prod *p, struct scope *s):
+ prod(p), myscope(s)
+{
+    scope = &myscope;
+    scope->tables = s->tables;
+
+    window_name = random_identifier_generate();
+
+    int partition_num = d6() > 4 ? 2 : 1;
+    while (partition_num > 0) {
+        auto partition_expr = value_expr::factory(this);
+        if (!dynamic_pointer_cast<const_expr>(partition_expr)) {
+            partition_by.push_back(partition_expr);
+            partition_num--;
+        }
+    }
+
+    int order_num = d6() > 4 ? 2 : 1;
+    while (order_num > 0) {
+        auto order_expr = value_expr::factory(this);
+        if (!dynamic_pointer_cast<const_expr>(order_expr)) {
+            order_by.push_back(order_expr);
+            order_num--;
+        }
+    }
+}
+
+void named_window::out(std::ostream &out)
+{
+    out << "window " << window_name << " as ( partition by ";
+    for (auto ref = partition_by.begin(); ref != partition_by.end(); ref++) {
+        out << **ref;
+        if (ref + 1 != partition_by.end())
+            out << ",";
+    }
+
+    out << " order by ";
+    for (auto ref = order_by.begin(); ref != order_by.end(); ref++) {
+        out << **ref;
+        if (ref + 1 != order_by.end())
+            out << ",";
+    }
+    
+    out << ")";
 }

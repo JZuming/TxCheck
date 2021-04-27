@@ -143,17 +143,38 @@ struct group_clause: prod {
     }
 };
 
+struct named_window : prod {
+    struct scope myscope;
+    virtual void out(std::ostream &out);
+    virtual ~named_window() { }
+    named_window(prod *p, struct scope *s);
+    string window_name;
+    vector<shared_ptr<value_expr> > partition_by;
+    vector<shared_ptr<value_expr> > order_by;
+
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        for (auto p : partition_by)
+            p->accept(v);
+        for (auto p : order_by)
+            p->accept(v);
+    }
+};
+
 struct query_spec : prod {
     std::string set_quantifier;
     shared_ptr<struct from_clause> from_clause;
     shared_ptr<struct select_list> select_list;
     shared_ptr<bool_expr> search;
-    // std::string limit_clause;
     
-    shared_ptr<struct group_clause> group_clause;
     bool has_group;
+    shared_ptr<struct group_clause> group_clause;
+    
     bool has_limit;
     int limit_num;
+
+    bool has_window;
+    shared_ptr<struct named_window> window_clause; 
     
     struct scope myscope;
     virtual void out(std::ostream &out);
@@ -163,6 +184,10 @@ struct query_spec : prod {
         select_list->accept(v);
         from_clause->accept(v);
         search->accept(v);
+        if (has_group)
+            group_clause->accept(v);
+        if (has_window)
+            window_clause->accept(v);
     }
 };
 

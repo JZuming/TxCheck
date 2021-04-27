@@ -598,3 +598,22 @@ void in_op::accept(prod_visitor *v) {
             expr_vec[i]->accept(v);
     }
 }
+
+void win_func_using_exist_win::out(std::ostream &out)
+{
+  indent(out);
+  out << *aggregate << " over " + exist_window;
+}
+
+win_func_using_exist_win::win_func_using_exist_win(prod *p, sqltype *type_constraint, string exist_win)
+  : value_expr(p)
+{
+  match();
+    while (1) {
+        aggregate = make_shared<funcall>(this, type_constraint, true);
+        if (aggregate->proc->name != "zipfile")
+            break;
+        aggregate.reset();
+    }
+    exist_window = exist_win;
+}
