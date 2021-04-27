@@ -120,7 +120,7 @@ struct select_list : prod {
     std::vector<shared_ptr<named_relation> > *prefer_refs;
     relation derived_table;
     int columns = 0;
-    select_list(prod *p, std::vector<shared_ptr<named_relation> > *refs = 0);
+    select_list(prod *p, std::vector<shared_ptr<named_relation> > *refs = 0, vector<sqltype *> *pointed_type = NULL);
     virtual void out(std::ostream &out);
     ~select_list() { }
     virtual void accept(prod_visitor *v) {
@@ -152,10 +152,12 @@ struct query_spec : prod {
     
     shared_ptr<struct group_clause> group_clause;
     bool has_group;
+    bool has_limit;
+    int limit_num;
     
     struct scope myscope;
     virtual void out(std::ostream &out);
-    query_spec(prod *p, struct scope *s, bool lateral = 0);
+    query_spec(prod *p, struct scope *s, bool lateral = 0, vector<sqltype *> *pointed_type = NULL);
     virtual void accept(prod_visitor *v) {
         v->visit(this);
         select_list->accept(v);

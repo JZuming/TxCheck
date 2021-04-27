@@ -14,6 +14,7 @@ using namespace std;
 
 int use_group = 2; // 0->no group, 1->use group, 2->to_be_define
 int in_update_set_list = 0;
+int in_in_clause = 0; // 0-> not in "in" clause, 1-> in "in" clause
 set<string> update_used_column_ref;
 
 static void exclude_tables(
@@ -262,17 +263,31 @@ from_clause::from_clause(prod *p) : prod(p) {
 //   }
 }
 
-select_list::select_list(prod *p, vector<shared_ptr<named_relation> > *refs) : prod(p), prefer_refs(refs)
+select_list::select_list(prod *p, vector<shared_ptr<named_relation> > *refs, vector<sqltype *> *pointed_type) :
+ prod(p), prefer_refs(refs)
 {
-    do {
-        shared_ptr<value_expr> e = value_expr::factory(this, 0, prefer_refs);
-        value_exprs.push_back(e);
-        ostringstream name;
-        name << "c" << columns++;
-        sqltype *t = e->type;
-        assert(t);
-        derived_table.columns().push_back(column(name.str(), t));
-    } while (d6() > 1);
+    if (pointed_type == NULL) {
+        do {
+            shared_ptr<value_expr> e = value_expr::factory(this, 0, prefer_refs);
+            value_exprs.push_back(e);
+            ostringstream name;
+            name << "c" << columns++;
+            sqltype *t = e->type;
+            assert(t);
+            derived_table.columns().push_back(column(name.str(), t));
+        } while (d6() > 1);
+    }
+    else {
+        for (size_t i = 0; i < pointed_type->size(); i++) {
+            shared_ptr<value_expr> e = value_expr::factory(this, (*pointed_type)[i], prefer_refs);
+            value_exprs.push_back(e);
+            ostringstream name;
+            name << "c" << columns++;
+            sqltype *t = e->type;
+            assert(t);
+            derived_table.columns().push_back(column(name.str(), t));
+        }
+    }
 }
 
 void select_list::out(std::ostream &out)
@@ -316,12 +331,12 @@ void query_spec::out(std::ostream &out) {
         }
 
         if (d6() > 3) 
-            out << "asc ";
+            out << "asc";
         else
-            out << "desc ";
-
-        out << "limit " << d100() + d100();
+            out << "desc";
     }
+    if (has_limit)
+        out << " limit " << limit_num;
 }
 
 struct for_update_verify : prod_visitor {
@@ -384,11 +399,13 @@ void select_for_update::out(std::ostream &out) {
   }
 }
 
-query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
-  prod(p), myscope(s), has_group(false)
+query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *> *pointed_type) :
+  prod(p), myscope(s)
 {
     scope = &myscope; // isolate the scope, dont effect the upper ones
     scope->tables = s->tables;
+    has_group = false;
+    has_limit = false;
 
     if (use_group == 2) { // confirm whether use group
         if (d6() == 1) use_group = 1;
@@ -409,14 +426,19 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral) :
     search = bool_expr::factory(this); 
 
     // cannot use "group by" in "select" clause.
-    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs);
+    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, pointed_type);
     
-    set_quantifier = (d100() == 1) ? "distinct" : "";
+    set_quantifier = (d9() == 1) ? "distinct" : "";
     use_group = tmp_group; // recover use_group
 
     if (use_group == 1) {
         group_clause = make_shared<struct group_clause>(this, this->scope, select_list, &from_clause->reflist.back()->refs);
         has_group = true;
+    }
+
+    if (in_in_clause == 0 && d6() < 3) {
+        has_limit = true;
+        limit_num = d100() + d100();
     }
 }
 

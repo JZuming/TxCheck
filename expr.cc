@@ -17,6 +17,7 @@ using impedance::matched;
 extern int in_update_set_list;
 extern set<string> update_used_column_ref;
 extern int use_group; // 0->no group, 1->use group, 2->to_be_define
+extern int in_in_clause; // 0-> not in "in" clause, 1-> in "in" clause
 
 shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint, 
 vector<shared_ptr<named_relation> > *prefer_refs)
@@ -41,7 +42,7 @@ vector<shared_ptr<named_relation> > *prefer_refs)
                 return make_shared<binop_expr>(p, type_constraint);
         }
         auto choice = d42();
-        if (choice <= 4)
+        if (in_in_clause == 0 && choice <= 4)
             return make_shared<atomic_subselect>(p, type_constraint);
         if (p->scope->refs.size() && choice <= 40)
             return make_shared<column_reference>(p, type_constraint, prefer_refs);
@@ -172,14 +173,16 @@ shared_ptr<bool_expr> bool_expr::factory(prod *p)
             return make_shared<comparison_op>(p);
         else if (choose <= 30)
             return make_shared<bool_term>(p);
-        else if (choose <= 33)
+        else if (choose <= 32)
             return make_shared<null_predicate>(p);
-        else if (choose <= 36)
+        else if (choose <= 34)
             return make_shared<truth_value>(p);
-        else if (choose <= 38)
+        else if (choose <= 36)
             return make_shared<between_op>(p);
-        else if (choose <= 40)
+        else if (choose <= 38)
             return make_shared<like_op>(p);
+        else if (choose <= 40)
+            return make_shared<in_op>(p);
         else
             return make_shared<exists_predicate>(p);
         //     return make_shared<distinct_pred>(q);
@@ -271,9 +274,9 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     type = type_constraint ? type_constraint : scope->schema->inttype;
 
     if (type == scope->schema->inttype) {
-        if (d100() == 1)
-            expr = "9223372036854775808";
-        else
+        // if (d100() == 1)
+        //     expr = "9223372036854775808";
+        // else
             expr = to_string(d100());
         
         return;
@@ -550,6 +553,8 @@ in_op::in_op(prod *p) : bool_expr(p)
     else
         use_query = false;
     
+    auto tmp_in_state = in_in_clause;
+    in_in_clause = 1;
     if (!use_query) {
         auto vec_size = dx(5);
         for (; vec_size > 0; vec_size--) {
@@ -560,10 +565,12 @@ in_op::in_op(prod *p) : bool_expr(p)
     else {
         auto tmp_use_group = use_group;
         use_group = 0;
-        in_subquery = make_shared<query_spec>(this, scope);
+        vector<sqltype *> pointed_type;
+        pointed_type.push_back(lhs->type);
+        in_subquery = make_shared<query_spec>(this, scope, false, &pointed_type);
         use_group = tmp_use_group;
     }
-
+    in_in_clause = tmp_in_state;
 }
 
 void in_op::out(std::ostream &out) {
@@ -578,7 +585,7 @@ void in_op::out(std::ostream &out) {
     else {
         out << *in_subquery;
     }
-    out << ") ";
+    out << ")";
 }
 
 void in_op::accept(prod_visitor *v) {
