@@ -169,13 +169,16 @@ struct query_spec : prod {
     
     bool has_group;
     shared_ptr<struct group_clause> group_clause;
+
+    bool has_window;
+    shared_ptr<struct named_window> window_clause;
+
+    bool has_order;
+    vector<shared_ptr<value_expr> > order_clause;
     
     bool has_limit;
     int limit_num;
 
-    bool has_window;
-    shared_ptr<struct named_window> window_clause; 
-    
     struct scope myscope;
     virtual void out(std::ostream &out);
     query_spec(prod *p, struct scope *s, bool lateral = 0, vector<sqltype *> *pointed_type = NULL);
@@ -434,6 +437,21 @@ struct create_trigger_stmt: prod {
         v->visit(this);
         for (auto &stmt : doing_stmts)
             stmt->accept(v); 
+    }
+};
+
+struct unioned_query : prod { //can be used as same as query_spec
+    struct scope myscope;
+    shared_ptr<query_spec> lhs;
+    shared_ptr<query_spec> rhs;
+    string type; // " union " or " union all "
+    virtual void out(std::ostream &out);  
+    unioned_query(prod *p, struct scope *s, bool lateral = 0, vector<sqltype *> *pointed_type = NULL);
+    virtual ~unioned_query() {}
+    virtual void accept(prod_visitor *v) {
+        lhs->accept(v);
+        rhs->accept(v);
+        v->visit(this);
     }
 };
 

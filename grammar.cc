@@ -322,12 +322,14 @@ void query_spec::out(std::ostream &out) {
         out << *window_clause;
     }
 
-    if (has_group == false && d6() > 2) {
+    if (has_order) {
         indent(out);
         out << "order by ";
         auto &selected_columns = select_list->derived_table.columns();
         auto select_list_size = selected_columns.size();
         for (std::size_t i = 0; i < select_list_size; i++) {
+            if (selected_columns[i].type == scope->schema->inttype && d9() == 1)
+                out << "-"; 
             out << selected_columns[i].name;
             if (i + 1 < select_list_size)
                 out << ", ";
@@ -340,6 +342,16 @@ void query_spec::out(std::ostream &out) {
         else
             out << "desc";
     }
+
+    // if (has_order) {
+    //     out << " order by ";
+    //     for (auto ref = order_clause.begin(); ref != order_clause.end(); ref++) {
+    //         out << **ref;
+    //         if (ref + 1 != order_clause.end())
+    //             out << ",";
+    //     }
+    // }
+
     if (has_limit)
         out << " limit " << limit_num;
 }
@@ -410,8 +422,9 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
     scope = &myscope; // isolate the scope, dont effect the upper ones
     scope->tables = s->tables;
     has_group = false;
-    has_limit = false;
     has_window = false;
+    has_order = false;
+    has_limit = false;
 
     if (use_group == 2) { // confirm whether use group
         if (d6() == 1) use_group = 1;
@@ -442,11 +455,6 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
         has_group = true;
     }
 
-    if (in_in_clause == 0 && d6() < 3) {
-        has_limit = true;
-        limit_num = d100() + d100();
-    }
-
     if (has_group == false && d9() == 1) {
         has_window = true;
         window_clause = make_shared<named_window>(this, this->scope);
@@ -462,6 +470,23 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
             select_exprs.erase(select_exprs.begin() + i);
             select_exprs.insert(select_exprs.begin() + i, new_expr);
         }
+    }
+
+    if (has_group == false && d6() == 1) {
+        has_order = true;
+        // int order_num = d6() > 4 ? 2 : 1;
+        // while (order_num > 0) {
+        //     auto order_expr = value_expr::factory(this, 0, &from_clause->reflist.back()->refs);
+        //     if (!dynamic_pointer_cast<const_expr>(order_expr)) {
+        //         order_clause.push_back(order_expr);
+        //         order_num--;
+        //     }
+        // }
+    }
+
+    if (in_in_clause == 0 && d6() < 3) { // the subquery in clause cannot use limit (mysql) 
+        has_limit = true;
+        limit_num = d100() + d100();
     }
 }
 
@@ -667,6 +692,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice <= 13)
             return make_shared<common_table_expression>((struct prod *)0, s);
+        if (choice <= 15)
+            return make_shared<unioned_query>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
         /* TODO:
         if (d42() == 1)
@@ -1318,4 +1345,39 @@ void named_window::out(std::ostream &out)
     }
     
     out << ")";
+}
+
+unioned_query::unioned_query(prod *p, struct scope *s, bool lateral, vector<sqltype *> *pointed_type):
+  prod(p), myscope(s)
+{
+    scope = &myscope; // isolate the scope, dont effect the upper ones
+    scope->tables = s->tables;
+    if (lateral)
+        scope->refs = s->refs;
+    
+    lhs = make_shared<query_spec>(this, this->scope, lateral, pointed_type);
+    vector<sqltype *> tmp_type_vec;
+    auto &lhs_exprs = lhs->select_list->value_exprs;
+    for (auto iter = lhs_exprs.begin(); iter != lhs_exprs.end(); iter++) {
+        tmp_type_vec.push_back((*iter)->type);
+    }
+    rhs = make_shared<query_spec>(this, this->scope, lateral, &tmp_type_vec);
+
+    lhs->has_order = false;
+    rhs->has_order = false;
+    lhs->has_limit = false;
+    rhs->has_limit = false;
+
+    if (d6() == 1)
+        type = "union all";
+    else
+        type = "union";
+}
+
+void unioned_query::out(std::ostream &out) {
+    out << *lhs;
+    indent(out);
+    out << type;
+    indent(out);
+    out << *rhs;
 }

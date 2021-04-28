@@ -66,6 +66,24 @@
         "condition_variable": "cpp",
         "shared_mutex": "cpp",
         "bit": "cpp",
-        "result": "cpp"
+        "result": "cpp",
+        "binarystring": "cpp",
+        "connection": "cpp",
+        "cursor": "cpp",
+        "errorhandler": "cpp",
+        "except": "cpp",
+        "largeobject": "cpp",
+        "nontransaction": "cpp",
+        "notification": "cpp",
+        "pipeline": "cpp",
+        "prepared_statement": "cpp",
+        "robusttransaction": "cpp",
+        "strconv": "cpp",
+        "stream_from": "cpp",
+        "stream_to": "cpp",
+        "subtransaction": "cpp",
+        "transaction": "cpp",
+        "transactor": "cpp",
+        "util": "cpp"
     }
 }

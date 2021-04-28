@@ -567,7 +567,10 @@ in_op::in_op(prod *p) : bool_expr(p)
         use_group = 0;
         vector<sqltype *> pointed_type;
         pointed_type.push_back(lhs->type);
-        in_subquery = make_shared<query_spec>(this, scope, false, &pointed_type);
+        if (d6() < 4)
+            in_subquery = make_shared<unioned_query>(this, scope, false, &pointed_type);
+        else 
+            in_subquery = make_shared<query_spec>(this, scope, false, &pointed_type);
         use_group = tmp_use_group;
     }
     in_in_clause = tmp_in_state;
