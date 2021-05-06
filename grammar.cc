@@ -554,11 +554,16 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
                     scope->schema->tables_with_columns_of_type, 
                     excluded_tables, 
                     excluded_t_with_c_of_type);
-
-    for (auto col : victim->columns()) {
-        auto expr = value_expr::factory(this, col.type);
-        assert(expr->type == col.type);
-        value_exprs.push_back(expr);
+    
+    auto insert_num = d6();
+    for (auto i = 0; i < insert_num; i++) {
+        vector<shared_ptr<value_expr> > value_exprs;
+        for (auto col : victim->columns()) {
+            auto expr = value_expr::factory(this, col.type);
+            assert(expr->type == col.type);
+            value_exprs.push_back(expr);
+        }
+        value_exprs_vector.push_back(value_exprs);
     }
 
     recover_tables(scope->tables, 
@@ -571,22 +576,27 @@ void insert_stmt::out(std::ostream &out)
 {
     out << "insert into " << victim->ident() << " ";
 
-    if (!value_exprs.size()) {
+    if (!value_exprs_vector.size()) {
         out << "default values";
         return;
     }
 
-    out << "values (";
-  
-    for (auto expr = value_exprs.begin();
-      expr != value_exprs.end();
-      expr++) {
+    out << "values ";
+
+    for (auto value_exprs = value_exprs_vector.begin();
+      value_exprs != value_exprs_vector.end(); value_exprs++) {
         indent(out);
-        out << **expr;
-        if (expr + 1 != value_exprs.end())
+        out << "(";
+        for (auto expr = value_exprs->begin();
+          expr != value_exprs->end(); expr++) {
+            out << **expr;
+            if (expr + 1 != value_exprs->end())
+                out << ", ";
+        }
+        out << ")";
+        if (value_exprs + 1 != value_exprs_vector.end()) 
             out << ", ";
     }
-    out << ")";
 }
 
 set_list::set_list(prod *p, table *target) : prod(p)
