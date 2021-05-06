@@ -61,6 +61,8 @@ string cast_type_name_wrapper(string origin_type_name)
     string cast_type_name;
     if (origin_type_name == "NUMERIC")
         cast_type_name = integer_ret; 
+    if (origin_type_name == "NUM")
+        cast_type_name = integer_ret;
     else if (origin_type_name == "INTEGER")
         cast_type_name = integer_ret; 
     else if (origin_type_name == "INT")
@@ -69,8 +71,8 @@ string cast_type_name_wrapper(string origin_type_name)
         cast_type_name = integer_ret;
     else if (origin_type_name == "BOOLEAN")
         cast_type_name = boolean_ret;
-    // else if (origin_type_name == "REAL")
-    //     cast_type_name = integer_ret;
+    else if (origin_type_name == "REAL")
+        cast_type_name = integer_ret;
     else if (origin_type_name == "TEXT")
         cast_type_name = "CHAR";
     else
@@ -540,8 +542,11 @@ like_op::like_op(prod *p) : bool_expr(p)
         like_operator = " not like ";
 }
 
-in_op::in_op(prod *p) : bool_expr(p)
+in_op::in_op(prod *p) : bool_expr(p), myscope(scope)
 {
+    myscope.tables = scope->tables;
+    scope = &myscope;
+    
     lhs = value_expr::factory(this);
     if (d6() < 4)
         in_operator = " in ";
@@ -565,6 +570,7 @@ in_op::in_op(prod *p) : bool_expr(p)
     else {
         auto tmp_use_group = use_group;
         use_group = 0;
+        scope->refs.clear();
         vector<sqltype *> pointed_type;
         pointed_type.push_back(lhs->type);
         if (d6() < 4)
@@ -578,6 +584,7 @@ in_op::in_op(prod *p) : bool_expr(p)
 
 void in_op::out(std::ostream &out) {
     out << *lhs << in_operator << "(";
+    indent(out);
     if (!use_query) {
         for (size_t i = 0; i < expr_vec.size(); i++) {
             out << *expr_vec[i];

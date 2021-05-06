@@ -182,6 +182,7 @@ void simple_join_cond::out(std::ostream &out) {
 expr_join_cond::expr_join_cond(prod *p, table_ref &lhs, table_ref &rhs)
      : join_cond(p, lhs, rhs), joinscope(p->scope)
 {
+    joinscope.refs.clear(); // only use the refs in lhs and rhs
     scope = &joinscope;
     for (auto ref: lhs.refs)
         joinscope.refs.push_back(&*ref);
@@ -1343,7 +1344,10 @@ void named_window::out(std::ostream &out)
         if (ref + 1 != order_by.end())
             out << ",";
     }
-    
+    if (d6() > 3) 
+        out << " asc";
+    else
+        out << " desc";
     out << ")";
 }
 
