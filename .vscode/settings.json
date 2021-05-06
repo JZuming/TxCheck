@@ -84,6 +84,7 @@
         "subtransaction": "cpp",
         "transaction": "cpp",
         "transactor": "cpp",
-        "util": "cpp"
+        "util": "cpp",
+        "variant": "cpp"
     }
 }

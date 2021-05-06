@@ -43,6 +43,19 @@ struct funcall : value_expr {
     }
 };
 
+struct win_funcall : value_expr {
+    routine *proc;
+    vector<shared_ptr<value_expr> > parms;
+    virtual void out(std::ostream &out);
+    virtual ~win_funcall() { }
+    win_funcall(prod *p, sqltype *type_constraint = 0);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        for (auto p : parms)
+            p->accept(v);
+    }
+};
+
 struct atomic_subselect : value_expr {
     named_relation *tab;
     column *col;
@@ -178,7 +191,7 @@ struct window_function : value_expr {
   window_function(prod *p, sqltype *type_constraint);
   vector<shared_ptr<column_reference> > partition_by;
   vector<shared_ptr<column_reference> > order_by;
-  shared_ptr<funcall> aggregate;
+  shared_ptr<win_funcall> aggregate;
   static bool allowed(prod *pprod);
   virtual void accept(prod_visitor *v) {
     v->visit(this);
@@ -252,7 +265,7 @@ struct win_func_using_exist_win : value_expr {
     virtual void out(std::ostream &out);
     virtual ~win_func_using_exist_win() { }
     win_func_using_exist_win(prod *p, sqltype *type_constraint, string exist_win);
-    shared_ptr<funcall> aggregate;
+    shared_ptr<win_funcall> aggregate;
     string exist_window;
     virtual void accept(prod_visitor *v) {
         v->visit(this);

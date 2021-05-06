@@ -25,6 +25,7 @@ struct schema {
     std::vector<op> operators;
     std::vector<routine> routines;
     std::vector<routine> aggregates;
+    std::vector<routine> windows;
 
     typedef std::tuple<sqltype *,sqltype *,sqltype *> typekey;
     std::multimap<typekey, op> index;
@@ -32,6 +33,7 @@ struct schema {
 
     std::multimap<sqltype*, routine*> routines_returning_type;
     std::multimap<sqltype*, routine*> aggregates_returning_type;
+    std::multimap<sqltype*, routine*> windows_returning_type;
     std::multimap<sqltype*, routine*> parameterless_routines_returning_type;
     std::multimap<sqltype*, table*> tables_with_columns_of_type;
     std::multimap<sqltype*, op*> operators_returning_type;
@@ -69,6 +71,10 @@ struct schema {
 
     virtual void register_aggregate(routine& r) {
         aggregates.push_back(r);
+    }
+
+    virtual void register_windows(routine& r) {
+        windows.push_back(r);
     }
 
     virtual op_iterator find_operator(sqltype *left, sqltype *right, sqltype *res) {

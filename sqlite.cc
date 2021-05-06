@@ -272,6 +272,46 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     // AGG3(zipfile, TEXT, TEXT, INTEGER, INTEGER, REAL); //mysql do not support
 
+#define WIN(n, r) do {						\
+    routine proc("", "", sqltype::get(#r), #n);				\
+    register_windows(proc);						\
+} while(0)
+
+#define WIN1(n, r, a) do {						\
+    routine proc("", "", sqltype::get(#r), #n);				\
+    proc.argtypes.push_back(sqltype::get(#a));				\
+    register_windows(proc);						\
+} while(0)
+
+#define WIN2(n, r, a, b) do {						\
+    routine proc("", "", sqltype::get(#r), #n);				\
+    proc.argtypes.push_back(sqltype::get(#a));				\
+    proc.argtypes.push_back(sqltype::get(#b));				\
+    register_windows(proc);						\
+} while(0)
+
+    // ranking window function
+    WIN(CUME_DIST, REAL);
+    WIN(DENSE_RANK, INTEGER);
+    WIN1(NTILE, INTEGER, INTEGER);
+    WIN(RANK, INTEGER);
+    WIN(ROW_NUMBER, INTEGER);
+    WIN(PERCENT_RANK, REAL);
+
+    // value window function
+    WIN1(FIRST_VALUE, INTEGER, INTEGER);
+    WIN1(FIRST_VALUE, REAL, REAL);
+    WIN1(FIRST_VALUE, TEXT, TEXT);
+    WIN1(LAST_VALUE, INTEGER, INTEGER);
+    WIN1(LAST_VALUE, REAL, REAL);
+    WIN1(LAST_VALUE, TEXT, TEXT);
+    WIN1(LAG, INTEGER, INTEGER);
+    WIN1(LAG, REAL, REAL);
+    WIN1(LAG, TEXT, TEXT);
+    WIN2(LEAD, INTEGER, INTEGER, INTEGER);
+    WIN2(LEAD, REAL, REAL, INTEGER);
+    WIN2(LEAD, TEXT, TEXT, INTEGER);
+    
     booltype = sqltype::get("BOOLEAN");
     inttype = sqltype::get("INTEGER");
 
@@ -307,11 +347,18 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
         aggregates_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
     }
 
+    // enable routine function
     for(auto &r: routines) {
         assert(r.restype);
         routines_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
         if(!r.argtypes.size())
             parameterless_routines_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
+    }
+
+    // enable window function
+    for(auto &r: windows) {
+        assert(r.restype);
+        windows_returning_type.insert(pair<sqltype*, routine*>(r.restype, &r));
     }
     sqlite3_close(db);
     db = 0;

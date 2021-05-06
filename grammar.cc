@@ -1201,7 +1201,7 @@ create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
 
     // only choose base table
     auto tables_size = s->tables.size();
-    auto chosen_one = dx(tables_size) - 1;
+    size_t chosen_one = dx(tables_size) - 1;
     while (1) {
         auto chosen_table = dynamic_cast<struct table*>(s->tables[chosen_one]);
         if (chosen_table && chosen_table->is_base_table)
@@ -1219,7 +1219,7 @@ create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
             continue;
         indexed_columns.push_back(col.name);
     }
-    auto indexed_num = dx(target_columns.size());
+    size_t indexed_num = dx(target_columns.size());
     while (indexed_columns.size() > indexed_num) {
         indexed_columns.erase(indexed_columns.begin() + dx(indexed_columns.size()) -1);
     }
@@ -1258,7 +1258,7 @@ create_trigger_stmt::create_trigger_stmt(prod *parent, struct scope *s)
     
     // only choose base table
     auto tables_size = s->tables.size();
-    auto chosen_one = dx(tables_size) - 1;
+    size_t chosen_one = dx(tables_size) - 1;
     while (1) {
         auto chosen_table = dynamic_cast<struct table*>(s->tables[chosen_one]);
         if (chosen_table && chosen_table->is_base_table)
