@@ -379,11 +379,18 @@ struct common_table_expression : prod {
 struct create_table_stmt: prod {
     shared_ptr<struct table> created_table;
     struct scope myscope;
-    int key_idx;
+
+    vector<string> not_null_constraints;
+    std::set<string> primary_key_cols;
+    std::set<string> unique_cols;
+    bool has_check;
+    shared_ptr<struct bool_expr> check_expr;
     virtual void out(std::ostream &out);
     create_table_stmt(prod *parent, struct scope *s);
     virtual void accept(prod_visitor *v) {
         v->visit(this);
+        if (has_check)
+            check_expr->accept(v);
     }
 };
 

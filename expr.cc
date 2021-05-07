@@ -17,7 +17,8 @@ using impedance::matched;
 extern int in_update_set_list;
 extern set<string> update_used_column_ref;
 extern int use_group; // 0->no group, 1->use group, 2->to_be_define
-extern int in_in_clause; // 0-> not in "in" clause, 1-> in "in" clause
+extern int in_in_clause; // 0-> not in "in" clause, 1-> in "in" clause (cannot use limit)
+extern int in_check_clause; // 0-> not in "check" clause, 1-> in "check" clause (cannot use subquery)
 
 shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint, 
 vector<shared_ptr<named_relation> > *prefer_refs)
@@ -42,7 +43,7 @@ vector<shared_ptr<named_relation> > *prefer_refs)
                 return make_shared<binop_expr>(p, type_constraint);
         }
         auto choice = d42();
-        if (in_in_clause == 0 && choice <= 4)
+        if (!in_check_clause && !in_in_clause && choice <= 4)
             return make_shared<atomic_subselect>(p, type_constraint);
         if (p->scope->refs.size() && choice <= 40)
             return make_shared<column_reference>(p, type_constraint, prefer_refs);
@@ -185,7 +186,7 @@ shared_ptr<bool_expr> bool_expr::factory(prod *p)
             return make_shared<like_op>(p);
         else if (choose <= 40)
             return make_shared<in_op>(p);
-        else
+        else if (!in_check_clause)
             return make_shared<exists_predicate>(p);
         //     return make_shared<distinct_pred>(q);
     } catch (runtime_error &e) {
@@ -553,7 +554,7 @@ in_op::in_op(prod *p) : bool_expr(p), myscope(scope)
     else
         in_operator = " not in ";
     
-    if (d6() < 6)
+    if (!in_check_clause && d6() < 6)
         use_query = true;
     else
         use_query = false;

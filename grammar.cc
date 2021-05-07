@@ -15,6 +15,7 @@ using namespace std;
 int use_group = 2; // 0->no group, 1->use group, 2->to_be_define
 int in_update_set_list = 0;
 int in_in_clause = 0; // 0-> not in "in" clause, 1-> in "in" clause
+int in_check_clause = 0; // 0-> not in "check" clause, 1-> in "check" clause
 set<string> update_used_column_ref;
 
 static void exclude_tables(
@@ -601,6 +602,7 @@ void insert_stmt::out(std::ostream &out)
 
 set_list::set_list(prod *p, table *target) : prod(p)
 {
+    auto tmp_update_set = in_update_set_list;
     in_update_set_list = 1;
     update_used_column_ref.clear();
     do {
@@ -615,7 +617,7 @@ set_list::set_list(prod *p, table *target) : prod(p)
             names.push_back(col.name);
         }
     } while (!names.size());
-    in_update_set_list = 0;
+    in_update_set_list = tmp_update_set;
 }
 
 void set_list::out(std::ostream &out)
@@ -973,18 +975,18 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     // create table
     string table_name;
     table_name = unique_table_name(scope);
-
     created_table = make_shared<struct table>(table_name, "main", true, true);
-
-    std::vector<string> created_names;
     
     // create its columns
     string key_column_name = create_unique_column_name();
-    auto key_type = sqltype::get("INTEGER");
+    auto key_type = sqltype::get("INTEGER"); // at least one cols has integer type
     column key_column(key_column_name, key_type);
-    created_table->columns().push_back(key_column);
+    if (d6() == 1)
+        not_null_constraints.push_back("NOT NULL");
+    else
+        not_null_constraints.push_back("");
 
-    int column_num = dx(10);
+    int column_num = d9();
     for (int i = 0; i < column_num; i++) {
         string column_name = create_unique_column_name();
         vector<sqltype *> enable_type;
@@ -995,28 +997,94 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
         column create_column(column_name, type);
         created_table->columns().push_back(create_column);
+        if (d6() == 1)
+            not_null_constraints.push_back("NOT NULL");
+        else
+            not_null_constraints.push_back("");
     }
 
     // primary key
-    key_idx = 0;
+    auto key_num = d6() / 2;
+    key_num = key_num == 0 ? 1 : key_num; // not less than 1
+    for (auto i = 0; i < key_num; i++) {
+        auto picked_col = random_pick<>(created_table->columns().begin(), created_table->columns().end());
+        while (picked_col->type == sqltype::get("TEXT")) {
+            picked_col++;
+            if (picked_col == created_table->columns().end())
+                picked_col = created_table->columns().begin();
+        }
+        primary_key_cols.insert(picked_col->name);
+    }
+
+    // unique clause
+    auto unique_num = d6() / 2;
+    for (auto i = 0; i < unique_num; i++) {
+        auto picked_col = random_pick<>(created_table->columns().begin(), created_table->columns().end());
+        while (picked_col->type == sqltype::get("TEXT")) {
+            picked_col++;
+            if (picked_col == created_table->columns().end())
+                picked_col = created_table->columns().begin();
+        }
+        unique_cols.insert(picked_col->name);
+    }
+
+    // check clause
+    if (d6() == 1) {
+        has_check = true;
+        scope->refs.push_back(&(*created_table));
+
+        auto check_state = in_check_clause;
+        in_check_clause = 1;
+        check_expr = bool_expr::factory(this);
+        in_check_clause = check_state;
+    }
 }
 
 void create_table_stmt::out(std::ostream &out)
 {
-    out << "CREATE TABLE ";
+    out << "create table ";
     out << created_table->name << " ( ";
     indent(out);
 
     auto columns_in_table = created_table->columns();
     int column_num = columns_in_table.size();
     for (int i = 0; i < column_num; i++) {
-        out << columns_in_table[i].name << " " << columns_in_table[i].type->name << ", ";
+        out << columns_in_table[i].name << " ";
+        out << columns_in_table[i].type->name << " ";
+        out << not_null_constraints[i] << ",";
         indent(out);
     }
 
-    out << "PRIMARY KEY (" << columns_in_table[key_idx].name << ")";
-    indent(out);
+    out << "primary key(";
+    for (auto iter = primary_key_cols.begin(); iter != primary_key_cols.end();) {
+        out << *iter;
+        iter++;
+        if (iter != primary_key_cols.end())
+            out << ", ";
+    }
+    out << ")";
 
+    if (unique_cols.size()) {
+        out << ",";
+        indent(out);
+        out << "unique(";
+        for (auto iter = unique_cols.begin(); iter != unique_cols.end();) {
+            out << *iter;
+            iter++;
+            if (iter != unique_cols.end())
+                out << ", ";
+        }
+        out << ")";
+    }
+
+    if (has_check) {
+        out << ",";
+        indent(out);
+        out << "check(";
+        out << *check_expr;
+        out << ")";
+    }
+    indent(out);
     out << ")";
 }
 
@@ -1051,9 +1119,9 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
 
 void create_table_select_stmt::out(std::ostream &out)
 {
-    out << "CREATE ";
-    out << (is_base_table ? "TABLE " : "VIEW ");
-    out << tatble_name << " AS ";
+    out << "create ";
+    out << (is_base_table ? "table " : "view ");
+    out << tatble_name << " as ";
     indent(out);
 
     out << *subquery;
