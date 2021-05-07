@@ -464,4 +464,15 @@ struct unioned_query : prod { //can be used as same as query_spec
     }
 };
 
+struct insert_select_stmt : modifying_stmt {
+    shared_ptr<struct query_spec> target_subquery;
+    insert_select_stmt(prod *p, struct scope *s, table *victim = 0);
+    virtual ~insert_select_stmt() {  }
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        target_subquery->accept(v);
+    }
+};
+
 #endif

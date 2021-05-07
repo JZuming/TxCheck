@@ -258,7 +258,16 @@ struct in_op : bool_expr {
     in_op(prod *p);
     virtual ~in_op() { };
     virtual void out(std::ostream &out);
-    virtual void accept(prod_visitor *v);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        lhs->accept(v);
+        if (use_query)
+            in_subquery->accept(v);
+        else {
+            for (auto &expr : expr_vec)
+                expr->accept(v);
+        }
+    };
 };
 
 struct win_func_using_exist_win : value_expr {
@@ -271,6 +280,23 @@ struct win_func_using_exist_win : value_expr {
         v->visit(this);
         aggregate->accept(v);
     }
+};
+
+struct all_some_op : bool_expr {
+    struct scope myscope;
+    shared_ptr<value_expr> lhs;
+    string clause_type; // any or some
+    string comp_op; // =  >  <  >=  <=  <>
+    shared_ptr<prod> target_subquery;
+
+    all_some_op(prod *p);
+    virtual ~all_some_op() { };
+    virtual void out(std::ostream &out);
+    virtual void accept(prod_visitor *v) {
+        v->visit(this);
+        lhs->accept(v);
+        target_subquery->accept(v);
+    };
 };
 
 #endif

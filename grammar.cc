@@ -701,9 +701,9 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<create_index_stmt>((struct prod *)0, s);
         if (choice == 7)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
-        if (choice <= 10) // have more chance to insert data
+        if (choice == 8)
             return make_shared<insert_stmt>((struct prod *)0, s);
-        if (choice <= 13)
+        if (choice <= 12)
             return make_shared<common_table_expression>((struct prod *)0, s);
         if (choice <= 15)
             return make_shared<unioned_query>((struct prod *)0, s);
@@ -1462,4 +1462,36 @@ void unioned_query::out(std::ostream &out) {
     out << type;
     indent(out);
     out << *rhs;
+}
+
+insert_select_stmt::insert_select_stmt(prod *p, struct scope *s, table *v)
+  : modifying_stmt(p, s, v)
+{
+    match();
+
+    // dont select the target table
+    vector<named_relation *> excluded_tables;
+    vector<pair<sqltype*, table*>> excluded_t_with_c_of_type;
+    exclude_tables(victim, scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
+    
+    vector<sqltype *> pointed_type;
+    for (auto &col : victim->columns()) {
+        pointed_type.push_back(col.type);
+    }
+    target_subquery = make_shared<query_spec>(this, scope, false, &pointed_type);
+
+    recover_tables(scope->tables, 
+                    scope->schema->tables_with_columns_of_type, 
+                    excluded_tables, 
+                    excluded_t_with_c_of_type);
+}
+
+void insert_select_stmt::out(std::ostream &out)
+{
+    out << "insert into " << victim->ident();
+    indent(out);
+    out << *target_subquery;
 }
