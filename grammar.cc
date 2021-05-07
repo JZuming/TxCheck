@@ -703,6 +703,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
         if (choice == 8)
             return make_shared<insert_stmt>((struct prod *)0, s);
+        if (choice == 9)
+            return make_shared<insert_select_stmt>((struct prod *)0, s);
         if (choice <= 12)
             return make_shared<common_table_expression>((struct prod *)0, s);
         if (choice <= 15)
