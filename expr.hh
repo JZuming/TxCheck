@@ -282,15 +282,14 @@ struct win_func_using_exist_win : value_expr {
     }
 };
 
-struct all_some_op : bool_expr {
+struct comp_subquery : bool_expr {
     struct scope myscope;
     shared_ptr<value_expr> lhs;
-    string clause_type; // any or some
     string comp_op; // =  >  <  >=  <=  <>
     shared_ptr<prod> target_subquery;
 
-    all_some_op(prod *p);
-    virtual ~all_some_op() { };
+    comp_subquery(prod *p);
+    virtual ~comp_subquery() { };
     virtual void out(std::ostream &out);
     virtual void accept(prod_visitor *v) {
         v->visit(this);

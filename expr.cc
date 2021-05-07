@@ -187,7 +187,7 @@ shared_ptr<bool_expr> bool_expr::factory(prod *p)
         else if (choose <= 36)
             return make_shared<in_op>(p);
         else if (choose <= 39)
-            return make_shared<all_some_op>(p);
+            return make_shared<comp_subquery>(p);
         else if (!in_check_clause)
             return make_shared<exists_predicate>(p);
         //     return make_shared<distinct_pred>(q);
@@ -691,18 +691,13 @@ void win_funcall::out(std::ostream &out)
     out << ")";
 }
 
-all_some_op::all_some_op(prod *p) : bool_expr(p), myscope(scope)
+comp_subquery::comp_subquery(prod *p) : bool_expr(p), myscope(scope)
 {
     myscope.tables = scope->tables;
     scope = &myscope;
     
     lhs = value_expr::factory(this);
-    
-    if (d6() < 4)
-        clause_type = "all";
-    else
-        clause_type = "some";
-    
+
     auto chosen_comp = d6();// =  >  <  >=  <=  <>
     switch (chosen_comp)
     {
@@ -731,14 +726,19 @@ all_some_op::all_some_op(prod *p) : bool_expr(p), myscope(scope)
 
     vector<sqltype *> pointed_type;
     pointed_type.push_back(lhs->type);
-    if (d6() < 4)
+    if (d6() < 4) {
         target_subquery = make_shared<unioned_query>(this, scope, false, &pointed_type);
-    else 
+    }
+    else {
         target_subquery = make_shared<query_spec>(this, scope, false, &pointed_type);
+        // auto subquery = dynamic_pointer_cast<query_spec>(target_subquery);
+        // subquery->has_limit = true;
+        // subquery->limit_num = 1;
+    }
 }
 
-void all_some_op::out(std::ostream &out) {
-    out << *lhs << " " << comp_op << " " << clause_type << " ( ";
+void comp_subquery::out(std::ostream &out) {
+    out << *lhs << " " << comp_op << " ( ";
     indent(out);
     out << *target_subquery << ")";
 }

@@ -940,7 +940,7 @@ string create_unique_column_name(void)
 {
     static std::set<string> created_names;
 
-    std::string table_name = random_identifier_generate();
+    std::string table_name = "c_" + random_identifier_generate();
     while (created_names.count(upper_translate(table_name))) {
         table_name += "_2";
     }
@@ -961,7 +961,7 @@ string unique_table_name(scope *s)
         init = true;
     }
 
-    auto new_table_name = random_identifier_generate();
+    auto new_table_name = "t_" + random_identifier_generate();
     while (exist_table_name.count(upper_translate(new_table_name))) {
             new_table_name = new_table_name + "_2";
     }
@@ -1031,6 +1031,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     }
 
     // check clause
+    has_check = false;
     if (d6() == 1) {
         has_check = true;
         scope->refs.push_back(&(*created_table));

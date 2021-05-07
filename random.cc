@@ -109,7 +109,7 @@ std::string random_identifier_generate() {
         // else if (choice <= 52) // illegal name in pgsql
         //     name.push_back('A' - 1 + choice - 26);
     }
-    return "randgen_" + name;
+    return name;
 }
 
 file_random_machine::file_random_machine(string s)
