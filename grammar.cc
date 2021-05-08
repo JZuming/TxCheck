@@ -983,6 +983,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     string key_column_name = create_unique_column_name();
     auto key_type = sqltype::get("INTEGER"); // at least one cols has integer type
     column key_column(key_column_name, key_type);
+    created_table->columns().push_back(key_column);
     if (d6() == 1)
         not_null_constraints.push_back("NOT NULL");
     else
@@ -1231,7 +1232,7 @@ prod(parent), myscope(s)
     }
     else if (stmt_type == 1) {
         auto& column_ref = random_pick(table_ref->columns());
-        auto new_column_name = random_identifier_generate();
+        auto new_column_name = "c_" + random_identifier_generate();
         while (exist_column_name.count(upper_translate(new_column_name))) {
             new_column_name = new_column_name + "_2";
         }
@@ -1240,26 +1241,17 @@ prod(parent), myscope(s)
                         + " to " + new_column_name;
     }
     else {
-        auto new_column_name = random_identifier_generate();
+        auto new_column_name = "c_" + random_identifier_generate();
         while (exist_column_name.count(upper_translate(new_column_name))) {
             new_column_name = new_column_name + "_2";
         }
 
-        int type_idx = dx(sqltype::typemap.size()) - 1;
-        auto type_ptr = sqltype::typemap.begin();
-        for (int j = 0; j < type_idx; j++) 
-            type_ptr++;
-        
-        while (type_ptr->first == "internal" || 
-               type_ptr->first == "ARRAY" ||
-               type_ptr->first == "BOOLEAN" ||
-               type_ptr->first == "NUM") {
-            type_ptr++;
-            if (type_ptr == sqltype::typemap.end())
-                type_ptr = sqltype::typemap.begin();
-        }
+        vector<sqltype *> enable_type;
+        enable_type.push_back(sqltype::get("INTEGER"));
+        enable_type.push_back(sqltype::get("TEXT"));
+        enable_type.push_back(sqltype::get("REAL"));
+        auto type = random_pick<>(enable_type);
 
-        auto type = type_ptr->second;
         stmt_string = "alter table " + table_ref->ident() + " add column " + new_column_name 
                         + " " + type->name;
     }

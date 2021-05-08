@@ -186,7 +186,7 @@ shared_ptr<bool_expr> bool_expr::factory(prod *p)
             return make_shared<like_op>(p);
         else if (choose <= 36)
             return make_shared<in_op>(p);
-        else if (choose <= 39)
+        else if (!in_check_clause && choose <= 39)
             return make_shared<comp_subquery>(p);
         else if (!in_check_clause)
             return make_shared<exists_predicate>(p);
