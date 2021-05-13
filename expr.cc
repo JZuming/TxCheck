@@ -43,8 +43,10 @@ vector<shared_ptr<named_relation> > *prefer_refs)
                 return make_shared<binop_expr>(p, type_constraint);
         }
         auto choice = d42();
+#ifndef TEST_MONETDB // monetdb dont allow limit in subquery, which make subselect return more than one row
         if (!in_check_clause && !in_in_clause && choice <= 4)
             return make_shared<atomic_subselect>(p, type_constraint);
+#endif
         if (p->scope->refs.size() && choice <= 40)
             return make_shared<column_reference>(p, type_constraint, prefer_refs);
         return make_shared<const_expr>(p, type_constraint);
@@ -56,8 +58,8 @@ vector<shared_ptr<named_relation> > *prefer_refs)
 
 string cast_type_name_wrapper(string origin_type_name)
 {
-    string integer_ret = "SIGNED"; // use SIGNED in mysql, use integer in pgsql
-    string boolean_ret = "UNSIGNED"; // use UNSIGNED in mysql, use boolean in pgsql
+    string integer_ret = "INTEGER"; // use SIGNED in mysql, use INTEGER in pgsql
+    string boolean_ret = "BOOLEAN"; // use UNSIGNED in mysql, use BOOLEAN in pgsql
     
     string cast_type_name;
     if (origin_type_name == "NUMERIC")

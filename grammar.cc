@@ -221,14 +221,18 @@ joined_table::joined_table(prod *p) : table_ref(p) {
 }
 
 void joined_table::out(std::ostream &out) {
+#ifndef TEST_MONETDB
     out << "(";
+#endif
     out << *lhs;
     indent(out);
     out << type << " join " << *rhs;
     indent(out);
     if (type == "inner" || type == "left outer")
         out << "on (" << *condition << ")";
+#ifndef TEST_MONETDB
     out << ")";
+#endif
 }
 
 void table_subquery::out(std::ostream &out) {
@@ -330,8 +334,10 @@ void query_spec::out(std::ostream &out) {
         auto &selected_columns = select_list->derived_table.columns();
         auto select_list_size = selected_columns.size();
         for (std::size_t i = 0; i < select_list_size; i++) {
+#ifndef TEST_MONETDB
             if (selected_columns[i].type == scope->schema->inttype && d9() == 1)
                 out << "-"; 
+#endif
             out << selected_columns[i].name;
             if (i + 1 < select_list_size)
                 out << ", ";
@@ -457,6 +463,14 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
         has_group = true;
     }
 
+    int only_allow_level_0 = false;
+#ifdef TEST_MONETDB
+    only_allow_level_0 = true;
+#endif
+
+    if (only_allow_level_0 && this->level != 0)
+        return;
+
     if (has_group == false && d9() == 1) {
         has_window = true;
         window_clause = make_shared<named_window>(this, this->scope);
@@ -476,14 +490,6 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
 
     if (has_group == false && d6() == 1) {
         has_order = true;
-        // int order_num = d6() > 4 ? 2 : 1;
-        // while (order_num > 0) {
-        //     auto order_expr = value_expr::factory(this, 0, &from_clause->reflist.back()->refs);
-        //     if (!dynamic_pointer_cast<const_expr>(order_expr)) {
-        //         order_clause.push_back(order_expr);
-        //         order_num--;
-        //     }
-        // }
     }
 
     if (in_in_clause == 0 && d6() < 3) { // the subquery in clause cannot use limit (mysql) 
@@ -699,8 +705,10 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<update_stmt>((struct prod *)0, s);
         if (choice == 6)
             return make_shared<create_index_stmt>((struct prod *)0, s);
+#ifndef TEST_MONETDB
         if (choice == 7)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
+#endif
         if (choice == 8)
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice == 9)
@@ -1033,6 +1041,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
     // check clause
     has_check = false;
+#ifndef TEST_MONETDB
     if (d6() == 1) {
         has_check = true;
         scope->refs.push_back(&(*created_table));
@@ -1042,6 +1051,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         check_expr = bool_expr::factory(this);
         in_check_clause = check_state;
     }
+#endif
 }
 
 void create_table_stmt::out(std::ostream &out)

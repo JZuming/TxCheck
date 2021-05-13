@@ -7,6 +7,8 @@
 #ifndef PROD_HH
 #define PROD_HH
 
+#define TEST_MONETDB
+
 /// Base class for walking the AST
 struct prod_visitor {
   virtual void visit(struct prod *p) = 0;

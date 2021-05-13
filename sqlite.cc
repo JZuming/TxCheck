@@ -148,8 +148,10 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     BINOP(+, INTEGER, INTEGER, INTEGER);
     BINOP(-, INTEGER, INTEGER, INTEGER);
 
+#ifndef TEST_MONETDB
     BINOP(>>, INTEGER, INTEGER, INTEGER);
     BINOP(<<, INTEGER, INTEGER, INTEGER);
+#endif
 
     BINOP(&, INTEGER, INTEGER, INTEGER);
     BINOP(|, INTEGER, INTEGER, INTEGER);
@@ -201,13 +203,19 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     FUNC1(abs, INTEGER, INTEGER);
     FUNC1(abs, REAL, REAL);
+#ifndef TEST_MONETDB
     FUNC1(hex, TEXT, TEXT);
+#endif
     FUNC1(length, INTEGER, TEXT);
     FUNC1(lower, TEXT, TEXT);
     FUNC1(ltrim, TEXT, TEXT);
+#ifndef TEST_MONETDB
     FUNC1(quote, TEXT, TEXT);
-    // FUNC1(randomblob, TEXT, INTEGER); // mysql do not support
+#ifndef TEST_MYSQL
+    FUNC1(randomblob, TEXT, INTEGER); // mysql do not support
+#endif
     FUNC1(round, INTEGER, REAL);
+#endif
     FUNC1(rtrim, TEXT, TEXT);
     // FUNC1(soundex, TEXT, TEXT); //sqlite dont support
     // FUNC1(sqlite_compileoption_get, TEXT, INTEGER); // mysql do not support
@@ -222,11 +230,15 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     // FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
 
     // FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
-    FUNC2(instr, INTEGER, TEXT, TEXT);
+#ifndef TEST_MONETDB
+    // FUNC2(instr, INTEGER, TEXT, TEXT);
+#endif
     // FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
-    // FUNC2(ltrim, TEXT, TEXT, TEXT); // mysql do not support
-    // FUNC2(rtrim, TEXT, TEXT, TEXT); // mysql do not support 
-    // FUNC2(trim, TEXT, TEXT, TEXT);  // sqlite and mysql is different
+#ifndef TEST_MYSQL
+    FUNC2(ltrim, TEXT, TEXT, TEXT); // mysql do not support
+    FUNC2(rtrim, TEXT, TEXT, TEXT); // mysql do not support 
+    FUNC2(trim, TEXT, TEXT, TEXT);  // sqlite and mysql is different
+#endif
     FUNC2(round, INTEGER, REAL, INTEGER);
     FUNC2(substr, TEXT, TEXT, INTEGER);
 
