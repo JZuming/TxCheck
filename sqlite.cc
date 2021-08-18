@@ -231,7 +231,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     // FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
 #ifndef TEST_MONETDB
-    // FUNC2(instr, INTEGER, TEXT, TEXT);
+    FUNC2(instr, INTEGER, TEXT, TEXT);
 #endif
     // FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
 #ifndef TEST_MYSQL
