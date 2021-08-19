@@ -8,6 +8,7 @@
 #define PROD_HH
 
 // #define TEST_MONETDB
+#define TEST_MYSQL // also for MARIADB
 
 /// Base class for walking the AST
 struct prod_visitor {
