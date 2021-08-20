@@ -699,6 +699,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
         if (choice == 3)
             return make_shared<alter_table_stmt>((struct prod *)0, s);
+        if (choice == 18)
+            return make_shared<drop_table_stmt>((struct prod *)0, s);
         if (choice == 4)
             return make_shared<delete_stmt>((struct prod *)0, s);
         if (choice == 5) 
@@ -713,9 +715,9 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice == 9)
             return make_shared<insert_select_stmt>((struct prod *)0, s);
-        if (choice <= 12)
+        if (choice == 10)
             return make_shared<common_table_expression>((struct prod *)0, s);
-        if (choice <= 15)
+        if (choice <= 12)
             return make_shared<unioned_query>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
         /* TODO:
@@ -1209,13 +1211,15 @@ prod(parent), myscope(s)
     scope = &myscope;
     scope->tables = s->tables;
 
-    int type_chosen = d6();
-    if (type_chosen <= 2)
+    int type_chosen = d9();
+    if (type_chosen <= 3)
         stmt_type = 0;
-    else if (type_chosen <= 4)
+    else if (type_chosen <= 6)
         stmt_type = 1;
-    else
+    else 
         stmt_type = 2;
+    // else
+    //     stmt_type = 3;
 
     // choose the base table (not view)
     int size = scope->tables.size();
@@ -1236,11 +1240,11 @@ prod(parent), myscope(s)
         exist_column_name.insert(upper_translate(c.name));
     }
 
-    if (stmt_type == 0) {
+    if (stmt_type == 0) { // rename table
         auto new_table_name = unique_table_name(scope);
         stmt_string = "alter table " + table_ref->ident() + " rename to " + new_table_name;
     }
-    else if (stmt_type == 1) {
+    else if (stmt_type == 1) { // rename column
         auto& column_ref = random_pick(table_ref->columns());
         auto new_column_name = "c_" + random_identifier_generate();
         while (exist_column_name.count(upper_translate(new_column_name))) {
@@ -1250,7 +1254,7 @@ prod(parent), myscope(s)
         stmt_string = "alter table " + table_ref->ident() + " rename column " + column_ref.name
                         + " to " + new_column_name;
     }
-    else {
+    else if (stmt_type == 2) { // add column
         auto new_column_name = "c_" + random_identifier_generate();
         while (exist_column_name.count(upper_translate(new_column_name))) {
             new_column_name = new_column_name + "_2";
@@ -1265,9 +1269,41 @@ prod(parent), myscope(s)
         stmt_string = "alter table " + table_ref->ident() + " add column " + new_column_name 
                         + " " + type->name;
     }
+    // else if (stmt_type == 3){ // drop column
+    //     auto& column_ref = random_pick(table_ref->columns());
+    //     stmt_string = "alter table " + table_ref->ident() + " drop column " + column_ref.name;
+    // }
 }
 
 void alter_table_stmt::out(std::ostream &out)
+{
+    out << stmt_string;
+}
+
+drop_table_stmt::drop_table_stmt(prod *parent, struct scope *s):
+prod(parent), myscope(s)
+{
+    scope = &myscope;
+    scope->tables = s->tables;
+
+    // choose the base table (not view)
+    int size = scope->tables.size();
+    int chosen_table_idx = dx(size) - 1;
+    named_relation *table_ref = NULL;
+    table * real_table = NULL;
+    while (1) {
+        table_ref = scope->tables[chosen_table_idx];
+        real_table = dynamic_cast<table *>(table_ref);
+        if (real_table && real_table->is_base_table) {
+            break;
+        }
+        chosen_table_idx = (chosen_table_idx + 1) % size;
+    };
+
+    stmt_string = "drop table if exists " + table_ref->ident();
+}
+
+void drop_table_stmt::out(std::ostream &out)
 {
     out << stmt_string;
 }
