@@ -58,8 +58,13 @@ vector<shared_ptr<named_relation> > *prefer_refs)
 
 string cast_type_name_wrapper(string origin_type_name)
 {
+#ifdef TEST_MYSQL
+    string integer_ret = "SIGNED"; // use SIGNED in mysql, use INTEGER in pgsql
+    string boolean_ret = "UNSIGNED"; // use UNSIGNED in mysql, use BOOLEAN in pgsql
+#else
     string integer_ret = "INTEGER"; // use SIGNED in mysql, use INTEGER in pgsql
     string boolean_ret = "BOOLEAN"; // use UNSIGNED in mysql, use BOOLEAN in pgsql
+#endif
     
     string cast_type_name;
     if (origin_type_name == "NUMERIC")
