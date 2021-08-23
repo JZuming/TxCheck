@@ -195,11 +195,13 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     register_routine(proc);						\
 } while(0)
 
-    // FUNC(last_insert_rowid, INTEGER); // mysql do not support
-    // FUNC(random, INTEGER); // mysql do not support, use rand() instead.
-    // FUNC(sqlite_source_id, TEXT); // mysql do not support
-    // FUNC(sqlite_version, TEXT); // mysql do not support
-    // FUNC(total_changes, INTEGER); // mysql do not support
+#ifdef TEST_SQLITE
+    FUNC(last_insert_rowid, INTEGER); // mysql do not support
+    FUNC(random, INTEGER); // mysql do not support, use rand() instead.
+    FUNC(sqlite_source_id, TEXT); // mysql do not support
+    FUNC(sqlite_version, TEXT); // mysql do not support
+    FUNC(total_changes, INTEGER); // mysql do not support
+#endif
 
     FUNC1(abs, INTEGER, INTEGER);
     FUNC1(abs, REAL, REAL);
@@ -218,22 +220,29 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 #endif
     FUNC1(rtrim, TEXT, TEXT);
     // FUNC1(soundex, TEXT, TEXT); //sqlite dont support
-    // FUNC1(sqlite_compileoption_get, TEXT, INTEGER); // mysql do not support
-    // FUNC1(sqlite_compileoption_used, INTEGER, TEXT); // mysql do not support
+#ifdef TEST_SQLITE
+    FUNC1(sqlite_compileoption_get, TEXT, INTEGER); // mysql do not support
+    FUNC1(sqlite_compileoption_used, INTEGER, TEXT); // mysql do not support
+#endif
     FUNC1(trim, TEXT, TEXT);
-    // FUNC1(typeof, TEXT, INTEGER); // mysql do not support
-    // FUNC1(typeof, TEXT, NUMERIC); // mysql do not support
-    // FUNC1(typeof, TEXT, REAL); // mysql do not support
-    // FUNC1(typeof, TEXT, TEXT); // mysql do not support
-    // FUNC1(unicode, INTEGER, TEXT); // mysql do not support
+#ifdef TEST_SQLITE
+    FUNC1(typeof, TEXT, INTEGER); // mysql do not support
+    FUNC1(typeof, TEXT, NUMERIC); // mysql do not support
+    FUNC1(typeof, TEXT, REAL); // mysql do not support
+    FUNC1(typeof, TEXT, TEXT); // mysql do not support
+    FUNC1(unicode, INTEGER, TEXT); // mysql do not support
+#endif
     FUNC1(upper, TEXT, TEXT);
-    // FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
-
-    // FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
+#ifdef TEST_SQLITE
+    FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
+    FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
+#endif
 #ifndef TEST_MONETDB
     FUNC2(instr, INTEGER, TEXT, TEXT);
 #endif
-    // FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
+#ifdef TEST_SQLITE
+    FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
+#endif
 #ifndef TEST_MYSQL
     FUNC2(ltrim, TEXT, TEXT, TEXT); // mysql do not support
     FUNC2(rtrim, TEXT, TEXT, TEXT); // mysql do not support 
