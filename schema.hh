@@ -22,6 +22,7 @@ struct schema {
     std::vector<sqltype *> types;
   
     std::vector<table> tables;
+    std::vector<string> indexes;
     std::vector<op> operators;
     std::vector<routine> routines;
     std::vector<routine> aggregates;
@@ -56,6 +57,8 @@ struct schema {
     void fill_scope(struct scope &s) {
         for (auto &t : tables)
             s.tables.push_back(&t);
+        for (auto i : indexes)
+            s.indexes.push_back(i);
         s.schema = this;
     }
 

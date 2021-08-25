@@ -51,6 +51,16 @@ extern "C" int table_callback(void *arg, int argc, char **argv, char **azColName
     return 0;
 }
 
+extern "C" int index_callback(void *arg, int argc, char **argv, char **azColName)
+{
+    (void) argc; (void) azColName;
+    auto indexes = (vector<string> *)arg;
+    if (argv[0] != NULL) {
+        indexes->push_back(argv[0]);
+    }
+    return 0;
+}
+
 extern "C" int column_callback(void *arg, int argc, char **argv, char **azColName)
 {
     (void) argc; (void) azColName;
@@ -115,6 +125,15 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
   
     cerr << "done." << endl;
 
+    cerr << "Loading indexes...";
+    string query_index = "SELECT name FROM sqlite_master WHERE type='index' ORDER BY 1;";
+    rc = sqlite3_exec(db, query_index.c_str(), index_callback, (void *)&indexes, &zErrMsg);
+    if (rc!=SQLITE_OK) {
+        auto e = std::runtime_error(zErrMsg);
+        sqlite3_free(zErrMsg);
+        throw e;
+    }
+
     cerr << "Loading columns and constraints...";
 
     for (auto t = tables.begin(); t != tables.end(); ++t) {
@@ -148,7 +167,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     BINOP(+, INTEGER, INTEGER, INTEGER);
     BINOP(-, INTEGER, INTEGER, INTEGER);
 
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
     BINOP(>>, INTEGER, INTEGER, INTEGER);
     BINOP(<<, INTEGER, INTEGER, INTEGER);
 #endif
@@ -205,13 +224,13 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     FUNC1(abs, INTEGER, INTEGER);
     FUNC1(abs, REAL, REAL);
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
     FUNC1(hex, TEXT, TEXT);
 #endif
     FUNC1(length, INTEGER, TEXT);
     FUNC1(lower, TEXT, TEXT);
     FUNC1(ltrim, TEXT, TEXT);
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
     FUNC1(quote, TEXT, TEXT);
 #ifndef TEST_MYSQL
     FUNC1(randomblob, TEXT, INTEGER); // mysql do not support
@@ -237,7 +256,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
     FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
 #endif
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
     FUNC2(instr, INTEGER, TEXT, TEXT);
 #endif
 #ifdef TEST_SQLITE

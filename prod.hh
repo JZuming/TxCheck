@@ -9,7 +9,8 @@
 
 // #define TEST_MONETDB
 // #define TEST_MYSQL // also for MARIADB
-#define TEST_SQLITE
+// #define TEST_SQLITE
+#define TEST_PGSQL
 
 /// Base class for walking the AST
 struct prod_visitor {

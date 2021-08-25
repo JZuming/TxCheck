@@ -334,7 +334,7 @@ void query_spec::out(std::ostream &out) {
         auto &selected_columns = select_list->derived_table.columns();
         auto select_list_size = selected_columns.size();
         for (std::size_t i = 0; i < select_list_size; i++) {
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
             if (selected_columns[i].type == scope->schema->inttype && d9() == 1)
                 out << "-"; 
 #endif
@@ -707,7 +707,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<update_stmt>((struct prod *)0, s);
         if (choice == 6)
             return make_shared<create_index_stmt>((struct prod *)0, s);
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) 
         if (choice == 7)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
 #endif
@@ -976,6 +976,25 @@ string unique_table_name(scope *s)
             new_table_name = new_table_name + "_2";
     }
     return new_table_name;
+}
+
+string unique_index_name(scope *s)
+{
+    static set<string> exist_index_name;
+    static bool init = false;
+
+    if (init == false) {
+        for (auto i : s->indexes) {
+            exist_index_name.insert(upper_translate(i));
+        }
+        init = true;
+    }
+
+    auto new_index_name = "t_" + random_identifier_generate();
+    while (exist_index_name.count(upper_translate(new_index_name))) {
+            new_index_name = new_index_name + "_2";
+    }
+    return new_index_name;
 }
 
 create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
@@ -1312,11 +1331,11 @@ create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
 : prod(parent), myscope(s)
 {
     scope = &myscope;
-    scope->tables = s->tables;
+    scope->indexes = s->indexes;
 
     is_unique = (d6() == 1);
 
-    index_name = unique_table_name(scope);
+    index_name = unique_index_name(scope);
 
     // only choose base table
     auto tables_size = s->tables.size();

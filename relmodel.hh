@@ -80,6 +80,8 @@ struct table : named_relation {
 
 struct scope {
     struct scope *parent;
+    /// available to index productions
+    vector<string> indexes;
     /// available to table_ref productions
     vector<named_relation*> tables;
     /// available to column_ref productions
