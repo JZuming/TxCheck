@@ -29,8 +29,10 @@ vector<shared_ptr<named_relation> > *prefer_refs)
         
         if (p->level < d6()) {
             auto choice = d42();
+#ifndef TEST_CLICKHOUSE
             if ((choice <= 2) && window_function::allowed(p))
                 return make_shared<window_function>(p, type_constraint);
+#endif
             if (choice == 3)
                 return make_shared<coalesce>(p, type_constraint);
             if (choice == 4)
@@ -195,8 +197,10 @@ shared_ptr<bool_expr> bool_expr::factory(prod *p)
             return make_shared<in_op>(p);
         else if (!in_check_clause && choose <= 39)
             return make_shared<comp_subquery>(p);
+#if (!defined TEST_CLICKHOUSE)
         else if (!in_check_clause)
             return make_shared<exists_predicate>(p);
+#endif
         //     return make_shared<distinct_pred>(q);
     } catch (runtime_error &e) {
     }
@@ -270,14 +274,19 @@ coalesce::coalesce(prod *p, sqltype *type_constraint, const char *abbrev)
  
 void coalesce::out(std::ostream &out)
 {
-    out << "cast(" << abbrev_ << "(";
+#ifndef TEST_CLICKHOUSE
+    out << "cast(" ;
+#endif
+    out << abbrev_ << "(";
     for (auto expr = value_exprs.begin(); expr != value_exprs.end(); expr++) {
     out << **expr;
     if (expr+1 != value_exprs.end())
         out << ",", indent(out);
     }
     out << ")";
+#ifndef TEST_CLICKHOUSE
     out << " as " << cast_type_name_wrapper(type->name) << ")";
+#endif
 }
 
 const_expr::const_expr(prod *p, sqltype *type_constraint)
@@ -295,7 +304,11 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     }
 
    if (d9() == 1) {
+#ifndef TEST_CLICKHOUSE
         expr = "cast(null as " + cast_type_name_wrapper(type->name) + ")";
+#else
+        expr = "null";
+#endif
         return;
     }
 
@@ -310,7 +323,11 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     else if (type == sqltype::get("TEXT")) 
         expr = "'" + random_identifier_generate() + "'";
     else
+#ifndef TEST_CLICKHOUSE
         expr += "cast(null as " + cast_type_name_wrapper(type->name) + ")";
+#else
+        expr += "null";
+#endif
 }
 
 funcall::funcall(prod *p, sqltype *type_constraint, bool agg)
@@ -371,7 +388,13 @@ void funcall::out(std::ostream &out)
     out << proc->ident() << "(";
     for (auto expr = parms.begin(); expr != parms.end(); expr++) {
         indent(out);
-        out << "cast(" << **expr << " as " << cast_type_name_wrapper((*expr)->type->name) << ")";
+#ifndef TEST_CLICKHOUSE
+        out << "cast(";
+#endif
+        out << **expr;
+#ifndef TEST_CLICKHOUSE
+        out << " as " << cast_type_name_wrapper((*expr)->type->name) << ")";
+#endif
         if (expr+1 != parms.end())
             out << ",";
     }
@@ -687,7 +710,13 @@ void win_funcall::out(std::ostream &out)
     out << proc->ident() << "(";
     for (auto expr = parms.begin(); expr != parms.end(); expr++) {
         indent(out);
-        out << "cast(" << **expr << " as " << cast_type_name_wrapper((*expr)->type->name) << ")";
+#ifndef TEST_CLICKHOUSE
+        out << "cast(";
+#endif
+        out << **expr;
+#ifndef TEST_CLICKHOUSE
+        out << " as " << cast_type_name_wrapper((*expr)->type->name) << ")";
+#endif
         if (expr+1 != parms.end())
             out << ",";
     }
@@ -733,6 +762,9 @@ comp_subquery::comp_subquery(prod *p) : bool_expr(p), myscope(scope)
 
     vector<sqltype *> pointed_type;
     pointed_type.push_back(lhs->type);
+#ifdef TEST_CLICKHOUSE
+    scope->refs.clear();
+#endif
     if (d6() < 4) {
         target_subquery = make_shared<unioned_query>(this, scope, false, &pointed_type);
     }

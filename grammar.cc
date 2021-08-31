@@ -140,15 +140,17 @@ void table_subquery::accept(prod_visitor *v) {
 
 shared_ptr<join_cond> join_cond::factory(prod *p, table_ref &lhs, table_ref &rhs)
 {
-     try {
-	  if (d6() < 6)
-	       return make_shared<expr_join_cond>(p, lhs, rhs);
-	  else
-	       return make_shared<simple_join_cond>(p, lhs, rhs);
-     } catch (runtime_error &e) {
-	  p->retry();
-     }
-     return factory(p, lhs, rhs);
+    try {
+#ifndef TEST_CLICKHOUSE
+    if (d6() < 6)
+        return make_shared<expr_join_cond>(p, lhs, rhs);
+    else
+#endif
+        return make_shared<simple_join_cond>(p, lhs, rhs);
+    } catch (runtime_error &e) {
+        p->retry();
+    }
+    return factory(p, lhs, rhs);
 }
 
 simple_join_cond::simple_join_cond(prod *p, table_ref &lhs, table_ref &rhs)
@@ -199,6 +201,16 @@ void expr_join_cond::out(std::ostream &out) {
 joined_table::joined_table(prod *p) : table_ref(p) {
     lhs = table_ref::factory(this);
     rhs = table_ref::factory(this);
+#ifdef TEST_CLICKHOUSE
+    while (auto ret = dynamic_pointer_cast<joined_table>(lhs)) {
+        lhs.reset();
+        lhs = table_ref::factory(this);
+    }
+    while (auto ret = dynamic_pointer_cast<joined_table>(rhs)) {
+        rhs.reset();
+        rhs = table_ref::factory(this);
+    }
+#endif
 
     auto choice = d6();
     if (choice <= 2) 
@@ -221,7 +233,7 @@ joined_table::joined_table(prod *p) : table_ref(p) {
 }
 
 void joined_table::out(std::ostream &out) {
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_CLICKHOUSE)
     out << "(";
 #endif
     out << *lhs;
@@ -230,7 +242,7 @@ void joined_table::out(std::ostream &out) {
     indent(out);
     if (type == "inner" || type == "left outer")
         out << "on (" << *condition << ")";
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_CLICKHOUSE)
     out << ")";
 #endif
 }
@@ -485,6 +497,7 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
             auto new_expr = make_shared<win_func_using_exist_win>(this, select_exprs[i]->type, window_clause->window_name);
             select_exprs.erase(select_exprs.begin() + i);
             select_exprs.insert(select_exprs.begin() + i, new_expr);
+            select_list->derived_table.columns()[i].type = new_expr->type;
         }
     }
 
@@ -695,6 +708,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
         auto choice = d20();
         if (s->tables.empty() || choice == 1)
             return make_shared<create_table_stmt>((struct prod *)0, s);
+#ifndef TEST_CLICKHOUSE
         if (choice == 2)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
         if (choice == 3)
@@ -707,7 +721,8 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<update_stmt>((struct prod *)0, s);
         if (choice == 6)
             return make_shared<create_index_stmt>((struct prod *)0, s);
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) 
+#endif
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
         if (choice == 7)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
 #endif
@@ -715,9 +730,9 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice == 9)
             return make_shared<insert_select_stmt>((struct prod *)0, s);
-        if (choice == 10)
+        if (choice >= 10 && choice <= 12)
             return make_shared<common_table_expression>((struct prod *)0, s);
-        if (choice <= 12)
+        if (choice >= 13 && choice <= 15)
             return make_shared<unioned_query>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
         /* TODO:
@@ -753,7 +768,7 @@ common_table_expression::common_table_expression(prod *parent, struct scope *s)
     do {
         shared_ptr<query_spec> query = make_shared<query_spec>(this, s);
         with_queries.push_back(query);
-        string alias = scope->stmt_uid("jennifer");
+        string alias = scope->stmt_uid("cte");
         relation *relation = &query->select_list->derived_table;
         auto aliased_rel = make_shared<aliased_relation>(alias, relation);
         refs.push_back(aliased_rel);
@@ -1048,6 +1063,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         primary_key_cols.insert(picked_col->name);
     }
 
+#ifndef TEST_CLICKHOUSE
     // unique clause
     auto unique_num = d6() / 2;
     for (auto i = 0; i < unique_num; i++) {
@@ -1059,10 +1075,11 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         }
         unique_cols.insert(picked_col->name);
     }
+#endif
 
     // check clause
     has_check = false;
-#ifndef TEST_MONETDB
+#if (!defined TEST_MONETDB) && (!defined TEST_CLICKHOUSE)
     if (d6() == 1) {
         has_check = true;
         scope->refs.push_back(&(*created_table));
@@ -1215,6 +1232,7 @@ group_clause::group_clause(prod *p, struct scope *s,
         auto new_expr = make_shared<funcall>(p, (sqltype *)0, true);
         select_exprs.erase(select_exprs.begin() + i);
         select_exprs.insert(select_exprs.begin() + i, new_expr);
+        select_columns[i].type = new_expr->type;
     }
     use_group = tmp_group;
 }
@@ -1333,7 +1351,10 @@ create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
     scope = &myscope;
     scope->indexes = s->indexes;
 
+    is_unique = false;
+#ifndef TEST_CLICKHOUSE
     is_unique = (d6() == 1);
+#endif
 
     index_name = unique_index_name(scope);
 
@@ -1510,10 +1531,14 @@ unioned_query::unioned_query(prod *p, struct scope *s, bool lateral, vector<sqlt
     lhs->has_limit = false;
     rhs->has_limit = false;
 
+#if (!defined TEST_CLICKHOUSE)
     if (d6() == 1)
+#endif
         type = "union all";
+#if (!defined TEST_CLICKHOUSE)
     else
         type = "union";
+#endif
 }
 
 void unioned_query::out(std::ostream &out) {

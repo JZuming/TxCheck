@@ -167,13 +167,15 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     BINOP(+, INTEGER, INTEGER, INTEGER);
     BINOP(-, INTEGER, INTEGER, INTEGER);
 
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
     BINOP(>>, INTEGER, INTEGER, INTEGER);
     BINOP(<<, INTEGER, INTEGER, INTEGER);
 #endif
 
+#if (!defined TEST_CLICKHOUSE)
     BINOP(&, INTEGER, INTEGER, INTEGER);
     BINOP(|, INTEGER, INTEGER, INTEGER);
+#endif
 
     BINOP(<, INTEGER, INTEGER, BOOLEAN);
     BINOP(<=, INTEGER, INTEGER, BOOLEAN);
@@ -224,13 +226,13 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
     FUNC1(abs, INTEGER, INTEGER);
     FUNC1(abs, REAL, REAL);
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
     FUNC1(hex, TEXT, TEXT);
 #endif
     FUNC1(length, INTEGER, TEXT);
     FUNC1(lower, TEXT, TEXT);
     FUNC1(ltrim, TEXT, TEXT);
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
     FUNC1(quote, TEXT, TEXT);
 #ifndef TEST_MYSQL
     FUNC1(randomblob, TEXT, INTEGER); // mysql do not support
@@ -262,16 +264,20 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 #ifdef TEST_SQLITE
     FUNC2(like, INTEGER, TEXT, TEXT); // mysql do not support
 #endif
-#ifndef TEST_MYSQL
+#if (!defined TEST_MYSQL) && (!defined TEST_CLICKHOUSE)
     FUNC2(ltrim, TEXT, TEXT, TEXT); // mysql do not support
     FUNC2(rtrim, TEXT, TEXT, TEXT); // mysql do not support 
     FUNC2(trim, TEXT, TEXT, TEXT);  // sqlite and mysql is different
 #endif
+#ifndef TEST_CLICKHOUSE
     FUNC2(round, INTEGER, REAL, INTEGER);
+#endif
     FUNC2(substr, TEXT, TEXT, INTEGER);
 
     FUNC3(substr, TEXT, TEXT, INTEGER, INTEGER);
+#ifndef TEST_CLICKHOUSE
     FUNC3(replace, TEXT, TEXT, TEXT, TEXT);
+#endif
 
 
 #define AGG1(n, r, a) do {						\
@@ -294,12 +300,21 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     register_aggregate(proc);						\
 } while(0)
 
+#ifndef TEST_CLICKHOUSE
     AGG1(avg, INTEGER, INTEGER);
     AGG1(avg, REAL, REAL);
     AGG(count, INTEGER);
     AGG1(count, INTEGER, REAL);
     AGG1(count, INTEGER, TEXT);
     AGG1(count, INTEGER, INTEGER);
+#else
+    AGG1(avg, Float64, INTEGER);
+    AGG1(avg, Float64, REAL);
+    AGG(count, UInt64);
+    AGG1(count, UInt64, REAL);
+    AGG1(count, UInt64, TEXT);
+    AGG1(count, UInt64, INTEGER);
+#endif
     // AGG1(group_concat, TEXT, TEXT); //mysql do not support
     AGG1(max, REAL, REAL);
     AGG1(max, INTEGER, INTEGER);
@@ -330,6 +345,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     register_windows(proc);						\
 } while(0)
 
+#ifndef TEST_CLICKHOUSE
     // ranking window function
     WIN(CUME_DIST, REAL);
     WIN(DENSE_RANK, INTEGER);
@@ -351,6 +367,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     WIN2(LEAD, INTEGER, INTEGER, INTEGER);
     WIN2(LEAD, REAL, REAL, INTEGER);
     WIN2(LEAD, TEXT, TEXT, INTEGER);
+#endif
     
     booltype = sqltype::get("BOOLEAN");
     inttype = sqltype::get("INTEGER");
