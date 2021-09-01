@@ -258,7 +258,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     FUNC1(zeroblob, TEXT, INTEGER); // mysql do not support
     FUNC2(glob, INTEGER, TEXT, TEXT); // mysql do not support
 #endif
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
     FUNC2(instr, INTEGER, TEXT, TEXT);
 #endif
 #ifdef TEST_SQLITE
