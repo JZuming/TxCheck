@@ -721,6 +721,9 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<update_stmt>((struct prod *)0, s);
         if (choice == 6)
             return make_shared<create_index_stmt>((struct prod *)0, s);
+#else
+        if (choice >= 2 && choice <= 5)
+            return make_shared<drop_table_stmt>((struct prod *)0, s);
 #endif
 #if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
         if (choice == 7)
