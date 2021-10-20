@@ -1,0 +1,10 @@
+use macro to configure sqlsmith for each dbms
+supported: 
+    TEST_SQLITE
+    TEST_MONETDB
+    TEST_MYSQL // also for MARIADB
+    TEST_SQLITE
+    TEST_PGSQL
+    TEST_CLICKHOUSE
+
+For example, to compile sqlsmith for mysql: make CPPFLAGS+=-DTEST_MYSQL
