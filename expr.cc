@@ -643,6 +643,7 @@ win_func_using_exist_win::win_func_using_exist_win(prod *p, sqltype *type_constr
   match();
     while (1) {
         aggregate = make_shared<win_funcall>(this, type_constraint);
+        type = type_constraint;
         if (aggregate->proc->name != "zipfile")
             break;
         aggregate.reset();

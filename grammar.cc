@@ -65,10 +65,7 @@ shared_ptr<table_ref> table_ref::factory(prod *p) {
             if (d6() > 3)
 	            return make_shared<joined_table>(p);
         }
-        // if (d6() > 3)
-            return make_shared<table_or_query_name>(p);
-        // else
-        //     return make_shared<table_sample>(p);
+        return make_shared<table_or_query_name>(p);
     } catch (runtime_error &e) {
         p->retry();
     }
@@ -705,6 +702,13 @@ shared_ptr<prod> statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
+        if (s->tables.size() < 2) {
+            if (s->tables.empty() || d6() > 3)
+                return make_shared<create_table_stmt>((struct prod *)0, s);
+            else
+                return make_shared<create_table_select_stmt>((struct prod *)0, s);
+        }
+
         auto choice = d20();
         if (s->tables.empty() || choice == 1)
             return make_shared<create_table_stmt>((struct prod *)0, s);
@@ -1165,6 +1169,7 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
             continue;
         
         columns.erase(columns.begin() + i);
+        size--;
         exprs.erase(exprs.begin() + i);
         i--;
     }

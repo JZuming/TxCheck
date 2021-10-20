@@ -81,33 +81,72 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    string target_dbms;
-    string target_db;    
-    if (options.count("sqlite")) {
-#ifdef HAVE_LIBSQLITE3
-        target_dbms = "sqlite";
-        target_db = options["sqlite"];
-#else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
-        return 1;
-#endif
-    } else if(options.count("monetdb")) {
-#ifdef HAVE_MONETDB
-        target_dbms = "monetdb";
-        target_db = options["monetdb"];
-#else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
-        return 1;
-#endif
-    } else if(options.count("postgres")) {
-        target_dbms = "postgres";
-        target_db = options["postgres"];
-    }
-    else {
-        cerr << "Sorry,  you should specify a dbms and its database" << endl;
-        return 1;
+    struct file_random_machine* random_file;
+    if (options.count("random-seed")) {
+        cerr << options["random-seed"] << endl;
+        random_file = file_random_machine::get(options["random-seed"]);
     }
 
-    cerr << "target_dbms = " << target_dbms << endl; 
-    cerr << "target_db = " << target_db << endl;
+    int i = 0;
+    while (1) {
+        shared_ptr<schema> schema;
+        if (options.count("sqlite")) {
+#ifdef HAVE_LIBSQLITE3
+	        schema = make_shared<schema_sqlite>(options["sqlite"], true);
+#else
+	        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
+	        return 1;
+#endif
+        } else if(options.count("monetdb")) {
+#ifdef HAVE_MONETDB
+	        schema = make_shared<schema_monetdb>(options["monetdb"]);
+#else
+	        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
+	        return 1;
+#endif
+        } else if(options.count("postgres")) 
+	        schema = make_shared<schema_pqxx>(options["postgres"], true);
+        else {
+            cerr << "Sorry,  you should specify a dbms and its database" << endl;
+            return 1;
+        }
+
+        scope scope;
+        long queries_generated = 0;
+        schema->fill_scope(scope);
+
+        shared_ptr<prod> gen = statement_factory(&scope);
+        ostringstream s;
+	    gen->out(s);
+        
+        cerr << "======= " << i << " ======= " << endl;
+        // cerr << s.str() << ";" << endl;
+        i++;
+        
+//         shared_ptr<dut_base> dut;
+//         if (options.count("sqlite")) {
+// #ifdef HAVE_LIBSQLITE3
+// 	        dut = make_shared<dut_sqlite>(options["sqlite"]);
+// #else
+// 	        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
+// 	        return 1;
+// #endif
+//         } else if(options.count("monetdb")) {
+// #ifdef HAVE_MONETDB	   
+// 	        dut = make_shared<dut_monetdb>(options["monetdb"]);
+// #else
+// 	        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
+// 	        return 1;
+// #endif
+//         } else if(options.count("postgres")) 
+// 	        dut = make_shared<dut_libpq>(options["postgres"]);
+//         else {
+//             cerr << "Sorry,  you should specify a dbms and its database" << endl;
+//             return 1;
+//         }
+
+//         dut->test(s.str());
+        if (random_file->read_byte > random_file->end_pos)
+            break;
+    }
 }

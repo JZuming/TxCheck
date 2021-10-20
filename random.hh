@@ -55,8 +55,9 @@ struct file_random_machine {
 };
 
 template<typename T> T& random_pick(std::vector<T>& container) {
-    if (!container.size())
+    if (!container.size()) {
         throw std::runtime_error("No candidates available");
+    }
 
     if (file_random_machine::using_file == NULL) {
         std::uniform_int_distribution<int> pick(0, container.size()-1);

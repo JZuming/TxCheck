@@ -33,8 +33,8 @@ libsqlsmith_so_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
 libsqlsmith_so_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
 libsqlsmith_so_LDFLAGS= -shared -fPIC $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS)
 
-AM_LDFLAGS = $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS)
-AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wextra -fPIC
+AM_LDFLAGS = $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS) #-fsanitize=address -fno-omit-frame-pointer
+AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wextra -fPIC #-O0 -fsanitize=address
 
 
 EXTRA_DIST = gitrev.h dump.hh expr.hh grammar.hh log.hh prod.hh		\
