@@ -75,11 +75,11 @@ int dx(int x) {
         return 1;
     
     int bytenum;
-    if (x <= 0xff / 10) 
+    if (x <= 0xff >> 3) 
         bytenum = 1;
-    else if (x <= 0xffff / 10)
+    else if (x <= 0xffff >> 3)
         bytenum = 2;
-    else if (x <= 0xffffff / 10)
+    else if (x <= 0xffffff >> 3)
         bytenum = 3;
     else
         bytenum = 4;
@@ -88,15 +88,19 @@ int dx(int x) {
 }
 
 std::string random_identifier_generate() {
-#define MAX_NAME_SCOPE 37
-    int name_length = dx(10);
+    unsigned static int seed = 1;
+    unsigned int rand_seed = seed * 131;
+    unsigned int rand_value = 0;
+    while (rand_seed != 0) {
+        rand_value = rand_value * 131;
+        rand_value = rand_value + (rand_seed & 0x1);
+        rand_seed = rand_seed >> 1;
+    }
+    
     std::string name;
-    for (int i = 0; i < name_length; i++) {
-        int choice;
-        if (i == 0)
-            choice = dx(MAX_NAME_SCOPE - 10);
-        else 
-            choice = dx(MAX_NAME_SCOPE);
+    while (rand_value != 0) {
+        unsigned int choice = (rand_value & 0xff) % 37 + 1;
+        rand_value = rand_value >> 8;
 
         // 1-37
         if (choice <= 26) // 1 - 26
@@ -105,11 +109,10 @@ std::string random_identifier_generate() {
             name.push_back('_');
         else if (choice <= 37) // 28 - 37
             name.push_back('0' + choice - 28);
-            
-        // else if (choice <= 52) // illegal name in pgsql
-        //     name.push_back('A' - 1 + choice - 26);
     }
+    seed++;
     return name;
+
 }
 
 file_random_machine::file_random_machine(string s)
@@ -162,7 +165,7 @@ int file_random_machine::get_random_num(int min, int max, int byte_num)
     if (buffer == NULL)
         return 0;
     
-    int scope = max - min;
+    auto scope = max - min;
     if (scope <= 0) 
         return min;
     
