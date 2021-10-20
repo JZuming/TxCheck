@@ -369,3 +369,8 @@ void dut_libpq::test(const std::string &stmt)
     command(stmt.c_str());
     command("ROLLBACK;");
 }
+
+void dut_libpq::reset(void)
+{
+  int i;
+}

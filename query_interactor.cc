@@ -46,8 +46,70 @@ extern "C" {
 #include <signal.h>
 }
 
-// argv[0]: itself
-// argv[1]: dbms (supported: mysql)
+shared_ptr<schema> get_schema(map<string,string>& options)
+{
+    shared_ptr<schema> schema;
+    if (options.count("sqlite")) {
+#ifdef HAVE_LIBSQLITE3
+        schema = make_shared<schema_sqlite>(options["sqlite"], true);
+#else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
+        throw runtime_error("Does not support SQLite");
+#endif
+    } else if(options.count("monetdb")) {
+#ifdef HAVE_MONETDB
+        schema = make_shared<schema_monetdb>(options["monetdb"]);
+#else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
+        throw runtime_error("Does not support MonetDB");
+#endif
+    } else if(options.count("postgres")) 
+        schema = make_shared<schema_pqxx>(options["postgres"], true);
+    else {
+        cerr << "Sorry,  you should specify a dbms and its database" << endl;
+        throw runtime_error("Does not define target dbms and db");
+    }
+    return schema;
+}
+
+shared_ptr<dut_base> dut_setup(map<string,string>& options)
+{
+    shared_ptr<dut_base> dut;
+    if (options.count("sqlite")) {
+#ifdef HAVE_LIBSQLITE3
+        dut = make_shared<dut_sqlite>(options["sqlite"]);
+#else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
+        throw runtime_error("Does not support SQLite");
+#endif
+    } else if(options.count("monetdb")) {
+#ifdef HAVE_MONETDB	   
+        dut = make_shared<dut_monetdb>(options["monetdb"]);
+#else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
+        throw runtime_error("Does not support MonetDB");
+#endif
+    } else if(options.count("postgres")) 
+        dut = make_shared<dut_libpq>(options["postgres"]);
+    else {
+        cerr << "Sorry,  you should specify a dbms and its database" << endl;
+        throw runtime_error("Does not define target dbms and db");
+    }
+
+    return dut;
+}
+
+void dut_test(map<string,string>& options, const string& stmt)
+{
+    auto dut = dut_setup(options);
+    dut->test(stmt);
+}
+
+void dut_reset(map<string,string>& options)
+{
+    auto dut = dut_setup(options);
+    dut->reset();
+}
 
 int main(int argc, char *argv[])
 {
@@ -87,65 +149,28 @@ int main(int argc, char *argv[])
         random_file = file_random_machine::get(options["random-seed"]);
     }
 
+    dut_reset(options);
+
     int i = 0;
     while (1) {
-        shared_ptr<schema> schema;
-        if (options.count("sqlite")) {
-#ifdef HAVE_LIBSQLITE3
-	        schema = make_shared<schema_sqlite>(options["sqlite"], true);
-#else
-	        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
-	        return 1;
-#endif
-        } else if(options.count("monetdb")) {
-#ifdef HAVE_MONETDB
-	        schema = make_shared<schema_monetdb>(options["monetdb"]);
-#else
-	        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
-	        return 1;
-#endif
-        } else if(options.count("postgres")) 
-	        schema = make_shared<schema_pqxx>(options["postgres"], true);
-        else {
-            cerr << "Sorry,  you should specify a dbms and its database" << endl;
-            return 1;
-        }
+        i++;
+        cerr << "======= " << i << " ======= " << endl;
+        auto schema = get_schema(options);
 
         scope scope;
-        long queries_generated = 0;
         schema->fill_scope(scope);
 
         shared_ptr<prod> gen = statement_factory(&scope);
         ostringstream s;
 	    gen->out(s);
         
-        cerr << "======= " << i << " ======= " << endl;
-        cerr << s.str() << ";" << endl;
-        i++;
+        cerr << s.str() << ";" << endl; 
         
-//         shared_ptr<dut_base> dut;
-//         if (options.count("sqlite")) {
-// #ifdef HAVE_LIBSQLITE3
-// 	        dut = make_shared<dut_sqlite>(options["sqlite"]);
-// #else
-// 	        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
-// 	        return 1;
-// #endif
-//         } else if(options.count("monetdb")) {
-// #ifdef HAVE_MONETDB	   
-// 	        dut = make_shared<dut_monetdb>(options["monetdb"]);
-// #else
-// 	        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
-// 	        return 1;
-// #endif
-//         } else if(options.count("postgres")) 
-// 	        dut = make_shared<dut_libpq>(options["postgres"]);
-//         else {
-//             cerr << "Sorry,  you should specify a dbms and its database" << endl;
-//             return 1;
-//         }
-
-//         dut->test(s.str());
+        try {
+            dut_test(options, s.str());
+        } catch(std::exception &e) {
+        }
+        
         if (random_file->read_byte > random_file->end_pos)
             break;
     }

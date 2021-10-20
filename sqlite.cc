@@ -72,10 +72,11 @@ extern "C" int column_callback(void *arg, int argc, char **argv, char **azColNam
 
 sqlite_connection::sqlite_connection(std::string &conninfo)
 {
-    rc = sqlite3_open_v2(conninfo.c_str(), &db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI, 0);
+    rc = sqlite3_open_v2(conninfo.c_str(), &db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI|SQLITE_OPEN_CREATE, 0);
     if (rc) {
         throw std::runtime_error(sqlite3_errmsg(db));
     }
+    db_file = conninfo;
 }
 
 void sqlite_connection::q(const char *query)
@@ -114,6 +115,11 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
         throw e;
     }
 
+    cerr << endl;
+    for (auto& t:tables) {
+        cerr << t.ident() << endl;
+    }
+
     if (!no_catalog) {
 		// sqlite_master doesn't list itself, do it manually
 		table tab("sqlite_master", "main", false, false);
@@ -132,12 +138,12 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     }
 
     cerr << "Loading columns and constraints...";
-
+    cerr << endl;
     for (auto t = tables.begin(); t != tables.end(); ++t) {
         string q("pragma table_info(");
         q += t->name;
         q += ");";
-
+        cerr << q << endl;
         rc = sqlite3_exec(db, q.c_str(), column_callback, (void *)&*t, &zErrMsg);
         if (rc!=SQLITE_OK) {
             auto e = std::runtime_error(zErrMsg);
@@ -410,3 +416,14 @@ void dut_sqlite::test(const std::string &stmt)
     }
 }
 
+void dut_sqlite::reset(void)
+{
+    if (db)
+        sqlite3_close(db);
+    remove(db_file.c_str());
+
+    rc = sqlite3_open_v2(db_file.c_str(), &db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI|SQLITE_OPEN_CREATE, 0);
+    if (rc) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+}

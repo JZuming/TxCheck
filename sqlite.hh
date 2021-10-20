@@ -14,6 +14,7 @@ extern "C"  {
 
 struct sqlite_connection {
     sqlite3 *db;
+    string db_file;
     char *zErrMsg = 0;
     int rc;
     void q(const char *query);
@@ -30,6 +31,7 @@ struct schema_sqlite : schema, sqlite_connection {
 
 struct dut_sqlite : dut_base, sqlite_connection {
     virtual void test(const std::string &stmt);
+    virtual void reset(void);
     dut_sqlite(std::string &conninfo);
 };
 
