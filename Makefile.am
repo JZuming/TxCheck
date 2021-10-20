@@ -2,7 +2,7 @@
 
 BUILT_SOURCES = gitrev.h
 
-bin_PROGRAMS = sqlsmith
+bin_PROGRAMS = sqlsmith libsqlsmith.so
 
 DUT = postgres.cc
 
@@ -21,8 +21,15 @@ sqlsmith_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
 
 sqlsmith_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
 
+libsqlsmith_so_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
+    random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	\
+    sqlsmith.cc
+
+libsqlsmith_so_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
+libsqlsmith_so_LDFLAGS= -shared -fPIC $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS)
+
 AM_LDFLAGS = $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS)
-AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wextra
+AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wextra -fPIC
 
 
 EXTRA_DIST = gitrev.h dump.hh expr.hh grammar.hh log.hh prod.hh		\

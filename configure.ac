@@ -3,6 +3,7 @@ AC_LANG(C++)
 
 AM_INIT_AUTOMAKE(-Wall -Werror foreign)
 AC_PROG_CXX
+AC_PROG_RANLIB
 AX_CXX_COMPILE_STDCXX_11(noext,mandatory)
 
 AX_LIB_POSTGRESQL()
