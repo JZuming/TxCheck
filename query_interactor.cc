@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 	    gen->out(s);
         
         cerr << "======= " << i << " ======= " << endl;
-        // cerr << s.str() << ";" << endl;
+        cerr << s.str() << ";" << endl;
         i++;
         
 //         shared_ptr<dut_base> dut;

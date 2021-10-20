@@ -702,7 +702,7 @@ shared_ptr<prod> statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
-        if (s->tables.size() < 2) {
+        if (s->tables.size() < 2) { // if less than 2 tables, update_stmt will easily enter a dead loop.
             if (s->tables.empty() || d6() > 3)
                 return make_shared<create_table_stmt>((struct prod *)0, s);
             else
