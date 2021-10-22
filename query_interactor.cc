@@ -148,6 +148,8 @@ int main(int argc, char *argv[])
         cerr << options["random-seed"] << endl;
         random_file = file_random_machine::get(options["random-seed"]);
     }
+    else
+        random_file = NULL;
 
     dut_reset(options);
 
@@ -171,7 +173,7 @@ int main(int argc, char *argv[])
         } catch(std::exception &e) {
         }
         
-        if (random_file->read_byte > random_file->end_pos)
+        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
     }
 }
