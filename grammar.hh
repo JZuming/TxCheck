@@ -364,8 +364,6 @@ struct update_returning : update_stmt {
   }
 };
 
-shared_ptr<prod> statement_factory(struct scope *s);
-
 struct common_table_expression : prod {
     vector<shared_ptr<prod> > with_queries;
     shared_ptr<prod> query;
@@ -400,7 +398,7 @@ struct create_table_select_stmt: prod {
     struct scope myscope;
     bool is_base_table;
     virtual void out(std::ostream &out);
-    create_table_select_stmt(prod *parent, struct scope *s);
+    create_table_select_stmt(prod *parent, struct scope *s, int is_base = -1);
     virtual void accept(prod_visitor *v) {
         subquery->accept(v);
         v->visit(this);
@@ -485,5 +483,11 @@ struct insert_select_stmt : modifying_stmt {
         target_subquery->accept(v);
     }
 };
+
+shared_ptr<prod> statement_factory(struct scope *s);
+shared_ptr<prod> ddl_statement_factory(struct scope *s);
+shared_ptr<prod> basic_dml_statement_factory(struct scope *s);
+shared_ptr<prod> dml_statement_factory(struct scope *s);
+shared_ptr<prod> dql_statement_factory(struct scope *s);
 
 #endif

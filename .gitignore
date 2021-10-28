@@ -32,3 +32,5 @@ doxygen_sqlite3.db
 ar-lib
 libsqlsmith.so
 query_interactor
+dml_file.sql
+ddl_file.sql

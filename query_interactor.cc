@@ -111,6 +111,33 @@ void dut_reset(map<string,string>& options)
     dut->reset();
 }
 
+void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statement_factory)(scope *), string record_file = "")
+{
+    auto schema = get_schema(options);
+    scope scope;
+    schema->fill_scope(scope);
+
+    shared_ptr<prod> gen = tmp_statement_factory(&scope);
+    ostringstream s;
+    gen->out(s);
+
+    try {
+        dut_test(options, s.str());
+        if (!record_file.empty()) { // if it success and has record_file
+            ofstream out(record_file, ios::app);
+            out << s.str();
+            out << ";" << endl;
+            out.close();
+        }
+    } catch(std::exception &e) { // ignore runtime error
+        cerr << "\n" << e.what() << "\n" << endl;
+        string err = e.what();
+        if (err.find("syntax") != string::npos)
+            cerr << s.str() << endl;
+        interect_test(options, tmp_statement_factory, record_file);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     // analyze the options
@@ -155,27 +182,36 @@ int main(int argc, char *argv[])
     // reset the target DBMS to initial state
     dut_reset(options); 
 
-    // set up basic shared schema for two transaction
+    string ddl_file = "ddl_file.sql";
+    string dml_file = "dml_file.sql";
+    remove(ddl_file.c_str());
+    remove(dml_file.c_str());
+    /* --- set up basic shared schema for two transaction --- */
 
-
-    while (1) {
-        auto schema = get_schema(options);
-
-        scope scope;
-        schema->fill_scope(scope);
-
-        shared_ptr<prod> gen = statement_factory(&scope);
-        ostringstream s;
-	    gen->out(s);
-        
-        // cerr << s.str() << ";" << endl; 
-        
-        try {
-            dut_test(options, s.str());
-        } catch(std::exception &e) {
-        }
-        
+    // stage 1: DDL stage (create, alter, drop)
+    auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
+    for (auto i = 0; i < ddl_stmt_num; i++) {
+        interect_test(options, &ddl_statement_factory, ddl_file); // has disabled the not null, check and unique clause 
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
     }
+
+    // stage 2: DML stage (insert),
+    auto basic_dml_stmt_num = 20 + d20();
+    cerr << "basic_dml_stmt_num = " << basic_dml_stmt_num << endl;
+    for (auto i = 0; i < basic_dml_stmt_num; i++) {
+        interect_test(options, &basic_dml_statement_factory, dml_file);
+        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
+            break;
+    }
+
+    // stage 3: transaction stage (DML and DQL)
+    
+    // while (1) {
+        
+    //     interect_test(options, &statement_factory);
+        
+    //     if (random_file != NULL && random_file->read_byte > random_file->end_pos)
+    //         break;
+    // }
 }

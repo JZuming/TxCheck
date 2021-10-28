@@ -480,6 +480,7 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
     if (only_allow_level_0 && this->level != 0)
         return;
 
+#ifndef TEST_SQLITE
     if (has_group == false && d9() == 1) {
         has_window = true;
         window_clause = make_shared<named_window>(this, this->scope);
@@ -497,6 +498,7 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
             select_list->derived_table.columns()[i].type = new_expr->type;
         }
     }
+#endif
 
     if (has_group == false && d6() == 1) {
         has_order = true;
@@ -973,9 +975,11 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     auto key_type = sqltype::get("INTEGER"); // at least one cols has integer type
     column key_column(key_column_name, key_type);
     created_table->columns().push_back(key_column);
+#ifdef USE_CONSTRAINT
     if (d6() == 1)
         not_null_constraints.push_back("NOT NULL");
     else
+#endif
         not_null_constraints.push_back("");
 
     int column_num = d9();
@@ -989,9 +993,11 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
         column create_column(column_name, type);
         created_table->columns().push_back(create_column);
+#ifdef USE_CONSTRAINT
         if (d6() == 1)
             not_null_constraints.push_back("NOT NULL");
         else
+#endif
             not_null_constraints.push_back("");
     }
 
@@ -1008,6 +1014,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         primary_key_cols.insert(picked_col->name);
     }
 
+#ifdef USE_CONSTRAINT
 #ifndef TEST_CLICKHOUSE
     // unique clause
     auto unique_num = d6() / 2;
@@ -1021,9 +1028,11 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         unique_cols.insert(picked_col->name);
     }
 #endif
+#endif
 
     // check clause
     has_check = false;
+#ifdef USE_CONSTRAINT
 #if (!defined TEST_MONETDB) && (!defined TEST_CLICKHOUSE)
     if (d6() == 1) {
         has_check = true;
@@ -1034,6 +1043,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
         check_expr = bool_expr::factory(this);
         in_check_clause = check_state;
     }
+#endif
 #endif
 }
 
@@ -1085,13 +1095,17 @@ void create_table_stmt::out(std::ostream &out)
     out << ")";
 }
 
-create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s)
+create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s, int is_base)
 : prod(parent), myscope(s)
 {
     scope = &myscope;
     scope->tables = s->tables;
 
-    if (d6() <= 4)
+    if (is_base = 1)
+        is_base_table = true;
+    else if (is_base = 0)
+        is_base_table = false;
+    else if (d6() <= 4)
         is_base_table = true;
     else
         is_base_table = false;
@@ -1117,9 +1131,9 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
 
 void create_table_select_stmt::out(std::ostream &out)
 {
-    out << "create ";
-    out << (is_base_table ? "table " : "view ");
-    out << tatble_name << " as ";
+    out << "CREATE ";
+    out << (is_base_table ? "TABLE " : "VIEW ");
+    out << tatble_name << " AS ";
     indent(out);
 
     out << *subquery;
@@ -1533,10 +1547,14 @@ shared_ptr<prod> statement_factory(struct scope *s)
         s->new_stmt();
         // if less than 2 tables, update_stmt will easily enter a dead loop.
         if (s->tables.size() < 2) { 
+#ifndef TEST_CLICKHOUSE
             if (s->tables.empty() || d6() > 3)
                 return make_shared<create_table_stmt>((struct prod *)0, s);
             else
                 return make_shared<create_table_select_stmt>((struct prod *)0, s);
+#else
+            return make_shared<create_table_stmt>((struct prod *)0, s);
+#endif
         }
 
         auto choice = d20();
@@ -1572,20 +1590,107 @@ shared_ptr<prod> statement_factory(struct scope *s)
         if (choice >= 13 && choice <= 15)
             return make_shared<unioned_query>((struct prod *)0, s);
         return make_shared<query_spec>((struct prod *)0, s);
-        /* TODO:
-        if (d42() == 1)
-            return make_shared<merge_stmt>((struct prod *)0, s);
-        else if (d42() == 1)
-            return make_shared<delete_returning>((struct prod *)0, s);
-        if (d42() == 1) 
-            return make_shared<upsert_stmt>((struct prod *)0, s);
-        else if (d42() == 1)
-            return make_shared<update_returning>((struct prod *)0, s);
-        if (d6() > 4)
-            return make_shared<select_for_update>((struct prod *)0, s);
-        */
     } catch (runtime_error &e) {
         cerr << "catch a runtime error" << endl;
+        return statement_factory(s);
+    }
+}
+
+shared_ptr<prod> ddl_statement_factory(struct scope *s)
+{
+    try {
+        s->new_stmt();
+        // if less than 2 tables, update_stmt will easily enter a dead loop.
+        if (s->tables.size() < 2) { 
+#ifndef TEST_CLICKHOUSE
+            if (s->tables.empty() || d6() > 3)
+                return make_shared<create_table_stmt>((struct prod *)0, s);
+            else
+                return make_shared<create_table_select_stmt>((struct prod *)0, s, 1);
+#else
+            return make_shared<create_table_stmt>((struct prod *)0, s);
+#endif
+        }
+
+        auto choice = d6();
+#ifndef TEST_CLICKHOUSE
+        if (choice == 1)
+            return make_shared<create_table_select_stmt>((struct prod *)0, s);
+        if (choice == 2)
+            return make_shared<alter_table_stmt>((struct prod *)0, s);
+        if (choice == 3)
+            return make_shared<create_index_stmt>((struct prod *)0, s);
+#endif
+        // database has at least 2 tables in case dml statements are used
+        if (choice == 4 && s->tables.size() >= 3) 
+            return make_shared<drop_table_stmt>((struct prod *)0, s);
+
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
+        if (choice == 5)
+            return make_shared<create_trigger_stmt>((struct prod *)0, s);
+#endif
+        
+        // default
+        return make_shared<create_table_stmt>((struct prod *)0, s);
+
+    } catch (runtime_error &e) {
+        cerr << "catch a runtime error in " << __FUNCTION__  << endl;
+        return statement_factory(s);
+    }
+}
+
+shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
+{
+    try { // only use insert_stmt to add data to target table
+        s->new_stmt();
+        return make_shared<insert_stmt>((struct prod *)0, s);
+
+    } catch (runtime_error &e) {
+        cerr << "catch a runtime error in " << __FUNCTION__  << endl;
+        return statement_factory(s);
+    }
+}
+
+shared_ptr<prod> dml_statement_factory(struct scope *s)
+{
+    try {
+        s->new_stmt();
+        auto choice = d6();
+#ifndef TEST_CLICKHOUSE
+        if (choice == 1)
+            return make_shared<delete_stmt>((struct prod *)0, s);
+        if (choice == 2) 
+            return make_shared<update_stmt>((struct prod *)0, s);
+#endif
+        if (choice == 3)
+            return make_shared<insert_select_stmt>((struct prod *)0, s);
+        
+        // default
+        return make_shared<insert_stmt>((struct prod *)0, s);
+
+    } catch (runtime_error &e) {
+        cerr << "catch a runtime error in " << __FUNCTION__  << endl;
+        return statement_factory(s);
+    }
+}
+
+// also include create view statement
+shared_ptr<prod> dql_statement_factory(struct scope *s)
+{
+    try {
+        s->new_stmt();
+
+        auto choice = d6();
+        if (choice == 1)
+            return make_shared<common_table_expression>((struct prod *)0, s);
+        if (choice == 2)
+            return make_shared<unioned_query>((struct prod *)0, s);
+        if (choice == 3)
+            return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
+    
+        return make_shared<query_spec>((struct prod *)0, s);
+    } catch (runtime_error &e) {
+        cerr << "catch a runtime error in " << __FUNCTION__  << endl;
         return statement_factory(s);
     }
 }
