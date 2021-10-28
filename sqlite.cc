@@ -115,11 +115,6 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
         throw e;
     }
 
-    cerr << endl;
-    for (auto& t:tables) {
-        cerr << t.ident() << endl;
-    }
-
     if (!no_catalog) {
 		// sqlite_master doesn't list itself, do it manually
 		table tab("sqlite_master", "main", false, false);
@@ -138,12 +133,10 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     }
 
     cerr << "Loading columns and constraints...";
-    cerr << endl;
     for (auto t = tables.begin(); t != tables.end(); ++t) {
         string q("pragma table_info(");
         q += t->name;
         q += ");";
-        cerr << q << endl;
         rc = sqlite3_exec(db, q.c_str(), column_callback, (void *)&*t, &zErrMsg);
         if (rc!=SQLITE_OK) {
             auto e = std::runtime_error(zErrMsg);

@@ -113,6 +113,7 @@ void dut_reset(map<string,string>& options)
 
 int main(int argc, char *argv[])
 {
+    // analyze the options
     map<string,string> options;
     regex optregex("--(help|postgres|sqlite|monetdb|random-seed)(?:=((?:.|\n)*))?");
   
@@ -151,12 +152,13 @@ int main(int argc, char *argv[])
     else
         random_file = NULL;
 
-    dut_reset(options);
+    // reset the target DBMS to initial state
+    dut_reset(options); 
 
-    int i = 0;
+    // set up basic shared schema for two transaction
+
+
     while (1) {
-        i++;
-        cerr << "======= " << i << " ======= " << endl;
         auto schema = get_schema(options);
 
         scope scope;
@@ -166,7 +168,7 @@ int main(int argc, char *argv[])
         ostringstream s;
 	    gen->out(s);
         
-        cerr << s.str() << ";" << endl; 
+        // cerr << s.str() << ";" << endl; 
         
         try {
             dut_test(options, s.str());
