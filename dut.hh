@@ -45,6 +45,7 @@ struct dut_base {
   std::string version;
   virtual void test(const std::string &stmt) = 0;
   virtual void reset(void) = 0;
+  virtual void backup(void) = 0;
 };
 
 

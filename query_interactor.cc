@@ -111,7 +111,13 @@ void dut_reset(map<string,string>& options)
     dut->reset();
 }
 
-void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statement_factory)(scope *), string record_file = "")
+void dut_backup(map<string,string>& options)
+{
+    auto dut = dut_setup(options);
+    dut->backup();
+}
+
+void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statement_factory)(scope *), vector<string>& rec_vec)
 {
     auto schema = get_schema(options);
     scope scope;
@@ -123,18 +129,36 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
 
     try {
         dut_test(options, s.str());
-        if (!record_file.empty()) { // if it success and has record_file
-            ofstream out(record_file, ios::app);
-            out << s.str();
-            out << ";" << endl;
-            out.close();
-        }
+        auto sql = s.str() + ";";
+        rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
         cerr << "\n" << e.what() << "\n" << endl;
         string err = e.what();
         if (err.find("syntax") != string::npos)
             cerr << s.str() << endl;
-        interect_test(options, tmp_statement_factory, record_file);
+        interect_test(options, tmp_statement_factory, rec_vec);
+    }
+}
+
+void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared_ptr<prod> (* tmp_statement_factory)(scope *), vector<string>& rec_vec)
+{
+    scope scope;
+    schema->fill_scope(scope);
+
+    shared_ptr<prod> gen = tmp_statement_factory(&scope);
+    ostringstream s;
+    gen->out(s);
+
+    try {
+        dut_test(options, s.str());
+        auto sql = s.str() + ";";
+        rec_vec.push_back(sql);
+    } catch(std::exception &e) { // ignore runtime error
+        cerr << "\n" << e.what() << "\n" << endl;
+        string err = e.what();
+        if (err.find("syntax") != string::npos)
+            cerr << s.str() << endl;
+        normal_test(options, schema, tmp_statement_factory, rec_vec);
     }
 }
 
@@ -181,37 +205,58 @@ int main(int argc, char *argv[])
 
     // reset the target DBMS to initial state
     dut_reset(options); 
+    
+    vector<string> stage_1_rec;
+    vector<string> stage_2_rec;
+    vector<string> trans_1_rec;
+    vector<string> trans_2_rec;
 
-    string ddl_file = "ddl_file.sql";
-    string dml_file = "dml_file.sql";
-    remove(ddl_file.c_str());
-    remove(dml_file.c_str());
     /* --- set up basic shared schema for two transaction --- */
 
     // stage 1: DDL stage (create, alter, drop)
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
     for (auto i = 0; i < ddl_stmt_num; i++) {
-        interect_test(options, &ddl_statement_factory, ddl_file); // has disabled the not null, check and unique clause 
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
+
+        interect_test(options, &ddl_statement_factory, stage_1_rec); // has disabled the not null, check and unique clause 
     }
 
-    // stage 2: DML stage (insert),
-    auto basic_dml_stmt_num = 20 + d20();
-    cerr << "basic_dml_stmt_num = " << basic_dml_stmt_num << endl;
+    // stage 2: basic DML stage (only insert),
+    auto basic_dml_stmt_num = 20 + d20(); // 20-40 statements to insert data
+    auto schema = get_schema(options); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) {
-        interect_test(options, &basic_dml_statement_factory, dml_file);
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
+        
+        normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec);
     }
 
-    // stage 3: transaction stage (DML and DQL)
+    // stage 3: backup database
+    dut_backup(options);
+
+    // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
+    auto trans_1_stmt_num = 9 + d6(); // 10-15
+    for (auto i = 0; i < trans_1_stmt_num; i++) {
+        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
+            break;
+        
+        interect_test(options, &trans_statement_factory, trans_1_rec);
+    }
+    // now we get the sequential result of transaction 1
+    // TODO: ...
+
+    auto trans_2_stmt_num = 9 + d6(); // 10-15
+    for (auto i = 0; i < trans_2_stmt_num; i++) {
+        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
+            break;
+        
+        interect_test(options, &trans_statement_factory, trans_2_rec);
+    }
+    // now we get the sequential result of transaction 2
+    // TODO: ...
+
     
-    // while (1) {
-        
-    //     interect_test(options, &statement_factory);
-        
-    //     if (random_file != NULL && random_file->read_byte > random_file->end_pos)
-    //         break;
-    // }
+
+
 }

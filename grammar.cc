@@ -1101,11 +1101,11 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
     scope = &myscope;
     scope->tables = s->tables;
 
-    if (is_base = 1)
+    if (is_base == 1)
         is_base_table = true;
-    else if (is_base = 0)
+    else if (is_base == 0)
         is_base_table = false;
-    else if (d6() <= 4)
+    else if (d6() <= 3)
         is_base_table = true;
     else
         is_base_table = false;
@@ -1651,46 +1651,36 @@ shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
     }
 }
 
-shared_ptr<prod> dml_statement_factory(struct scope *s)
+shared_ptr<prod> trans_statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
-        auto choice = d6();
+        auto choice = d20();
 #ifndef TEST_CLICKHOUSE
         if (choice == 1)
-            return make_shared<delete_stmt>((struct prod *)0, s);
-        if (choice == 2) 
-            return make_shared<update_stmt>((struct prod *)0, s);
-#endif
-        if (choice == 3)
-            return make_shared<insert_select_stmt>((struct prod *)0, s);
-        
-        // default
-        return make_shared<insert_stmt>((struct prod *)0, s);
-
-    } catch (runtime_error &e) {
-        cerr << "catch a runtime error in " << __FUNCTION__  << endl;
-        return statement_factory(s);
-    }
-}
-
-// also include create view statement
-shared_ptr<prod> dql_statement_factory(struct scope *s)
-{
-    try {
-        s->new_stmt();
-
-        auto choice = d6();
-        if (choice == 1)
-            return make_shared<common_table_expression>((struct prod *)0, s);
-        if (choice == 2)
-            return make_shared<unioned_query>((struct prod *)0, s);
-        if (choice == 3)
             return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
-    
+        if (choice == 2)
+            return make_shared<create_index_stmt>((struct prod *)0, s);
+        if (choice == 3)
+            return make_shared<delete_stmt>((struct prod *)0, s);
+        if (choice == 4) 
+            return make_shared<update_stmt>((struct prod *)0, s);
+#else
+        if (choice <= 4)
+            choice += 4;
+#endif
+        if (choice == 5)
+            return make_shared<insert_stmt>((struct prod *)0, s);
+        if (choice == 6)
+            return make_shared<insert_select_stmt>((struct prod *)0, s);
+        if (choice == 7)
+            return make_shared<common_table_expression>((struct prod *)0, s);
+        if (choice == 8)
+            return make_shared<unioned_query>((struct prod *)0, s);
+
         return make_shared<query_spec>((struct prod *)0, s);
     } catch (runtime_error &e) {
-        cerr << "catch a runtime error in " << __FUNCTION__  << endl;
+        cerr << "catch a runtime error" << endl;
         return statement_factory(s);
     }
 }

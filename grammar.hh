@@ -487,7 +487,6 @@ struct insert_select_stmt : modifying_stmt {
 shared_ptr<prod> statement_factory(struct scope *s);
 shared_ptr<prod> ddl_statement_factory(struct scope *s);
 shared_ptr<prod> basic_dml_statement_factory(struct scope *s);
-shared_ptr<prod> dml_statement_factory(struct scope *s);
-shared_ptr<prod> dql_statement_factory(struct scope *s);
+shared_ptr<prod> trans_statement_factory(struct scope *s);
 
 #endif

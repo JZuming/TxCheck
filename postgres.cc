@@ -374,3 +374,8 @@ void dut_libpq::reset(void)
 {
   int i;
 }
+
+void dut_libpq::backup(void)
+{
+  int i;
+}

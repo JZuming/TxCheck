@@ -420,3 +420,36 @@ void dut_sqlite::reset(void)
         throw std::runtime_error(sqlite3_errmsg(db));
     }
 }
+
+void dut_sqlite::backup(void)
+{
+    auto bk_db = db_file;
+    auto pos = bk_db.find(".db");
+    if (pos != string::npos) {
+        bk_db.erase(pos, 3);
+    }
+    bk_db += "_bk.db";
+    remove(bk_db.c_str());
+
+    sqlite3 *dst_db;
+    auto dst_rc = sqlite3_open_v2(bk_db.c_str(), &dst_db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI|SQLITE_OPEN_CREATE, 0);
+    if (rc) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    auto bck = sqlite3_backup_init(dst_db, "main", db, "main");
+    if (bck == nullptr) {
+        throw std::runtime_error("sqlite3_backup_init fail");
+    }
+
+    auto err =sqlite3_backup_step(bck, -1);
+    if (err != SQLITE_DONE) {
+        sqlite3_backup_finish(bck);
+        throw std::runtime_error("sqlite3_backup_step fail");
+    }
+
+    err = sqlite3_backup_finish(bck);
+
+    sqlite3_close(db);
+    return;
+}
