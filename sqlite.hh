@@ -33,6 +33,8 @@ struct dut_sqlite : dut_base, sqlite_connection {
     virtual void test(const std::string &stmt);
     virtual void reset(void);
     virtual void backup(void);
+    virtual void trans_test(const std::vector<std::string> &stmt_vec);
+    virtual void reset_to_backup(void);
     dut_sqlite(std::string &conninfo);
 };
 

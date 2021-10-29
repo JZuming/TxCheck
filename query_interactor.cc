@@ -46,6 +46,11 @@ extern "C" {
 #include <signal.h>
 }
 
+struct thread_data {
+    map<string,string>* options;
+    vector<string>* trans_stmts;
+};
+
 shared_ptr<schema> get_schema(map<string,string>& options)
 {
     shared_ptr<schema> schema;
@@ -115,6 +120,21 @@ void dut_backup(map<string,string>& options)
 {
     auto dut = dut_setup(options);
     dut->backup();
+}
+
+void dut_reset_to_backup(map<string,string>& options)
+{
+    auto dut = dut_setup(options);
+    dut->reset_to_backup();
+}
+
+void *dut_trans_test(void *thread_arg)
+{
+    auto data = (thread_data *)thread_arg;
+    auto dut = dut_setup(*(data->options));
+    dut->trans_test(*(data->trans_stmts));
+
+    return 0;
 }
 
 void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statement_factory)(scope *), vector<string>& rec_vec)
@@ -205,7 +225,7 @@ int main(int argc, char *argv[])
 
     // reset the target DBMS to initial state
     dut_reset(options); 
-    
+
     vector<string> stage_1_rec;
     vector<string> stage_2_rec;
     vector<string> trans_1_rec;
@@ -243,9 +263,9 @@ int main(int argc, char *argv[])
         
         interect_test(options, &trans_statement_factory, trans_1_rec);
     }
-    // now we get the sequential result of transaction 1
-    // TODO: ...
+    // TODO: now we can get the sequential result of transaction 1
 
+    dut_reset_to_backup(options); // reset to prevent trans2 use the elements defined in trans1
     auto trans_2_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_2_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -253,10 +273,27 @@ int main(int argc, char *argv[])
         
         interect_test(options, &trans_statement_factory, trans_2_rec);
     }
-    // now we get the sequential result of transaction 2
-    // TODO: ...
+    // TODO: now we can get the sequential result of transaction 2
 
-    
+    // stage 5: reset to backup state
+    dut_reset_to_backup(options);
 
+    // stage 6: cocurrent transaction test
+    thread_data data_1, data_2;
+    data_1.options = &options;
+    data_1.trans_stmts = &trans_1_rec;
+    data_2.options = &options;
+    data_2.trans_stmts = &trans_2_rec;
 
+    pthread_t tid_1, tid_2;
+    cerr << "Transaction 1" << endl;
+    pthread_create(&tid_1, NULL, dut_trans_test, &data_1);
+    cerr << "Transaction 2" << endl;
+    pthread_create(&tid_2, NULL, dut_trans_test, &data_2);
+    pthread_exit(NULL);
+
+    // cerr << "Transaction 2" << endl;
+    // dut_trans_test(options, trans_2_rec);
+    // cerr << "Transaction 1" << endl;
+    // dut_trans_test(options, trans_1_rec);
 }

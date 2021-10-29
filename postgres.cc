@@ -372,10 +372,16 @@ void dut_libpq::test(const std::string &stmt)
 
 void dut_libpq::reset(void)
 {
-  int i;
 }
 
 void dut_libpq::backup(void)
 {
-  int i;
+}
+
+void dut_libpq::reset_to_backup(void)
+{
+}
+
+void dut_libpq::trans_test(const std::vector<std::string> &stmt_vec)
+{
 }

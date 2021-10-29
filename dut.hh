@@ -5,6 +5,7 @@
 #define DUT_HH
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "prod.hh"
 
@@ -46,7 +47,8 @@ struct dut_base {
   virtual void test(const std::string &stmt) = 0;
   virtual void reset(void) = 0;
   virtual void backup(void) = 0;
+  virtual void reset_to_backup(void) = 0;
+  virtual void trans_test(const std::vector<std::string> &stmt_vec) = 0;
 };
-
 
 #endif

@@ -433,7 +433,7 @@ void dut_sqlite::backup(void)
 
     sqlite3 *dst_db;
     auto dst_rc = sqlite3_open_v2(bk_db.c_str(), &dst_db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI|SQLITE_OPEN_CREATE, 0);
-    if (rc) {
+    if (dst_rc) {
         throw std::runtime_error(sqlite3_errmsg(db));
     }
 
@@ -450,6 +450,58 @@ void dut_sqlite::backup(void)
 
     err = sqlite3_backup_finish(bck);
 
-    sqlite3_close(db);
+    sqlite3_close(dst_db);
+    return;
+}
+
+// if bk_db is empty, it will reset to empty
+void dut_sqlite::reset_to_backup(void)
+{
+    auto bk_db = db_file;
+    auto pos = bk_db.find(".db");
+    if (pos != string::npos) {
+        bk_db.erase(pos, 3);
+    }
+    bk_db += "_bk.db";
+    
+    if (db)
+        sqlite3_close(db);
+    remove(db_file.c_str());
+
+    sqlite3 *src_db;
+    auto src_rc = sqlite3_open_v2(bk_db.c_str(), &src_db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI|SQLITE_OPEN_CREATE, 0);
+    if (src_rc) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    rc = sqlite3_open_v2(db_file.c_str(), &db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI|SQLITE_OPEN_CREATE, 0);
+    if (rc) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    auto bck = sqlite3_backup_init(db, "main", src_db, "main");
+    if (bck == nullptr) {
+        throw std::runtime_error("sqlite3_backup_init fail");
+    }
+
+    auto err =sqlite3_backup_step(bck, -1);
+    if (err != SQLITE_DONE) {
+        sqlite3_backup_finish(bck);
+        throw std::runtime_error("sqlite3_backup_step fail");
+    }
+
+    err = sqlite3_backup_finish(bck);
+
+    sqlite3_close(src_db);
+    return;
+}
+
+void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec)
+{
+    test("BEGIN TRANSACTION;");
+    for (auto &stmt:stmt_vec) {
+        test(stmt);
+    }
+    test("COMMIT;");
     return;
 }

@@ -2,7 +2,7 @@
 
 BUILT_SOURCES = gitrev.h
 
-bin_PROGRAMS = sqlsmith libsqlsmith.so query_interactor
+bin_PROGRAMS = sqlsmith query_interactor
 
 DUT = postgres.cc
 
@@ -25,13 +25,13 @@ query_interactor_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
     random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	\
     query_interactor.cc
 
-query_interactor_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
+query_interactor_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS) -lpthread
 
-libsqlsmith_so_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
-    random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	
+# libsqlsmith_so_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
+#     random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	
 
-libsqlsmith_so_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
-libsqlsmith_so_LDFLAGS= -shared -fPIC $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS)
+# libsqlsmith_so_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
+# libsqlsmith_so_LDFLAGS= -shared -fPIC $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS)
 
 AM_LDFLAGS = $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS) #-fsanitize=address -fno-omit-frame-pointer
 AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wextra -fPIC #-O0 -fsanitize=address
