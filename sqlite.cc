@@ -380,13 +380,14 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 dut_sqlite::dut_sqlite(std::string &conninfo)
   : sqlite_connection(conninfo)
 {
-    q("PRAGMA main.auto_vacuum = 2");
+    // q("PRAGMA main.auto_vacuum = 2");
 }
 
 extern "C" int dut_callback(void *arg, int argc, char **argv, char **azColName)
 {
     (void) arg; (void) argc; (void) argv; (void) azColName;
-    return SQLITE_ABORT;
+    return 0;
+    // return SQLITE_ABORT;
 }
 
 void dut_sqlite::test(const std::string &stmt)
@@ -499,9 +500,45 @@ void dut_sqlite::reset_to_backup(void)
 void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec)
 {
     test("BEGIN TRANSACTION;");
-    for (auto &stmt:stmt_vec) {
-        test(stmt);
+    auto size = stmt_vec.size();
+    for (auto j = 0; j < size; j++) {
+        auto &stmt = stmt_vec[j];
+        int i = 0;
+        while (1) {
+            try {
+                i++;
+                if (i >= 2000) {
+                    cerr << pthread_self() << " skip " << stmt.substr(0, 20) << endl;
+                    break;
+                }
+                test(stmt);
+                cerr << pthread_self() << ": " << j << endl;
+                break; // success and then break while loop
+            } catch(std::exception &e) { // ignore runtime error
+                string err = e.what();
+                if (err.find("locked") != string::npos) {
+                    test("SELECT 1;");
+                    continue; // not break and continue to test 
+                }
+                cerr << pthread_self() << " " << err << endl;
+                break;
+            }
+        }
     }
-    test("COMMIT;");
+    cerr << pthread_self() << " commit" << endl;
+    while (1) {
+        try{
+            test("COMMIT;");
+            break;
+        }catch(std::exception &e) { // ignore runtime error
+            string err = e.what();
+            if (err.find("locked") != string::npos) {
+                continue; // not break and continue to test 
+            }
+            cerr << pthread_self() << " " << err << endl;
+            break;
+        }
+    }
+    cerr << pthread_self() << " commit done" << endl;
     return;
 }

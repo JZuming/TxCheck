@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "/home/zuming/research/dynsql-sqlsmith/query_interactor",
             "args": ["--sqlite=../test/test.db", 
-                    "--random-seed=sqlsmith"],
+                    "--random-seed=../test/sqlsmith"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

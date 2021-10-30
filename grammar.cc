@@ -1126,6 +1126,16 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
         i--;
     }
 
+    if (columns.size() == 0) {
+        auto e = make_shared<column_reference>(this);
+        exprs.push_back(e);
+        ostringstream name;
+        name << "c1";
+        sqltype *t = e->type;
+        assert(t);
+        columns.push_back(column(name.str(), t));
+    }
+
     tatble_name = unique_table_name(scope);
 }
 
@@ -1655,10 +1665,10 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
-        auto choice = d20();
+        auto choice = d9();
 #ifndef TEST_CLICKHOUSE
         if (choice == 1)
-            return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
+            return make_shared<create_table_select_stmt>((struct prod *)0, s);
         if (choice == 2)
             return make_shared<create_index_stmt>((struct prod *)0, s);
         if (choice == 3)

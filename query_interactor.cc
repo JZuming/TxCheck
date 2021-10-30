@@ -133,8 +133,7 @@ void *dut_trans_test(void *thread_arg)
     auto data = (thread_data *)thread_arg;
     auto dut = dut_setup(*(data->options));
     dut->trans_test(*(data->trans_stmts));
-
-    return 0;
+    pthread_exit(NULL);
 }
 
 void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statement_factory)(scope *), vector<string>& rec_vec)
@@ -217,7 +216,7 @@ int main(int argc, char *argv[])
 
     struct file_random_machine* random_file;
     if (options.count("random-seed")) {
-        cerr << options["random-seed"] << endl;
+        cerr << "random seed is " << options["random-seed"] << endl;
         random_file = file_random_machine::get(options["random-seed"]);
     }
     else
@@ -232,8 +231,10 @@ int main(int argc, char *argv[])
     vector<string> trans_2_rec;
 
     /* --- set up basic shared schema for two transaction --- */
+    smith::rng.seed(options.count("seed") ? stoi(options["seed"]) : getpid());
 
     // stage 1: DDL stage (create, alter, drop)
+    cerr << "stage1" << endl;
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
     for (auto i = 0; i < ddl_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -241,8 +242,14 @@ int main(int argc, char *argv[])
 
         interect_test(options, &ddl_statement_factory, stage_1_rec); // has disabled the not null, check and unique clause 
     }
+    ofstream o1("stage_1.sql");
+    for (auto &stmt : stage_1_rec) {
+        o1 << stmt << endl;
+    }
+    o1.close();
 
     // stage 2: basic DML stage (only insert),
+    cerr << "stage2" << endl;
     auto basic_dml_stmt_num = 20 + d20(); // 20-40 statements to insert data
     auto schema = get_schema(options); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) {
@@ -251,11 +258,18 @@ int main(int argc, char *argv[])
         
         normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec);
     }
+    ofstream o2("stage_2.sql");
+    for (auto &stmt : stage_2_rec) {
+        o2 << stmt << endl;
+    }
+    o2.close();    
 
     // stage 3: backup database
+    cerr << "stage3" << endl;
     dut_backup(options);
 
     // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
+    cerr << "stage4" << endl;
     auto trans_1_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_1_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -264,6 +278,11 @@ int main(int argc, char *argv[])
         interect_test(options, &trans_statement_factory, trans_1_rec);
     }
     // TODO: now we can get the sequential result of transaction 1
+    ofstream o3("trans_1.sql");
+    for (auto &stmt : trans_1_rec) {
+        o3 << stmt << endl;
+    }
+    o3.close();
 
     dut_reset_to_backup(options); // reset to prevent trans2 use the elements defined in trans1
     auto trans_2_stmt_num = 9 + d6(); // 10-15
@@ -274,11 +293,18 @@ int main(int argc, char *argv[])
         interect_test(options, &trans_statement_factory, trans_2_rec);
     }
     // TODO: now we can get the sequential result of transaction 2
+    ofstream o4("trans_2.sql");
+    for (auto &stmt : trans_2_rec) {
+        o4 << stmt << endl;
+    }
+    o4.close();
 
     // stage 5: reset to backup state
+    cerr << "stage5" << endl;
     dut_reset_to_backup(options);
 
     // stage 6: cocurrent transaction test
+    cerr << "stage6" << endl;
     thread_data data_1, data_2;
     data_1.options = &options;
     data_1.trans_stmts = &trans_1_rec;
@@ -286,14 +312,9 @@ int main(int argc, char *argv[])
     data_2.trans_stmts = &trans_2_rec;
 
     pthread_t tid_1, tid_2;
-    cerr << "Transaction 1" << endl;
     pthread_create(&tid_1, NULL, dut_trans_test, &data_1);
-    cerr << "Transaction 2" << endl;
     pthread_create(&tid_2, NULL, dut_trans_test, &data_2);
-    pthread_exit(NULL);
 
-    // cerr << "Transaction 2" << endl;
-    // dut_trans_test(options, trans_2_rec);
-    // cerr << "Transaction 1" << endl;
-    // dut_trans_test(options, trans_1_rec);
+    pthread_join(tid_1, NULL);
+    pthread_join(tid_2, NULL);
 }
