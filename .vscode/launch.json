@@ -8,7 +8,7 @@
             "name": "gdb debugger",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/home/zuming/research/dynsql-sqlsmith/query_interactor",
+            "program": "${workspaceFolder}/query_interactor",
             "args": ["--sqlite=../test/test.db", 
                     "--random-seed=../test/sqlsmith"],
             "stopAtEntry": false,
