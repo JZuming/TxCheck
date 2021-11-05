@@ -152,10 +152,11 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
         auto sql = s.str() + ";";
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
-        // cerr << "\n" << e.what() << "\n" << endl;
         string err = e.what();
-        if (err.find("syntax") != string::npos)
+        if (err.find("syntax") != string::npos) {
+            cerr << "\n" << e.what() << "\n" << endl;
             cerr << s.str() << endl;
+        }
         interect_test(options, tmp_statement_factory, rec_vec);
     }
 }
@@ -174,14 +175,16 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
         auto sql = s.str() + ";";
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
-        // cerr << "\n" << e.what() << "\n" << endl;
         string err = e.what();
-        if (err.find("syntax") != string::npos)
+        if (err.find("syntax") != string::npos) {
+            cerr << "\n" << e.what() << "\n" << endl;
             cerr << s.str() << endl;
+        }
         normal_test(options, schema, tmp_statement_factory, rec_vec);
     }
 }
 
+// #define __DEBUG_MODE__
 int main(int argc, char *argv[])
 {
     // analyze the options
@@ -236,7 +239,7 @@ int main(int argc, char *argv[])
     smith::rng.seed(options.count("seed") ? stoi(options["seed"]) : getpid());
 
     // stage 1: DDL stage (create, alter, drop)
-    cerr << "stage1: generate the shared database" << endl;
+    cerr << "stage 1: generate the shared database" << endl;
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
     for (auto i = 0; i < ddl_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -244,14 +247,16 @@ int main(int argc, char *argv[])
 
         interect_test(options, &ddl_statement_factory, stage_1_rec); // has disabled the not null, check and unique clause 
     }
+#ifdef __DEBUG_MODE__
     ofstream o1("stage_1.sql");
     for (auto &stmt : stage_1_rec) {
         o1 << stmt << endl;
     }
     o1.close();
+#endif
 
     // stage 2: basic DML stage (only insert),
-    cerr << "stage2: insert data into the database" << endl;
+    cerr << "stage 2: insert data into the database" << endl;
     auto basic_dml_stmt_num = 20 + d20(); // 20-40 statements to insert data
     auto schema = get_schema(options); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) {
@@ -260,53 +265,59 @@ int main(int argc, char *argv[])
         
         normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec);
     }
+#ifdef __DEBUG_MODE__
     ofstream o2("stage_2.sql");
     for (auto &stmt : stage_2_rec) {
         o2 << stmt << endl;
     }
-    o2.close();    
+    o2.close();
+#endif
 
     // stage 3: backup database
-    cerr << "stage3: backup the database" << endl;
+    cerr << "stage 3: backup the database" << endl;
     dut_backup(options);
 
     // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
-    cerr << "stage4: generate SQL statements for transaction A and B, and then execute A -> B" << endl;
+    cerr << "stage 4: generate SQL statements for transaction A and B, and then execute A -> B" << endl;
     auto trans_1_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_1_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        interect_test(options, &trans_statement_factory, trans_1_rec);
+        // interect_test(options, &trans_statement_factory, trans_1_rec);
+        normal_test(options, schema, &trans_statement_factory, trans_1_rec);
     }
-    // TODO: now we can get the sequential result of transaction 1
+#ifdef __DEBUG_MODE__
     ofstream o3("trans_1.sql");
     for (auto &stmt : trans_1_rec) {
         o3 << stmt << endl;
     }
     o3.close();
+#endif
 
-    dut_reset_to_backup(options); // reset to prevent trans2 use the elements defined in trans1
+    // dut_reset_to_backup(options); // reset to prevent trans2 use the elements defined in trans1
     auto trans_2_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_2_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        interect_test(options, &trans_statement_factory, trans_2_rec);
+        // interect_test(options, &trans_statement_factory, trans_2_rec);
+        normal_test(options, schema, &trans_statement_factory, trans_2_rec);
     }
-    // TODO: now we can get the sequential result of transaction 2
+#ifdef __DEBUG_MODE__
     ofstream o4("trans_2.sql");
     for (auto &stmt : trans_2_rec) {
         o4 << stmt << endl;
     }
     o4.close();
+#endif
 
     // stage 5: reset to backup state
-    cerr << "stage5: reset to the backup statement" << endl;
+    cerr << "stage 5: reset to the backup statement" << endl;
     dut_reset_to_backup(options);
 
     // stage 6: cocurrent transaction test
-    cerr << "stage6: cocurrently execute transaction A and B" << endl;
+    cerr << "stage 6: cocurrently execute transaction A and B" << endl;
     thread_data data_1, data_2;
     vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
     data_1.options = &options;
@@ -323,4 +334,8 @@ int main(int argc, char *argv[])
 
     pthread_join(tid_1, NULL);
     pthread_join(tid_2, NULL);
+
+    // stage 7: collect database information
+    cerr << "stage 7: collect database information" << endl;
+    
 }

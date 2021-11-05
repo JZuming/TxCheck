@@ -1616,7 +1616,7 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
             if (s->tables.empty() || d6() > 3)
                 return make_shared<create_table_stmt>((struct prod *)0, s);
             else
-                return make_shared<create_table_select_stmt>((struct prod *)0, s, 1);
+                return make_shared<create_table_select_stmt>((struct prod *)0, s);
 #else
             return make_shared<create_table_stmt>((struct prod *)0, s);
 #endif
@@ -1692,7 +1692,8 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
         
         return trans_statement_factory(s);
     } catch (runtime_error &e) {
-        cerr << "catch a runtime error" << endl;
+        string err = e.what();
+        cerr << "catch a runtime error: " << err << endl;
         return statement_factory(s);
     }
 }
