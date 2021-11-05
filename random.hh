@@ -78,7 +78,6 @@ I random_pick(I beg, I end) {
         return beg;
     }
     else {
-        std::cerr << "p = " << file_random_machine::using_file << endl;
         std::advance(beg, dx(std::distance(beg, end)) - 1);
         return beg;
     }

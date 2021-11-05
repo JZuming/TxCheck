@@ -106,7 +106,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     version = "SQLite " SQLITE_VERSION " " SQLITE_SOURCE_ID;
 
 //   sqlite3_busy_handler(db, my_sqlite3_busy_handler, 0);
-    cerr << "Loading tables...";
+    // cerr << "Loading tables...";
 
     rc = sqlite3_exec(db, query.c_str(), table_callback, (void *)&tables, &zErrMsg);
     if (rc!=SQLITE_OK) {
@@ -121,9 +121,9 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 		tables.push_back(tab);
     }
   
-    cerr << "done." << endl;
+    // cerr << "done." << endl;
 
-    cerr << "Loading indexes...";
+    // cerr << "Loading indexes...";
     string query_index = "SELECT name FROM sqlite_master WHERE type='index' ORDER BY 1;";
     rc = sqlite3_exec(db, query_index.c_str(), index_callback, (void *)&indexes, &zErrMsg);
     if (rc!=SQLITE_OK) {
@@ -132,7 +132,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
         throw e;
     }
 
-    cerr << "Loading columns and constraints...";
+    // cerr << "Loading columns and constraints...";
     for (auto t = tables.begin(); t != tables.end(); ++t) {
         string q("pragma table_info(");
         q += t->name;
@@ -145,7 +145,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
         }
     }
 
-    cerr << "done." << endl;
+    // cerr << "done." << endl;
 
 #define BINOP(n, a, b, r) do {\
     op o(#n, \
@@ -501,26 +501,25 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec)
 {
     test("BEGIN TRANSACTION;");
     auto size = stmt_vec.size();
-    for (auto j = 0; j < size; j++) {
-        auto &stmt = stmt_vec[j];
-        int i = 0;
+    for (auto i = 0; i < size; i++) {
+        auto &stmt = stmt_vec[i];
+        int try_time = 0;
         while (1) {
             try {
-                i++;
-                if (i >= 2000) {
-                    cerr << pthread_self() << " skip " << stmt.substr(0, 20) << endl;
+                if (try_time >= MAX_TRY_TIME) {
+                    cerr << pthread_self() << ": " << i << " skip " << stmt.substr(0, 20) << endl;
                     break;
                 }
+                try_time++;
                 test(stmt);
-                cerr << pthread_self() << ": " << j << endl;
+                cerr << pthread_self() << ": " << i << endl;
                 break; // success and then break while loop
             } catch(std::exception &e) { // ignore runtime error
                 string err = e.what();
                 if (err.find("locked") != string::npos) {
-                    test("SELECT 1;");
                     continue; // not break and continue to test 
                 }
-                cerr << pthread_self() << " " << err << endl;
+                cerr << pthread_self() << ": " << i << " " << err << endl;
                 break;
             }
         }

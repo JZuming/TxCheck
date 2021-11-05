@@ -1667,10 +1667,10 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
         s->new_stmt();
         auto choice = d9();
 #ifndef TEST_CLICKHOUSE
-        if (choice == 1)
-            return make_shared<create_table_select_stmt>((struct prod *)0, s);
-        if (choice == 2)
-            return make_shared<create_index_stmt>((struct prod *)0, s);
+        // if (choice == 1)
+        //     return make_shared<create_table_select_stmt>((struct prod *)0, s);
+        // if (choice == 2)
+        //     return make_shared<create_index_stmt>((struct prod *)0, s);
         if (choice == 3)
             return make_shared<delete_stmt>((struct prod *)0, s);
         if (choice == 4) 
@@ -1687,8 +1687,10 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
             return make_shared<common_table_expression>((struct prod *)0, s);
         if (choice == 8)
             return make_shared<unioned_query>((struct prod *)0, s);
-
-        return make_shared<query_spec>((struct prod *)0, s);
+        if (choice == 9)
+            return make_shared<query_spec>((struct prod *)0, s);
+        
+        return trans_statement_factory(s);
     } catch (runtime_error &e) {
         cerr << "catch a runtime error" << endl;
         return statement_factory(s);

@@ -10,7 +10,7 @@ using namespace pqxx;
 
 void schema::generate_indexes() {
 
-    cerr << "Generating indexes...";
+    // cerr << "Generating indexes...";
 
     for (auto &type: types) {
         assert(type);
@@ -52,7 +52,7 @@ void schema::generate_indexes() {
             base_tables.push_back(&t);
     }
   
-    cerr << "done." << endl;
+    // cerr << "done." << endl;
 
     assert(booltype);
     assert(inttype);

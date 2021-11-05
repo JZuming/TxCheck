@@ -151,10 +151,10 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
         auto sql = s.str() + ";";
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
-        cerr << "\n" << e.what() << "\n" << endl;
-        string err = e.what();
-        if (err.find("syntax") != string::npos)
-            cerr << s.str() << endl;
+        // cerr << "\n" << e.what() << "\n" << endl;
+        // string err = e.what();
+        // if (err.find("syntax") != string::npos)
+        //     cerr << s.str() << endl;
         interect_test(options, tmp_statement_factory, rec_vec);
     }
 }
@@ -173,10 +173,10 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
         auto sql = s.str() + ";";
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
-        cerr << "\n" << e.what() << "\n" << endl;
-        string err = e.what();
-        if (err.find("syntax") != string::npos)
-            cerr << s.str() << endl;
+        // cerr << "\n" << e.what() << "\n" << endl;
+        // string err = e.what();
+        // if (err.find("syntax") != string::npos)
+        //     cerr << s.str() << endl;
         normal_test(options, schema, tmp_statement_factory, rec_vec);
     }
 }
@@ -218,6 +218,7 @@ int main(int argc, char *argv[])
     if (options.count("random-seed")) {
         cerr << "random seed is " << options["random-seed"] << endl;
         random_file = file_random_machine::get(options["random-seed"]);
+        file_random_machine::use_file(options["random-seed"]);
     }
     else
         random_file = NULL;
@@ -234,7 +235,7 @@ int main(int argc, char *argv[])
     smith::rng.seed(options.count("seed") ? stoi(options["seed"]) : getpid());
 
     // stage 1: DDL stage (create, alter, drop)
-    cerr << "stage1" << endl;
+    cerr << "stage1: generate the shared database" << endl;
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
     for (auto i = 0; i < ddl_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -249,7 +250,7 @@ int main(int argc, char *argv[])
     o1.close();
 
     // stage 2: basic DML stage (only insert),
-    cerr << "stage2" << endl;
+    cerr << "stage2: insert data into the database" << endl;
     auto basic_dml_stmt_num = 20 + d20(); // 20-40 statements to insert data
     auto schema = get_schema(options); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) {
@@ -265,11 +266,11 @@ int main(int argc, char *argv[])
     o2.close();    
 
     // stage 3: backup database
-    cerr << "stage3" << endl;
+    cerr << "stage3: backup the database" << endl;
     dut_backup(options);
 
     // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
-    cerr << "stage4" << endl;
+    cerr << "stage4: generate SQL statements for transaction A and B, and then execute A -> B" << endl;
     auto trans_1_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_1_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -300,11 +301,11 @@ int main(int argc, char *argv[])
     o4.close();
 
     // stage 5: reset to backup state
-    cerr << "stage5" << endl;
+    cerr << "stage5: reset to the backup statement" << endl;
     dut_reset_to_backup(options);
 
     // stage 6: cocurrent transaction test
-    cerr << "stage6" << endl;
+    cerr << "stage6: cocurrently execute transaction A and B" << endl;
     thread_data data_1, data_2;
     data_1.options = &options;
     data_1.trans_stmts = &trans_1_rec;

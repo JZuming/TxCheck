@@ -8,6 +8,7 @@
 #define PROD_HH
 
 #define TEST_SQLITE
+#define MAX_TRY_TIME 1
 
 /// Base class for walking the AST
 struct prod_visitor {

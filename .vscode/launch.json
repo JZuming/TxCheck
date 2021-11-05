@@ -9,8 +9,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/query_interactor",
-            "args": ["--sqlite=../test/test.db", 
-                    "--random-seed=../test/sqlsmith"],
+            "args": ["--sqlite=../test/test.db" 
+                    , "--random-seed=../test/sqlsmith"
+                    ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
