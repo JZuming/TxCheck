@@ -498,7 +498,7 @@ void dut_sqlite::reset_to_backup(void)
 }
 
 void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
-                , std::vector<std::string> &exec_stmt_vec)
+                , std::vector<std::string>* exec_stmt_vec)
 {
     test("BEGIN TRANSACTION;");
     auto size = stmt_vec.size();
@@ -513,7 +513,8 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
                 }
                 try_time++;
                 test(stmt);
-                exec_stmt_vec.push_back(stmt);
+                if (exec_stmt_vec != NULL)
+                    exec_stmt_vec->push_back(stmt);
                 cerr << pthread_self() << ": " << i << endl;
                 break; // success and then break while loop
             } catch(std::exception &e) { // ignore runtime error

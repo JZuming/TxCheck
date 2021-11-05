@@ -133,11 +133,11 @@ void *dut_trans_test(void *thread_arg)
 {
     auto data = (thread_data *)thread_arg;
     auto dut = dut_setup(*(data->options));
-    dut->trans_test(*(data->trans_stmts), *(data->exec_trans_stmts));
+    dut->trans_test(*(data->trans_stmts), (data->exec_trans_stmts));
     return NULL;
 }
 
-void normal_dut_trans_test(map<string,string>& options, vector<string>& stmts, vector<string>& exec_stmts)
+void normal_dut_trans_test(map<string,string>& options, vector<string>& stmts, vector<string>* exec_stmts)
 {
     auto dut = dut_setup(options);
     dut->trans_test(stmts, exec_stmts);
@@ -396,10 +396,9 @@ int main(int argc, char *argv[])
     // stage 6: reset to backup state, and then sequential transaction test
     cerr << "stage 6: reset to backup state, and then sequential transaction test" << endl;
     dut_reset_to_backup(options);
-    vector<string> useless_stmts;
 
-    normal_dut_trans_test(options, exec_trans_1_stmts, useless_stmts);
-    normal_dut_trans_test(options, exec_trans_2_stmts, useless_stmts);
+    normal_dut_trans_test(options, exec_trans_1_stmts, NULL);
+    normal_dut_trans_test(options, exec_trans_2_stmts, NULL);
 
     map<string, vector<string>> sequential_content;
     dut_get_content(options, table_names, sequential_content);
