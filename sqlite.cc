@@ -207,7 +207,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 } while(0)
 
     FUNC(last_insert_rowid, INTEGER);
-    FUNC(random, INTEGER);
+    // FUNC(random, INTEGER);
     FUNC(sqlite_source_id, TEXT);
     FUNC(sqlite_version, TEXT);
     FUNC(total_changes, INTEGER);
@@ -220,7 +220,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     FUNC1(lower, TEXT, TEXT);
     FUNC1(ltrim, TEXT, TEXT);
     FUNC1(quote, TEXT, TEXT);
-    FUNC1(randomblob, TEXT, INTEGER);
+    // FUNC1(randomblob, TEXT, INTEGER);
     FUNC1(round, INTEGER, REAL);
     FUNC1(rtrim, TEXT, TEXT);
 
@@ -390,10 +390,30 @@ extern "C" int dut_callback(void *arg, int argc, char **argv, char **azColName)
     // return SQLITE_ABORT;
 }
 
-void dut_sqlite::test(const std::string &stmt)
+extern "C" int content_callback(void *data, int argc, char **argv, char **azColName){
+    int i;
+    auto data_vec = (vector<string> *)data;
+    if (data_vec == NULL)
+        return 0;
+
+    for (i = 0; i < argc; i++) {
+        if (argv[i] == NULL) {
+            data_vec->push_back("NULL");
+            continue;
+        }
+        string str = argv[i];
+        str.erase(0, str.find_first_not_of(" "));
+        str.erase(str.find_last_not_of(" ") + 1);
+        data_vec->push_back(str);
+    }
+    data_vec->push_back("\n");
+    return 0;
+}
+
+void dut_sqlite::test(const std::string &stmt, std::vector<std::string>* output)
 {
     alarm(6);
-    rc = sqlite3_exec(db, stmt.c_str(), dut_callback, 0, &zErrMsg);
+    rc = sqlite3_exec(db, stmt.c_str(), content_callback, (void *)output, &zErrMsg);
     if(rc != SQLITE_OK){
         try {
             if (regex_match(zErrMsg, e_syntax))
@@ -408,6 +428,7 @@ void dut_sqlite::test(const std::string &stmt)
             throw;
         }
     }
+
 }
 
 void dut_sqlite::reset(void)
@@ -498,13 +519,15 @@ void dut_sqlite::reset_to_backup(void)
 }
 
 void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
-                , std::vector<std::string>* exec_stmt_vec)
+                , std::vector<std::string>* exec_stmt_vec
+                , vector<vector<string>>* output)
 {
     test("BEGIN TRANSACTION;");
     auto size = stmt_vec.size();
     for (auto i = 0; i < size; i++) {
         auto &stmt = stmt_vec[i];
         int try_time = 0;
+        vector<string> stmt_output;
         while (1) {
             try {
                 if (try_time >= MAX_TRY_TIME) {
@@ -512,9 +535,11 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
                     break;
                 }
                 try_time++;
-                test(stmt);
+                test(stmt, &stmt_output);
                 if (exec_stmt_vec != NULL)
                     exec_stmt_vec->push_back(stmt);
+                if (output != NULL)
+                    output->push_back(stmt_output);
                 cerr << pthread_self() << ": " << i << endl;
                 break; // success and then break while loop
             } catch(std::exception &e) { // ignore runtime error
@@ -544,24 +569,6 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
     }
     cerr << pthread_self() << " commit done" << endl;
     return;
-}
-
-extern "C" int content_callback(void *data, int argc, char **argv, char **azColName){
-    int i;
-    auto data_vec = (vector<string> *)data;
-
-    for (i = 0; i < argc; i++) {
-        if (argv[i] == NULL) {
-            data_vec->push_back("NULL");
-            continue;
-        }
-        string str = argv[i];
-        str.erase(0, str.find_first_not_of(" "));
-        str.erase(str.find_last_not_of(" ") + 1);
-        data_vec->push_back(str);
-    }
-    data_vec->push_back("\n");
-    return 0;
 }
 
 void dut_sqlite::get_content(vector<string>& tables_name, map<string, vector<string>>& content)

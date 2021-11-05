@@ -50,6 +50,7 @@ struct thread_data {
     map<string,string>* options;
     vector<string>* trans_stmts;
     vector<string>* exec_trans_stmts;
+    vector<vector<string>>* stmt_output;
 };
 
 shared_ptr<schema> get_schema(map<string,string>& options)
@@ -133,11 +134,13 @@ void *dut_trans_test(void *thread_arg)
 {
     auto data = (thread_data *)thread_arg;
     auto dut = dut_setup(*(data->options));
-    dut->trans_test(*(data->trans_stmts), (data->exec_trans_stmts));
+    dut->trans_test(*(data->trans_stmts), data->exec_trans_stmts, data->stmt_output);
     return NULL;
 }
 
-void normal_dut_trans_test(map<string,string>& options, vector<string>& stmts, vector<string>* exec_stmts)
+void normal_dut_trans_test(map<string,string>& options, 
+                           vector<string>& stmts, 
+                           vector<string>* exec_stmts)
 {
     auto dut = dut_setup(options);
     dut->trans_test(stmts, exec_stmts);
@@ -223,7 +226,7 @@ bool compare_content(vector<string>& table_names,
     return true;
 }
 
-// #define __DEBUG_MODE__
+#define __DEBUG_MODE__
 int main(int argc, char *argv[])
 {
     // analyze the options
@@ -356,13 +359,17 @@ int main(int argc, char *argv[])
     dut_reset_to_backup(options);
     thread_data data_1, data_2;
     vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
+    vector<vector<string>> trans_1_output, trans_2_output;
+
     data_1.options = &options;
     data_1.trans_stmts = &trans_1_rec;
     data_1.exec_trans_stmts = &exec_trans_1_stmts;
+    data_1.stmt_output = &trans_1_output;
 
     data_2.options = &options;
     data_2.trans_stmts = &trans_2_rec;
     data_2.exec_trans_stmts = &exec_trans_2_stmts;
+    data_2.stmt_output = &trans_2_output;
 
     pthread_t tid_1, tid_2;
     pthread_create(&tid_1, NULL, dut_trans_test, &data_1);

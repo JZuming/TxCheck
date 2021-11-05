@@ -30,11 +30,12 @@ struct schema_sqlite : schema, sqlite_connection {
 };
 
 struct dut_sqlite : dut_base, sqlite_connection {
-    virtual void test(const std::string &stmt);
+    virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL);
     virtual void reset(void);
     virtual void backup(void);
     virtual void trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec);
+                            , std::vector<std::string>* exec_stmt_vec
+                            , vector<vector<string>>* output = NULL);
     virtual void reset_to_backup(void);
     virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content);
     dut_sqlite(std::string &conninfo);

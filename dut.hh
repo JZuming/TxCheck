@@ -47,12 +47,13 @@ struct syntax : failure {
 
 struct dut_base {
   std::string version;
-  virtual void test(const std::string &stmt) = 0;
+  virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL) = 0;
   virtual void reset(void) = 0;
   virtual void backup(void) = 0;
   virtual void reset_to_backup(void) = 0;
   virtual void trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec) = 0;
+                          , std::vector<std::string>* exec_stmt_vec
+                          , vector<vector<string>>* output = NULL) = 0;
   virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content) = 0;
 };
 

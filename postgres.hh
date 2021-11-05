@@ -58,12 +58,13 @@ struct dut_pqxx : dut_base {
 struct dut_libpq : dut_base {
      PGconn *conn = 0;
      std::string conninfo_;
-     virtual void test(const std::string &stmt);
+     virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL);
      virtual void reset(void);
      virtual void backup(void);
      virtual void reset_to_backup(void);
      virtual void trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec);
+                            , std::vector<std::string>* exec_stmt_vec
+                            , vector<vector<string>>* output = NULL);
      virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content);
      void command(const std::string &stmt);
      void connect(std::string &conninfo);
