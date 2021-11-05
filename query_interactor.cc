@@ -335,6 +335,20 @@ int main(int argc, char *argv[])
     pthread_join(tid_1, NULL);
     pthread_join(tid_2, NULL);
 
+#ifdef __DEBUG_MODE__
+    ofstream o5("exec_trans_1.sql");
+    for (auto &stmt : exec_trans_1_stmts) {
+        o5 << stmt << endl;
+    }
+    o5.close();
+
+    ofstream o6("exec_trans_2.sql");
+    for (auto &stmt : exec_trans_2_stmts) {
+        o6 << stmt << endl;
+    }
+    o6.close();
+#endif
+
     // stage 7: collect database information
     cerr << "stage 7: collect database information" << endl;
     

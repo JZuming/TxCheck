@@ -1645,7 +1645,7 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
 
     } catch (runtime_error &e) {
         cerr << "catch a runtime error in " << __FUNCTION__  << endl;
-        return statement_factory(s);
+        return ddl_statement_factory(s);
     }
 }
 
@@ -1657,7 +1657,7 @@ shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
 
     } catch (runtime_error &e) {
         cerr << "catch a runtime error in " << __FUNCTION__  << endl;
-        return statement_factory(s);
+        return basic_dml_statement_factory(s);
     }
 }
 
@@ -1694,6 +1694,6 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
     } catch (runtime_error &e) {
         string err = e.what();
         cerr << "catch a runtime error: " << err << endl;
-        return statement_factory(s);
+        return trans_statement_factory(s);
     }
 }
