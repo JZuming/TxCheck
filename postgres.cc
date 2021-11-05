@@ -386,3 +386,8 @@ void dut_libpq::trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string> &exec_stmt_vec)
 {
 }
+
+void dut_libpq::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
+{
+  
+}

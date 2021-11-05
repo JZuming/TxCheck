@@ -544,3 +544,38 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
     cerr << pthread_self() << " commit done" << endl;
     return;
 }
+
+extern "C" int content_callback(void *data, int argc, char **argv, char **azColName){
+    int i;
+    auto data_vec = (vector<string> *)data;
+
+    for (i = 0; i < argc; i++) {
+        if (argv[i] == NULL) {
+            data_vec->push_back("NULL");
+            continue;
+        }
+        string str = argv[i];
+        str.erase(0, str.find_first_not_of(" "));
+        str.erase(str.find_last_not_of(" ") + 1);
+        data_vec->push_back(str);
+    }
+    data_vec->push_back("\n");
+    return 0;
+}
+
+void dut_sqlite::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
+{
+    for (auto& table:tables_name) {
+        vector<string> table_content;
+        auto query = "SELECT * FROM " + table + " ORDER BY 1;";
+        
+        rc = sqlite3_exec(db, query.c_str(), content_callback, (void *)&table_content, &zErrMsg);
+        if (rc != SQLITE_OK) {
+            auto e = std::runtime_error(zErrMsg);
+            sqlite3_free(zErrMsg);
+            throw e;
+        }
+
+        content[table] = table_content;
+    }
+}

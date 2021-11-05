@@ -6,8 +6,11 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "prod.hh"
+
+using namespace std;
 
 namespace dut {
   
@@ -50,6 +53,7 @@ struct dut_base {
   virtual void reset_to_backup(void) = 0;
   virtual void trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string> &exec_stmt_vec) = 0;
+  virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content) = 0;
 };
 
 #endif

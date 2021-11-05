@@ -134,7 +134,21 @@ void *dut_trans_test(void *thread_arg)
     auto data = (thread_data *)thread_arg;
     auto dut = dut_setup(*(data->options));
     dut->trans_test(*(data->trans_stmts), *(data->exec_trans_stmts));
-    pthread_exit(NULL);
+    return NULL;
+}
+
+void normal_dut_trans_test(map<string,string>& options, vector<string>& stmts, vector<string>& exec_stmts)
+{
+    auto dut = dut_setup(options);
+    dut->trans_test(stmts, exec_stmts);
+}
+
+void dut_get_content(map<string,string>& options, 
+                    vector<string>& tables_name, 
+                    map<string, vector<string>>& content)
+{
+    auto dut = dut_setup(options);
+    dut->get_content(tables_name, content);
 }
 
 void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statement_factory)(scope *), vector<string>& rec_vec)
@@ -182,6 +196,31 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
         }
         normal_test(options, schema, tmp_statement_factory, rec_vec);
     }
+}
+
+bool compare_content(vector<string>& table_names, 
+                    map<string, vector<string>>&con_content, 
+                    map<string, vector<string>>&seq_content)
+{
+    for (auto& table:table_names) {
+        auto& con_table_content = con_content[table];
+        auto& seq_table_content = seq_content[table];
+
+        auto size = con_table_content.size();
+        if (size != seq_table_content.size()) {
+            cerr << "sizes are not equal" << endl;
+            return false;
+        }
+
+        for (auto i = 0; i < size; i++) {
+            if (seq_table_content[i] != con_table_content[i]) {
+                cerr << "content are not equal" << endl;
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 // #define __DEBUG_MODE__
@@ -312,12 +351,9 @@ int main(int argc, char *argv[])
     o4.close();
 #endif
 
-    // stage 5: reset to backup state
-    cerr << "stage 5: reset to the backup statement" << endl;
+    // stage 5: reset to backup state, and then cocurrent transaction test
+    cerr << "stage 5: reset to backup state, and cocurrently execute transaction A and B" << endl;
     dut_reset_to_backup(options);
-
-    // stage 6: cocurrent transaction test
-    cerr << "stage 6: cocurrently execute transaction A and B" << endl;
     thread_data data_1, data_2;
     vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
     data_1.options = &options;
@@ -349,7 +385,27 @@ int main(int argc, char *argv[])
     o6.close();
 #endif
 
-    // stage 7: collect database information
-    cerr << "stage 7: collect database information" << endl;
-    
+    // collect database information
+    map<string, vector<string>> concurrent_content;
+    vector<string> table_names;
+    for (auto& table:schema->tables) {
+        table_names.push_back(table.ident());
+    }
+    dut_get_content(options, table_names, concurrent_content);
+
+    // stage 6: reset to backup state, and then sequential transaction test
+    cerr << "stage 6: reset to backup state, and then sequential transaction test" << endl;
+    dut_reset_to_backup(options);
+    vector<string> useless_stmts;
+
+    normal_dut_trans_test(options, exec_trans_1_stmts, useless_stmts);
+    normal_dut_trans_test(options, exec_trans_2_stmts, useless_stmts);
+
+    map<string, vector<string>> sequential_content;
+    dut_get_content(options, table_names, sequential_content);
+
+    // stage 7: compare content
+    if (!compare_content(table_names, concurrent_content, sequential_content)) {
+        cerr << "find a bug" << endl;
+    }
 }
