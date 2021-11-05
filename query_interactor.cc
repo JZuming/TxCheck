@@ -49,6 +49,7 @@ extern "C" {
 struct thread_data {
     map<string,string>* options;
     vector<string>* trans_stmts;
+    vector<string>* exec_trans_stmts;
 };
 
 shared_ptr<schema> get_schema(map<string,string>& options)
@@ -132,7 +133,7 @@ void *dut_trans_test(void *thread_arg)
 {
     auto data = (thread_data *)thread_arg;
     auto dut = dut_setup(*(data->options));
-    dut->trans_test(*(data->trans_stmts));
+    dut->trans_test(*(data->trans_stmts), *(data->exec_trans_stmts));
     pthread_exit(NULL);
 }
 
@@ -152,9 +153,9 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
         // cerr << "\n" << e.what() << "\n" << endl;
-        // string err = e.what();
-        // if (err.find("syntax") != string::npos)
-        //     cerr << s.str() << endl;
+        string err = e.what();
+        if (err.find("syntax") != string::npos)
+            cerr << s.str() << endl;
         interect_test(options, tmp_statement_factory, rec_vec);
     }
 }
@@ -174,9 +175,9 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
         // cerr << "\n" << e.what() << "\n" << endl;
-        // string err = e.what();
-        // if (err.find("syntax") != string::npos)
-        //     cerr << s.str() << endl;
+        string err = e.what();
+        if (err.find("syntax") != string::npos)
+            cerr << s.str() << endl;
         normal_test(options, schema, tmp_statement_factory, rec_vec);
     }
 }
@@ -307,10 +308,14 @@ int main(int argc, char *argv[])
     // stage 6: cocurrent transaction test
     cerr << "stage6: cocurrently execute transaction A and B" << endl;
     thread_data data_1, data_2;
+    vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
     data_1.options = &options;
     data_1.trans_stmts = &trans_1_rec;
+    data_1.exec_trans_stmts = &exec_trans_1_stmts;
+
     data_2.options = &options;
     data_2.trans_stmts = &trans_2_rec;
+    data_2.exec_trans_stmts = &exec_trans_2_stmts;
 
     pthread_t tid_1, tid_2;
     pthread_create(&tid_1, NULL, dut_trans_test, &data_1);

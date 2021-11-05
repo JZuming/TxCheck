@@ -62,7 +62,8 @@ struct dut_libpq : dut_base {
      virtual void reset(void);
      virtual void backup(void);
      virtual void reset_to_backup(void);
-     virtual void trans_test(const std::vector<std::string> &stmt_vec);
+     virtual void trans_test(const std::vector<std::string> &stmt_vec
+                          , std::vector<std::string> &exec_stmt_vec);
      void command(const std::string &stmt);
      void connect(std::string &conninfo);
      dut_libpq(std::string conninfo);

@@ -48,7 +48,8 @@ struct dut_base {
   virtual void reset(void) = 0;
   virtual void backup(void) = 0;
   virtual void reset_to_backup(void) = 0;
-  virtual void trans_test(const std::vector<std::string> &stmt_vec) = 0;
+  virtual void trans_test(const std::vector<std::string> &stmt_vec
+                          , std::vector<std::string> &exec_stmt_vec) = 0;
 };
 
 #endif
