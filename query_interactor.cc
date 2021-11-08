@@ -57,6 +57,8 @@ extern "C" {
 #define WHITE   "\033[37m"      /* White */
 #define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
 
+// #define __DEBUG_MODE__
+
 struct thread_data {
     map<string,string>* options;
     vector<string>* trans_stmts;
@@ -280,60 +282,14 @@ void write_output(vector<vector<string>>& output, string file_name)
     ofile.close();
 }
 
-#define __DEBUG_MODE__
-int main(int argc, char *argv[])
+int generate_database(map<string,string>& options, file_random_machine* random_file)
 {
-    // analyze the options
-    map<string,string> options;
-    regex optregex("--(help|postgres|sqlite|monetdb|random-seed)(?:=((?:.|\n)*))?");
-  
-    for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
-        smatch match;
-        string s(*opt);
-        if (regex_match(s, match, optregex)) {
-            options[string(match[1])] = match[2];
-        } else {
-            cerr << "Cannot parse option: " << *opt << endl;
-            options["help"] = "";
-        }
-    }
-
-    if (options.count("help")) {
-        cerr <<
-            "    --postgres=connstr   postgres database to send queries to" << endl <<
-#ifdef HAVE_LIBSQLITE3
-            "    --sqlite=URI         SQLite database to send queries to" << endl <<
-#endif
-#ifdef HAVE_MONETDB
-            "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
-#endif
-            "    --random-seed=filename    random file for dynamic query interaction" << endl <<
-            "    --help               print available command line options and exit" << endl;
-        return 0;
-    } else if (options.count("version")) {
-        return 0;
-    }
-
-    struct file_random_machine* random_file;
-    if (options.count("random-seed")) {
-        cerr << "random seed is " << options["random-seed"] << endl;
-        random_file = file_random_machine::get(options["random-seed"]);
-        file_random_machine::use_file(options["random-seed"]);
-    }
-    else
-        random_file = NULL;
-
-    // reset the target DBMS to initial state
-    dut_reset(options); 
-
     vector<string> stage_1_rec;
     vector<string> stage_2_rec;
-    vector<string> trans_1_rec;
-    vector<string> trans_2_rec;
 
     /* --- set up basic shared schema for two transaction --- */
     smith::rng.seed(options.count("seed") ? stoi(options["seed"]) : getpid());
-
+    
     // stage 1: DDL stage (create, alter, drop)
     cerr << YELLOW << "stage 1: generate the shared database" << RESET << endl;
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
@@ -372,6 +328,16 @@ int main(int argc, char *argv[])
     // stage 3: backup database
     cerr << YELLOW << "stage 3: backup the database" << RESET << endl;
     dut_backup(options);
+
+    return 0;
+}
+
+int transaction_test(map<string,string>& options, file_random_machine* random_file)
+{
+    auto schema = get_schema(options);
+
+    vector<string> trans_1_rec;
+    vector<string> trans_2_rec;
 
     // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
     cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B, and then execute A -> B" << RESET << endl;
@@ -489,16 +455,85 @@ int main(int argc, char *argv[])
     dut_get_content(options, table_names, sequential_content);
     if (!compare_content(table_names, concurrent_content, sequential_content)) {
         cerr << "find a bug in content compare" << endl;
+        
+        return 1;
     }
     if (!compare_output(trans_1_output, seq_1_output)) {
         cerr << "find a bug in output 1 compare" << endl;
         write_output(trans_1_output, "trans_1_output");
         write_output(seq_1_output, "seq_1_output");
+        
+        return 1;
     }
     if (!compare_output(trans_2_output, seq_2_output)) {
         cerr << "find a bug in output 2 compare" << endl;
         write_output(trans_2_output, "trans_2_output");
         write_output(seq_2_output, "seq_2_output");
+
+        return 1;
     }
+
+    return 0;    
+}
+
+int random_test(map<string,string>& options)
+{
+    struct file_random_machine* random_file;
+    if (options.count("random-seed")) {
+        cerr << "random seed is " << options["random-seed"] << endl;
+        random_file = file_random_machine::get(options["random-seed"]);
+        file_random_machine::use_file(options["random-seed"]);
+    }
+    else
+        random_file = NULL;
+    
+    // reset the target DBMS to initial state
+    dut_reset(options); 
+
+    generate_database(options, random_file);
+    while (1) {
+        auto ret = transaction_test(options, random_file);
+        if (ret == 1)
+            break;
+    }
+    
+    return 0;
+}
+
+int main(int argc, char *argv[])
+{
+    // analyze the options
+    map<string,string> options;
+    regex optregex("--(help|postgres|sqlite|monetdb|random-seed)(?:=((?:.|\n)*))?");
+  
+    for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
+        smatch match;
+        string s(*opt);
+        if (regex_match(s, match, optregex)) {
+            options[string(match[1])] = match[2];
+        } else {
+            cerr << "Cannot parse option: " << *opt << endl;
+            options["help"] = "";
+        }
+    }
+
+    if (options.count("help")) {
+        cerr <<
+            "    --postgres=connstr   postgres database to send queries to" << endl <<
+#ifdef HAVE_LIBSQLITE3
+            "    --sqlite=URI         SQLite database to send queries to" << endl <<
+#endif
+#ifdef HAVE_MONETDB
+            "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
+#endif
+            "    --random-seed=filename    random file for dynamic query interaction" << endl <<
+            "    --help               print available command line options and exit" << endl;
+        return 0;
+    } else if (options.count("version")) {
+        return 0;
+    }
+
+    random_test(options);
+
     return 0;
 }
