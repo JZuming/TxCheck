@@ -269,7 +269,7 @@ void write_output(vector<vector<string>>& output, string file_name)
     ofile.close();
 }
 
-// #define __DEBUG_MODE__
+#define __DEBUG_MODE__
 int main(int argc, char *argv[])
 {
     // analyze the options
@@ -444,7 +444,7 @@ int main(int argc, char *argv[])
     dut_get_content(options, table_names, concurrent_content);
 
     // stage 6: reset to backup state, and then sequential transaction test
-    cerr << "stage 6: reset to backup state, and then sequential transaction test" << endl;
+    cerr << "stage 6.1: first comparison" << endl;
     dut_reset_to_backup(options);
 
     vector<vector<string>> seq_1_output, seq_2_output;
@@ -454,23 +454,40 @@ int main(int argc, char *argv[])
     map<string, vector<string>> sequential_content;
     dut_get_content(options, table_names, sequential_content);
 
-    // stage 7: comparison
-    cerr << "stage 7: result comparison" << endl;
+    bool second_comp = false;
+    if (!compare_content(table_names, concurrent_content, sequential_content)) {
+        second_comp = true;
+    }
+    if (!compare_output(trans_1_output, seq_1_output)) {
+        second_comp = true;
+    }
+    if (!compare_output(trans_2_output, seq_2_output)) {
+        second_comp = true;
+    }
+
+    if (second_comp == false)
+        return 0;
+
+    cerr << "stage 6.2: second comparison" << endl;
+    dut_reset_to_backup(options);
+    seq_1_output.clear();
+    seq_2_output.clear();
+    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output);
+    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output);
+    sequential_content.clear();
+    dut_get_content(options, table_names, sequential_content);
     if (!compare_content(table_names, concurrent_content, sequential_content)) {
         cerr << "find a bug in content compare" << endl;
     }
-
     if (!compare_output(trans_1_output, seq_1_output)) {
         cerr << "find a bug in output 1 compare" << endl;
         write_output(trans_1_output, "trans_1_output");
         write_output(seq_1_output, "seq_1_output");
     }
-
     if (!compare_output(trans_2_output, seq_2_output)) {
         cerr << "find a bug in output 2 compare" << endl;
         write_output(trans_2_output, "trans_2_output");
         write_output(seq_2_output, "seq_2_output");
     }
-
     return 0;
 }
