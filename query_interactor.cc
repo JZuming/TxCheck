@@ -140,10 +140,11 @@ void *dut_trans_test(void *thread_arg)
 
 void normal_dut_trans_test(map<string,string>& options, 
                            vector<string>& stmts, 
-                           vector<string>* exec_stmts)
+                           vector<string>* exec_stmts,
+                           vector<vector<string>>* stmt_output)
 {
     auto dut = dut_setup(options);
-    dut->trans_test(stmts, exec_stmts);
+    dut->trans_test(stmts, exec_stmts, stmt_output);
 }
 
 void dut_get_content(map<string,string>& options, 
@@ -226,7 +227,49 @@ bool compare_content(vector<string>& table_names,
     return true;
 }
 
-#define __DEBUG_MODE__
+bool compare_output(vector<vector<string>>& trans_output,
+                    vector<vector<string>>& seq_output)
+{
+    auto size = trans_output.size();
+    if (size != seq_output.size()) {
+        cerr << "output sizes are not equel: "<< trans_output.size() << " " << seq_output.size() << endl;
+        return false;
+    }
+    for (auto i = 0; i < size; i++) {
+        auto& trans_stmt_output = trans_output[i];
+        auto& seq_stmt_output = seq_output[i];
+        
+        auto stmt_output_size = trans_stmt_output.size();
+        if (stmt_output_size != seq_stmt_output.size()) {
+            cerr << "stmt[" << i << "] output sizes are not equel: " << trans_stmt_output.size() << " " << seq_stmt_output.size() << endl;
+            return false;
+        }
+
+        for (auto j = 0; j < stmt_output_size; j++) {
+            if (trans_stmt_output[j] != seq_stmt_output[j]) {
+                cerr << "stmt[" << i << "][" << j << "] outputs are not equel: " << trans_stmt_output[j] << " " << seq_stmt_output[j] << endl;
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+void write_output(vector<vector<string>>& output, string file_name)
+{
+    ofstream ofile(file_name);
+    auto size = output.size();
+    for (auto i = 0; i < size; i++) {
+        ofile << "stmt " << i << " output" << endl;
+        for (auto& str: output[i]) {
+            ofile << " " << str;
+        }
+    }
+    ofile.close();
+}
+
+// #define __DEBUG_MODE__
 int main(int argc, char *argv[])
 {
     // analyze the options
@@ -404,14 +447,30 @@ int main(int argc, char *argv[])
     cerr << "stage 6: reset to backup state, and then sequential transaction test" << endl;
     dut_reset_to_backup(options);
 
-    normal_dut_trans_test(options, exec_trans_1_stmts, NULL);
-    normal_dut_trans_test(options, exec_trans_2_stmts, NULL);
+    vector<vector<string>> seq_1_output, seq_2_output;
+    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output);
+    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output);
 
     map<string, vector<string>> sequential_content;
     dut_get_content(options, table_names, sequential_content);
 
-    // stage 7: compare content
+    // stage 7: comparison
+    cerr << "stage 7: result comparison" << endl;
     if (!compare_content(table_names, concurrent_content, sequential_content)) {
-        cerr << "find a bug" << endl;
+        cerr << "find a bug in content compare" << endl;
     }
+
+    if (!compare_output(trans_1_output, seq_1_output)) {
+        cerr << "find a bug in output 1 compare" << endl;
+        write_output(trans_1_output, "trans_1_output");
+        write_output(seq_1_output, "seq_1_output");
+    }
+
+    if (!compare_output(trans_2_output, seq_2_output)) {
+        cerr << "find a bug in output 2 compare" << endl;
+        write_output(trans_2_output, "trans_2_output");
+        write_output(seq_2_output, "seq_2_output");
+    }
+
+    return 0;
 }

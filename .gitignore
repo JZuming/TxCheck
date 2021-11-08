@@ -33,3 +33,4 @@ ar-lib
 libsqlsmith.so
 query_interactor
 *.sql
+*output
