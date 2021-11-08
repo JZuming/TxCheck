@@ -46,6 +46,17 @@ extern "C" {
 #include <signal.h>
 }
 
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m"      /* Green */
+#define YELLOW  "\033[33m"      /* Yellow */
+#define BLUE    "\033[34m"      /* Blue */
+#define MAGENTA "\033[35m"      /* Magenta */
+#define CYAN    "\033[36m"      /* Cyan */
+#define WHITE   "\033[37m"      /* White */
+#define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
+
 struct thread_data {
     map<string,string>* options;
     vector<string>* trans_stmts;
@@ -324,7 +335,7 @@ int main(int argc, char *argv[])
     smith::rng.seed(options.count("seed") ? stoi(options["seed"]) : getpid());
 
     // stage 1: DDL stage (create, alter, drop)
-    cerr << "stage 1: generate the shared database" << endl;
+    cerr << YELLOW << "stage 1: generate the shared database" << RESET << endl;
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
     for (auto i = 0; i < ddl_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -341,7 +352,7 @@ int main(int argc, char *argv[])
 #endif
 
     // stage 2: basic DML stage (only insert),
-    cerr << "stage 2: insert data into the database" << endl;
+    cerr << YELLOW << "stage 2: insert data into the database" << RESET << endl;
     auto basic_dml_stmt_num = 20 + d20(); // 20-40 statements to insert data
     auto schema = get_schema(options); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) {
@@ -359,11 +370,11 @@ int main(int argc, char *argv[])
 #endif
 
     // stage 3: backup database
-    cerr << "stage 3: backup the database" << endl;
+    cerr << YELLOW << "stage 3: backup the database" << RESET << endl;
     dut_backup(options);
 
     // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
-    cerr << "stage 4: generate SQL statements for transaction A and B, and then execute A -> B" << endl;
+    cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B, and then execute A -> B" << RESET << endl;
     auto trans_1_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_1_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -398,7 +409,7 @@ int main(int argc, char *argv[])
 #endif
 
     // stage 5: reset to backup state, and then cocurrent transaction test
-    cerr << "stage 5: reset to backup state, and cocurrently execute transaction A and B" << endl;
+    cerr << YELLOW << "stage 5: reset to backup state, and cocurrently execute transaction A and B"  << RESET << endl;
     dut_reset_to_backup(options);
     thread_data data_1, data_2;
     vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
@@ -444,7 +455,7 @@ int main(int argc, char *argv[])
     dut_get_content(options, table_names, concurrent_content);
 
     // stage 6: reset to backup state, and then sequential transaction test
-    cerr << "stage 6.1: first comparison" << endl;
+    cerr << YELLOW << "stage 6.1: first comparison" << RESET << endl;
     dut_reset_to_backup(options);
 
     vector<vector<string>> seq_1_output, seq_2_output;
@@ -468,7 +479,7 @@ int main(int argc, char *argv[])
     if (second_comp == false)
         return 0;
 
-    cerr << "stage 6.2: second comparison" << endl;
+    cerr << YELLOW << "stage 6.2: second comparison" << RESET << endl;
     dut_reset_to_backup(options);
     seq_1_output.clear();
     seq_2_output.clear();
