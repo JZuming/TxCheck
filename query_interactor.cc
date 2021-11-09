@@ -66,6 +66,13 @@ struct thread_data {
     vector<vector<string>>* stmt_output;
 };
 
+struct test_thread_arg {
+    map<string,string>* options;
+    string* stmt;
+    exception e;
+    bool has_exception;
+};
+
 shared_ptr<schema> get_schema(map<string,string>& options)
 {
     shared_ptr<schema> schema;
@@ -119,10 +126,81 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
     return dut;
 }
 
+pthread_mutex_t mutex_timeout;  
+pthread_cond_t  cond_timeout; 
+
+void alrm_signal(int signal)  
+{  
+    if(signal != SIGALRM) {  
+        printf("unexpect signal %d\n", signal);  
+        exit(1);  
+    }  
+     
+    pthread_exit(0);
+    return;  
+}
+
+void* test_thread(void* argv)
+{
+    auto data = (test_thread_arg *)argv;
+    try {
+        auto dut = dut_setup(*(data->options));
+        dut->test(*(data->stmt));
+    } catch (std::exception &e) {
+        data->e = e;
+        data->has_exception = true;
+    }
+    
+    pthread_mutex_lock(&mutex_timeout);  
+    pthread_cond_signal(&cond_timeout);  
+    pthread_mutex_unlock(&mutex_timeout);
+
+    return NULL;
+}
+
 void dut_test(map<string,string>& options, const string& stmt)
 {
-    auto dut = dut_setup(options);
-    dut->test(stmt);
+    auto dut = dut_setup(options);  
+    
+    // set timeout action
+    struct sigaction action;  
+    memset(&action, 0, sizeof(action));  
+    sigemptyset(&action.sa_mask);  
+    action.sa_flags = 0;  
+    action.sa_handler = alrm_signal;  
+    if (sigaction(SIGALRM, &action, NULL)) {
+        cerr << "sigaction error" << endl;
+        exit(1);
+    }
+
+    // set timeout limit
+    struct timespec m_time;
+    m_time.tv_sec = time(NULL) + 2; // 2 seconds  
+    m_time.tv_nsec = 0; 
+
+    // set pthread parameter
+    pthread_mutex_init(&mutex_timeout, NULL);  
+    pthread_cond_init(&cond_timeout, NULL);  
+    pthread_t thread;
+    test_thread_arg data;
+    data.options = &options;
+    auto str = stmt;
+    data.stmt = &str;
+    data.has_exception = false;
+
+    pthread_create(&thread, NULL, test_thread, &data);
+    pthread_mutex_lock(&mutex_timeout);  
+    int res = pthread_cond_timedwait(&cond_timeout, &mutex_timeout, (const struct timespec *)&m_time);  
+    pthread_mutex_unlock(&mutex_timeout);
+    if (res == ETIMEDOUT) {
+        cerr << "thread time out!" << endl;
+        pthread_kill(thread, SIGALRM);
+        throw runtime_error(string("timeout in this stmt"));
+    }
+
+    pthread_join(thread, NULL);
+    if (data.has_exception)
+        throw data.e;
 }
 
 void dut_reset(map<string,string>& options)
@@ -225,13 +303,13 @@ bool compare_content(vector<string>& table_names,
 
         auto size = con_table_content.size();
         if (size != seq_table_content.size()) {
-            cerr << "sizes are not equal" << endl;
+            cerr << "table " + table + " sizes are not equal" << endl;
             return false;
         }
 
         for (auto i = 0; i < size; i++) {
             if (seq_table_content[i] != con_table_content[i]) {
-                cerr << "content are not equal" << endl;
+                cerr << "table " + table + " content are not equal" << endl;
                 return false;
             }
         }
@@ -359,17 +437,14 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        // interect_test(options, &trans_statement_factory, trans_1_rec);
         normal_test(options, schema, &trans_statement_factory, trans_1_rec);
     }
 
-    // dut_reset_to_backup(options); // reset to prevent trans2 use the elements defined in trans1
     auto trans_2_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_2_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        // interect_test(options, &trans_statement_factory, trans_2_rec);
         normal_test(options, schema, &trans_statement_factory, trans_2_rec);
     }
 
