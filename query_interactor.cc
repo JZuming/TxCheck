@@ -299,13 +299,6 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
 
         interect_test(options, &ddl_statement_factory, stage_1_rec); // has disabled the not null, check and unique clause 
     }
-#ifdef __DEBUG_MODE__
-    ofstream o1("stage_1.sql");
-    for (auto &stmt : stage_1_rec) {
-        o1 << stmt << endl;
-    }
-    o1.close();
-#endif
 
     // stage 2: basic DML stage (only insert),
     cerr << YELLOW << "stage 2: insert data into the database" << RESET << endl;
@@ -317,19 +310,39 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
         
         normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec);
     }
-#ifdef __DEBUG_MODE__
-    ofstream o2("stage_2.sql");
-    for (auto &stmt : stage_2_rec) {
-        o2 << stmt << endl;
-    }
-    o2.close();
-#endif
 
     // stage 3: backup database
     cerr << YELLOW << "stage 3: backup the database" << RESET << endl;
     dut_backup(options);
 
     return 0;
+}
+
+bool seq_res_comp(map<string,string>& options, vector<string> table_names,
+                map<string, vector<string>>& concurrent_content,
+                vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
+                vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts)
+{
+    dut_reset_to_backup(options);
+
+    vector<vector<string>> seq_1_output, seq_2_output;
+    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output);
+    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output);
+
+    map<string, vector<string>> sequential_content;
+    dut_get_content(options, table_names, sequential_content);
+
+    if (!compare_content(table_names, concurrent_content, sequential_content)) {
+        return false;
+    }
+    if (!compare_output(trans_1_output, seq_1_output)) {
+        return false;
+    }
+    if (!compare_output(trans_2_output, seq_2_output)) {
+        return false;
+    }
+
+    return true;
 }
 
 int transaction_test(map<string,string>& options, file_random_machine* random_file)
@@ -340,7 +353,7 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     vector<string> trans_2_rec;
 
     // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
-    cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B, and then execute A -> B" << RESET << endl;
+    cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B" << RESET << endl;
     auto trans_1_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_1_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -349,13 +362,6 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
         // interect_test(options, &trans_statement_factory, trans_1_rec);
         normal_test(options, schema, &trans_statement_factory, trans_1_rec);
     }
-#ifdef __DEBUG_MODE__
-    ofstream o3("trans_1.sql");
-    for (auto &stmt : trans_1_rec) {
-        o3 << stmt << endl;
-    }
-    o3.close();
-#endif
 
     // dut_reset_to_backup(options); // reset to prevent trans2 use the elements defined in trans1
     auto trans_2_stmt_num = 9 + d6(); // 10-15
@@ -366,16 +372,9 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
         // interect_test(options, &trans_statement_factory, trans_2_rec);
         normal_test(options, schema, &trans_statement_factory, trans_2_rec);
     }
-#ifdef __DEBUG_MODE__
-    ofstream o4("trans_2.sql");
-    for (auto &stmt : trans_2_rec) {
-        o4 << stmt << endl;
-    }
-    o4.close();
-#endif
 
     // stage 5: reset to backup state, and then cocurrent transaction test
-    cerr << YELLOW << "stage 5: reset to backup state, and cocurrently execute transaction A and B"  << RESET << endl;
+    cerr << YELLOW << "stage 5: cocurrently execute transaction A and B"  << RESET << endl;
     dut_reset_to_backup(options);
     thread_data data_1, data_2;
     vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
@@ -398,20 +397,6 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     pthread_join(tid_1, NULL);
     pthread_join(tid_2, NULL);
 
-#ifdef __DEBUG_MODE__
-    ofstream o5("exec_trans_1.sql");
-    for (auto &stmt : exec_trans_1_stmts) {
-        o5 << stmt << endl;
-    }
-    o5.close();
-
-    ofstream o6("exec_trans_2.sql");
-    for (auto &stmt : exec_trans_2_stmts) {
-        o6 << stmt << endl;
-    }
-    o6.close();
-#endif
-
     // collect database information
     map<string, vector<string>> concurrent_content;
     vector<string> table_names;
@@ -421,59 +406,19 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     dut_get_content(options, table_names, concurrent_content);
 
     // stage 6: reset to backup state, and then sequential transaction test
-    cerr << YELLOW << "stage 6.1: first comparison" << RESET << endl;
-    dut_reset_to_backup(options);
-
-    vector<vector<string>> seq_1_output, seq_2_output;
-    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output);
-    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output);
-
-    map<string, vector<string>> sequential_content;
-    dut_get_content(options, table_names, sequential_content);
-
-    bool second_comp = false;
-    if (!compare_content(table_names, concurrent_content, sequential_content)) {
-        second_comp = true;
-    }
-    if (!compare_output(trans_1_output, seq_1_output)) {
-        second_comp = true;
-    }
-    if (!compare_output(trans_2_output, seq_2_output)) {
-        second_comp = true;
-    }
-
-    if (second_comp == false)
+    cerr << YELLOW << "stage 6.1: first comparison: A -> B" << RESET << endl;
+    if (seq_res_comp(options, table_names, concurrent_content, 
+                trans_1_output, trans_2_output, 
+                exec_trans_1_stmts, exec_trans_2_stmts)) {
         return 0;
-
-    cerr << YELLOW << "stage 6.2: second comparison" << RESET << endl;
-    dut_reset_to_backup(options);
-    seq_1_output.clear();
-    seq_2_output.clear();
-    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output);
-    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output);
-    sequential_content.clear();
-    dut_get_content(options, table_names, sequential_content);
-    if (!compare_content(table_names, concurrent_content, sequential_content)) {
-        cerr << "find a bug in content compare" << endl;
-        
-        return 1;
     }
-    if (!compare_output(trans_1_output, seq_1_output)) {
-        cerr << "find a bug in output 1 compare" << endl;
-        write_output(trans_1_output, "trans_1_output");
-        write_output(seq_1_output, "seq_1_output");
-        
-        return 1;
+    cerr << YELLOW << "stage 6.2: second comparison: B -> A" << RESET << endl;
+    if (seq_res_comp(options, table_names, concurrent_content, 
+                trans_2_output, trans_1_output, 
+                exec_trans_2_stmts, exec_trans_1_stmts)) {
+        return 0;
     }
-    if (!compare_output(trans_2_output, seq_2_output)) {
-        cerr << "find a bug in output 2 compare" << endl;
-        write_output(trans_2_output, "trans_2_output");
-        write_output(seq_2_output, "seq_2_output");
-
-        return 1;
-    }
-
-    return 0;    
+    return 1;
 }
 
 int random_test(map<string,string>& options)
