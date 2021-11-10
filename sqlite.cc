@@ -206,11 +206,11 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     register_routine(proc);						\
 } while(0)
 
-    FUNC(last_insert_rowid, INTEGER);
+    // FUNC(last_insert_rowid, INTEGER);
     // FUNC(random, INTEGER);
     FUNC(sqlite_source_id, TEXT);
     FUNC(sqlite_version, TEXT);
-    FUNC(total_changes, INTEGER);
+    // FUNC(total_changes, INTEGER);
 
     FUNC1(abs, INTEGER, INTEGER);
     FUNC1(abs, REAL, REAL);

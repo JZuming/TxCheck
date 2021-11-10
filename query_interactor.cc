@@ -159,9 +159,7 @@ void* test_thread(void* argv)
 }
 
 void dut_test(map<string,string>& options, const string& stmt)
-{
-    auto dut = dut_setup(options);  
-    
+{   
     // set timeout action
     struct sigaction action;  
     memset(&action, 0, sizeof(action));  
@@ -411,26 +409,27 @@ bool seq_res_comp(map<string,string>& options, vector<string> table_names,
     dut_get_content(options, table_names, sequential_content);
 
     if (!compare_content(table_names, concurrent_content, sequential_content)) {
+        cerr << "trans content is not equal to seq content" << endl;
         return false;
     }
     if (!compare_output(trans_1_output, seq_1_output)) {
+        cerr << "trans_1_output is not equal to seq_1_output" << endl;
         return false;
     }
     if (!compare_output(trans_2_output, seq_2_output)) {
+        cerr << "trans_2_output is not equal to seq_2_output" << endl;
         return false;
     }
 
     return true;
 }
 
-int transaction_test(map<string,string>& options, file_random_machine* random_file)
+void generate_transaction(map<string,string>& options, file_random_machine* random_file, 
+                        vector<string>& trans_1_rec, vector<string>& trans_2_rec)
 {
+    dut_reset_to_backup(options);
     auto schema = get_schema(options);
 
-    vector<string> trans_1_rec;
-    vector<string> trans_2_rec;
-
-    // stage 4: generate sql statements for transaction (basic DDL (create), DML and DQL), and then execute them 1 -> 2
     cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B" << RESET << endl;
     auto trans_1_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_1_stmt_num; i++) {
@@ -447,13 +446,17 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
         
         normal_test(options, schema, &trans_statement_factory, trans_2_rec);
     }
+}
 
-    // stage 5: reset to backup state, and then cocurrent transaction test
-    cerr << YELLOW << "stage 5: cocurrently execute transaction A and B"  << RESET << endl;
+void concurrently_execute_transaction(map<string,string>& options, 
+                                    vector<string>& trans_1_rec, vector<string>& trans_2_rec,
+                                    vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
+                                    vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
+                                    map<string, vector<string>>& concurrent_content, vector<string>& table_names)
+{
     dut_reset_to_backup(options);
+    cerr << YELLOW << "stage 5: cocurrently execute transaction A and B"  << RESET << endl;
     thread_data data_1, data_2;
-    vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
-    vector<vector<string>> trans_1_output, trans_2_output;
 
     data_1.options = &options;
     data_1.trans_stmts = &trans_1_rec;
@@ -473,26 +476,76 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     pthread_join(tid_2, NULL);
 
     // collect database information
-    map<string, vector<string>> concurrent_content;
-    vector<string> table_names;
+    auto schema = get_schema(options);
     for (auto& table:schema->tables) {
         table_names.push_back(table.ident());
     }
     dut_get_content(options, table_names, concurrent_content);
+}
 
-    // stage 6: reset to backup state, and then sequential transaction test
+bool sequentially_check(map<string,string>& options, vector<string> table_names,
+                        map<string, vector<string>>& concurrent_content,
+                        vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
+                        vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts)
+{
     cerr << YELLOW << "stage 6.1: first comparison: A -> B" << RESET << endl;
     if (seq_res_comp(options, table_names, concurrent_content, 
                 trans_1_output, trans_2_output, 
                 exec_trans_1_stmts, exec_trans_2_stmts)) {
-        return 0;
+        return false;
     }
     cerr << YELLOW << "stage 6.2: second comparison: B -> A" << RESET << endl;
     if (seq_res_comp(options, table_names, concurrent_content, 
                 trans_2_output, trans_1_output, 
                 exec_trans_2_stmts, exec_trans_1_stmts)) {
-        return 0;
+        return false;
     }
+    return true;
+}
+
+int transaction_test(map<string,string>& options, file_random_machine* random_file)
+{
+    vector<string> trans_1_rec;
+    vector<string> trans_2_rec;
+    generate_transaction(options, random_file, trans_1_rec, trans_2_rec);
+
+    vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
+    vector<vector<string>> trans_1_output, trans_2_output;
+    map<string, vector<string>> concurrent_content;
+    vector<string> table_names;
+    concurrently_execute_transaction(options, trans_1_rec, trans_2_rec, 
+                                    exec_trans_1_stmts, exec_trans_2_stmts,
+                                    trans_1_output, trans_2_output,
+                                    concurrent_content, table_names);
+    
+    auto res = sequentially_check(options, table_names, concurrent_content, 
+                            trans_1_output, trans_2_output, 
+                            exec_trans_1_stmts, exec_trans_2_stmts);
+    
+    if (res == false)
+        return 0;
+
+    cerr << RED << "find a bug, and record the detail" << RESET << endl;
+    ofstream ofile("exec_trans_1.sql");
+    for (auto& stmt:exec_trans_1_stmts)
+        ofile << stmt << endl;
+    ofile.close();
+
+    ofile.open("exec_trans_2.sql");
+    for (auto& stmt:exec_trans_2_stmts)
+        ofile << stmt << endl;
+    ofile.close();
+
+    ofile.open("trans_1.sql");
+    for (auto& stmt:trans_1_rec)
+        ofile << stmt << endl;
+    ofile.close();
+
+    ofile.open("trans_2.sql");
+    for (auto& stmt:trans_2_rec)
+        ofile << stmt << endl;
+    ofile.close();
+
     return 1;
 }
 
