@@ -187,14 +187,19 @@ void dut_test(map<string,string>& options, const string& stmt)
     pthread_mutex_lock(&mutex_timeout);  
     int res = pthread_cond_timedwait(&cond_timeout, &mutex_timeout, (const struct timespec *)&m_time);  
     pthread_mutex_unlock(&mutex_timeout);
+
     if (res == ETIMEDOUT) {
         cerr << "thread timeout!" << endl;
         pthread_kill(thread, SIGALRM);
 
+        // must join (to release the resource of thread)
+        pthread_join(thread, NULL);
         throw runtime_error(string("timeout in this stmt"));
     }
 
+    // must join (to release the resource of thread)
     pthread_join(thread, NULL);
+
     if (data.has_exception)
         throw data.e;
 }
@@ -519,10 +524,17 @@ void concurrently_execute_transaction(map<string,string>& options,
             if (res_2 == ETIMEDOUT)
                 pthread_kill(tid_2, SIGALRM);
             
+            // must join (to release the resource of thread)
+            pthread_join(tid_1, NULL);
+            pthread_join(tid_2, NULL);
             cerr << "throw timeout exception" << endl;
             throw runtime_error(string("concurrent timeout in this test"));
         }
     }
+
+    // must join (to release the resource of thread)
+    pthread_join(tid_1, NULL);
+    pthread_join(tid_2, NULL);
 
     // collect database information
     auto schema = get_schema(options);
@@ -616,9 +628,10 @@ int random_test(map<string,string>& options)
     
     // reset the target DBMS to initial state
     dut_reset(options); 
-
     generate_database(options, random_file);
-    while (1) {
+
+    int i = 20;
+    while (i--) {
         try {
             auto ret = transaction_test(options, random_file);
             if (ret == 1)
