@@ -65,7 +65,7 @@ struct thread_data {
     vector<string>* exec_trans_stmts;
     vector<vector<string>>* stmt_output;
 
-    bool is_timeout;
+    bool is_live;
     pthread_mutex_t* mutex_timeout;  
     pthread_cond_t*  cond_timeout;
 };
@@ -156,6 +156,7 @@ void* test_thread(void* argv)
         auto dut = dut_setup(*(data->options));
         dut->test(*(data->stmt));
     } catch (std::exception &e) {
+        cerr << "in test thread: " << e.what() << endl;
         data->e = e;
         data->has_exception = true;
     }
@@ -187,9 +188,9 @@ void dut_test(map<string,string>& options, const string& stmt)
     int res = pthread_cond_timedwait(&cond_timeout, &mutex_timeout, (const struct timespec *)&m_time);  
     pthread_mutex_unlock(&mutex_timeout);
     if (res == ETIMEDOUT) {
-        cerr << "thread time out!" << endl;
+        cerr << "thread timeout!" << endl;
         pthread_kill(thread, SIGALRM);
-        smith::rng.seed(time(NULL));
+
         throw runtime_error(string("timeout in this stmt"));
     }
 
@@ -223,11 +224,11 @@ void *dut_trans_test(void *thread_arg)
     dut->trans_test(*(data->trans_stmts), data->exec_trans_stmts, data->stmt_output);
 
     pthread_mutex_lock(data->mutex_timeout);
-    cerr << "wake up" << endl;
     pthread_cond_signal(data->cond_timeout);
-    cerr << "wake up done" << endl;
     pthread_mutex_unlock(data->mutex_timeout);
-    cerr << "return" << endl;
+
+    data->is_live = false;
+
     return NULL;
 }
 
@@ -288,8 +289,11 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
     } catch(std::exception &e) { // ignore runtime error
         string err = e.what();
         if (err.find("syntax") != string::npos) {
-            cerr << "\n" << e.what() << "\n" << endl;
             cerr << s.str() << endl;
+        }
+        if (err.find("timeout") != string::npos) {
+            cerr << e.what() << endl;
+            return;
         }
         normal_test(options, schema, tmp_statement_factory, rec_vec);
     }
@@ -366,7 +370,6 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
 {
     vector<string> stage_1_rec;
     vector<string> stage_2_rec;
-
     
     // stage 1: DDL stage (create, alter, drop)
     cerr << YELLOW << "stage 1: generate the shared database" << RESET << endl;
@@ -429,7 +432,9 @@ bool seq_res_comp(map<string,string>& options, vector<string> table_names,
 void generate_transaction(map<string,string>& options, file_random_machine* random_file, 
                         vector<string>& trans_1_rec, vector<string>& trans_2_rec)
 {
+    cerr << YELLOW << "reset to backup" << RESET << endl;
     dut_reset_to_backup(options);
+
     auto schema = get_schema(options);
 
     cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B" << RESET << endl;
@@ -442,6 +447,8 @@ void generate_transaction(map<string,string>& options, file_random_machine* rand
         normal_test(options, schema, &trans_statement_factory, trans_1_rec);
     }
 
+    cerr << YELLOW << "reset to backup" << RESET << endl;
+    dut_reset_to_backup(options);
     auto trans_2_stmt_num = 9 + d6(); // 10-15
     for (auto i = 0; i < trans_2_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
@@ -458,6 +465,7 @@ void concurrently_execute_transaction(map<string,string>& options,
                                     vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
                                     map<string, vector<string>>& concurrent_content, vector<string>& table_names)
 {
+    cerr << YELLOW << "dut_reset_to_backup"  << RESET << endl;
     dut_reset_to_backup(options);
     cerr << YELLOW << "stage 5: cocurrently execute transaction A and B"  << RESET << endl;
     
@@ -472,7 +480,7 @@ void concurrently_execute_transaction(map<string,string>& options,
     data_1.trans_stmts = &trans_1_rec;
     data_1.exec_trans_stmts = &exec_trans_1_stmts;
     data_1.stmt_output = &trans_1_output;
-    data_1.is_timeout = false;
+    data_1.is_live = true;
     data_1.mutex_timeout = &trans_1_mutex_timeout;
     data_1.cond_timeout = &trans_1_cond_timeout;
 
@@ -480,7 +488,7 @@ void concurrently_execute_transaction(map<string,string>& options,
     data_2.trans_stmts = &trans_2_rec;
     data_2.exec_trans_stmts = &exec_trans_2_stmts;
     data_2.stmt_output = &trans_2_output;
-    data_2.is_timeout = false;
+    data_2.is_live = true;
     data_2.mutex_timeout = &trans_2_mutex_timeout;
     data_2.cond_timeout = &trans_2_cond_timeout;
 
@@ -489,33 +497,32 @@ void concurrently_execute_transaction(map<string,string>& options,
     pthread_create(&tid_2, NULL, dut_trans_test, &data_2);
 
     int res_1 = 0, res_2 = 0;
-    if (pthread_kill(tid_1, 0) == 0) {
+    if (data_1.is_live) {
         pthread_mutex_lock(&trans_1_mutex_timeout);  
         res_1 = pthread_cond_timedwait(&trans_1_cond_timeout, &trans_1_mutex_timeout, (const struct timespec *)&m_time);  
         pthread_mutex_unlock(&trans_1_mutex_timeout);
     }
     cerr << "wake up from the trans 1" << endl;
 
-    if (pthread_kill(tid_2, 0) == 0) {
+    if (data_2.is_live) {
         pthread_mutex_lock(&trans_2_mutex_timeout);  
         res_2 = pthread_cond_timedwait(&trans_2_cond_timeout, &trans_2_mutex_timeout, (const struct timespec *)&m_time);  
         pthread_mutex_unlock(&trans_2_mutex_timeout);
     }
     cerr << "wake up from the trans 2" << endl;
 
-    if (res_1 == ETIMEDOUT || res_2 == ETIMEDOUT) {
-        cerr << "concurrent test time out!" << endl;
-        if (res_1 == ETIMEDOUT)
-            pthread_kill(tid_1, SIGALRM);
-        if (res_2 == ETIMEDOUT)
-            pthread_kill(tid_2, SIGALRM);
-        
-        smith::rng.seed(time(NULL));
-        throw runtime_error(string("concurrent timeout in this test"));
+    if (data_1.is_live || data_2.is_live) {
+        if (res_1 == ETIMEDOUT || res_2 == ETIMEDOUT) {
+            cerr << "concurrent test timeout!" << endl;
+            if (res_1 == ETIMEDOUT)
+                pthread_kill(tid_1, SIGALRM);
+            if (res_2 == ETIMEDOUT)
+                pthread_kill(tid_2, SIGALRM);
+            
+            cerr << "throw timeout exception" << endl;
+            throw runtime_error(string("concurrent timeout in this test"));
+        }
     }
-
-    pthread_join(tid_1, NULL);
-    pthread_join(tid_2, NULL);
 
     // collect database information
     auto schema = get_schema(options);
@@ -603,7 +610,6 @@ int random_test(map<string,string>& options)
         random_file = NULL;
     
     if (random_file == NULL) {
-        time_t seed = time(NULL);
         // smith::rng.seed(getpid());
         smith::rng.seed(time(NULL));
     }

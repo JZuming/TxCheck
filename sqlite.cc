@@ -74,9 +74,11 @@ sqlite_connection::sqlite_connection(std::string &conninfo)
 {
     rc = sqlite3_open_v2(conninfo.c_str(), &db, SQLITE_OPEN_READWRITE|SQLITE_OPEN_URI|SQLITE_OPEN_CREATE, 0);
     if (rc) {
+        cerr << sqlite3_errmsg(db) << endl;
         throw std::runtime_error(sqlite3_errmsg(db));
     }
     db_file = conninfo;
+    cerr << pthread_self() << ": connect" << endl;
 }
 
 void sqlite_connection::q(const char *query)
@@ -93,6 +95,7 @@ sqlite_connection::~sqlite_connection()
 {
     if (db)
         sqlite3_close(db);
+    cerr << pthread_self() << ": disconnect" << endl;
 }
 
 schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
@@ -416,16 +419,18 @@ void dut_sqlite::test(const std::string &stmt, std::vector<std::string>* output)
     rc = sqlite3_exec(db, stmt.c_str(), content_callback, (void *)output, &zErrMsg);
     if(rc != SQLITE_OK){
         try {
-            if (regex_match(zErrMsg, e_syntax))
-	            throw dut::syntax(zErrMsg);
+            if (regex_match(zErrMsg, e_syntax)) {
+                throw dut::syntax(zErrMsg);
+            }
             else if (regex_match(zErrMsg, e_user_abort)) {
 	            sqlite3_free(zErrMsg);
 	            return;
-            } else 
-	            throw dut::failure(zErrMsg);
+            } else {
+                throw dut::failure(zErrMsg);
+            }
         } catch (dut::failure &e) {
             sqlite3_free(zErrMsg);
-            throw;
+            throw e;
         }
     }
 }
