@@ -145,6 +145,7 @@ void alrm_signal(int signal)
         exit(1);  
     }  
      
+    cerr << "get SIGALRM, stop the thread" << endl;
     pthread_exit(0);
     return;  
 }
@@ -298,7 +299,6 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
         }
         if (err.find("timeout") != string::npos) {
             cerr << e.what() << endl;
-            return;
         }
         normal_test(options, schema, tmp_statement_factory, rec_vec);
     }
