@@ -78,7 +78,7 @@ sqlite_connection::sqlite_connection(std::string &conninfo)
         throw std::runtime_error(sqlite3_errmsg(db));
     }
     db_file = conninfo;
-    // cerr << pthread_self() << ": connect" << endl;
+    cerr << pthread_self() << ": connect" << endl;
 }
 
 void sqlite_connection::q(const char *query)
@@ -95,7 +95,7 @@ sqlite_connection::~sqlite_connection()
 {
     if (db)
         sqlite3_close(db);
-    // cerr << pthread_self() << ": disconnect" << endl;
+    cerr << pthread_self() << ": disconnect" << endl;
 }
 
 schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
