@@ -36,6 +36,9 @@ using boost::regex_match;
 
 #include "postgres.hh"
 
+#include <sys/time.h>
+#include <sys/wait.h>
+
 using namespace std;
 
 using namespace std::chrono;
@@ -80,25 +83,30 @@ struct test_thread_arg {
 shared_ptr<schema> get_schema(map<string,string>& options)
 {
     shared_ptr<schema> schema;
-    if (options.count("sqlite")) {
-#ifdef HAVE_LIBSQLITE3
-        schema = make_shared<schema_sqlite>(options["sqlite"], true);
-#else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
-        throw runtime_error("Does not support SQLite");
-#endif
-    } else if(options.count("monetdb")) {
-#ifdef HAVE_MONETDB
-        schema = make_shared<schema_monetdb>(options["monetdb"]);
-#else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
-        throw runtime_error("Does not support MonetDB");
-#endif
-    } else if(options.count("postgres")) 
-        schema = make_shared<schema_pqxx>(options["postgres"], true);
-    else {
-        cerr << "Sorry,  you should specify a dbms and its database" << endl;
-        throw runtime_error("Does not define target dbms and db");
+    try {
+        if (options.count("sqlite")) {
+    #ifdef HAVE_LIBSQLITE3
+            schema = make_shared<schema_sqlite>(options["sqlite"], true);
+    #else
+            cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
+            throw runtime_error("Does not support SQLite");
+    #endif
+        } else if(options.count("monetdb")) {
+    #ifdef HAVE_MONETDB
+            schema = make_shared<schema_monetdb>(options["monetdb"]);
+    #else
+            cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
+            throw runtime_error("Does not support MonetDB");
+    #endif
+        } else if(options.count("postgres")) 
+            schema = make_shared<schema_pqxx>(options["postgres"], true);
+        else {
+            cerr << "Sorry,  you should specify a dbms and its database" << endl;
+            throw runtime_error("Does not define target dbms and db");
+        }
+    } catch (exception &e) { // may occur occastional error
+        cerr << RED << "get schema error" << RESET << endl;
+        return get_schema(options);
     }
     return schema;
 }
@@ -151,19 +159,22 @@ void user_signal(int signal)
 }
 
 static int child_pid = 0;
+static bool child_timed_out = false;
+
 void kill_process_signal(int signal)  
 {  
-    if(signal != SIGUSR1) {  
+    if(signal != SIGALRM) {  
         printf("unexpect signal %d\n", signal);  
         exit(1);  
     }
 
     if (child_pid > 0) {
         printf("child pid timeout, kill it\n"); 
+        child_timed_out = true;
 		kill(child_pid, SIGKILL);
 	}
 
-    cerr << "get SIGUSR1, stop the process" << endl;
+    cerr << "get SIGALRM, stop the process" << endl;
     return;  
 }
 
@@ -174,7 +185,7 @@ void* test_thread(void* argv)
         auto dut = dut_setup(*(data->options));
         dut->test(*(data->stmt));
     } catch (std::exception &e) {
-        cerr << "in test thread: " << e.what() << endl;
+        // cerr << "in test thread: " << e.what() << endl;
         data->e = e;
         data->has_exception = true;
     }
@@ -669,8 +680,9 @@ int random_test(map<string,string>& options)
     while (i--) {
         try {
             auto ret = transaction_test(options, random_file);
-            if (ret == 1)
-                break;
+            if (ret == 1) {
+                exit(166);
+            }
         } catch(std::exception &e) { // ignore runtime error
             cerr << e.what() << endl;
         } 
@@ -723,16 +735,16 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    // // set timeout action for fork
-    // struct sigaction sa;  
-    // memset(&sa, 0, sizeof(sa));  
-    // sigemptyset(&sa.sa_mask);  
-    // sa.sa_flags = 0;  
-    // sa.sa_handler = kill_process_signal;  
-    // if (sigaction(SIGUSR1, &sa, NULL)) {
-    //     cerr << "sigaction error" << endl;
-    //     exit(1);
-    // }
+    // set timeout action for fork
+    struct sigaction sa;  
+    memset(&sa, 0, sizeof(sa));  
+    sigemptyset(&sa.sa_mask);  
+    sa.sa_flags = SA_RESTART; 
+    sa.sa_handler = kill_process_signal;  
+    if (sigaction(SIGALRM, &sa, NULL)) {
+        cerr << "sigaction error" << endl;
+        exit(1);
+    }
 
     // init the lock
     pthread_mutex_init(&mutex_timeout, NULL);  
@@ -742,12 +754,61 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&trans_2_mutex_timeout, NULL);  
     pthread_cond_init(&trans_2_cond_timeout, NULL);
 
-    // child_pid = fork();
-    // if (child_pid == 0) {
-        random_test(options);
-    // }
+    static itimerval itimer;
+    while (1) {
+        child_timed_out = true;
 
-    
+        cerr << RED << "New Test Database --------------------------" << RESET << endl;
+        child_pid = fork();
+        if (child_pid == 0) {
+            random_test(options);
+            exit(0);
+        }
+
+        // timeout is ms
+        itimer.it_value.tv_sec = 60000 / 1000; // 60 s limit
+        itimer.it_value.tv_usec = (60000 % 1000) * 1000; // us limit
+        setitimer(ITIMER_REAL, &itimer, NULL);
+
+        cerr << "begin waiting" << endl;
+
+        // wait for the tests
+        int status;
+        auto res = waitpid(child_pid, &status, 0);
+        if (res <= 0) {
+            cerr << "waitpid() fail: " <<  res << endl;
+            exit(-1);
+        }
+
+        // disable HandleTimeout
+        if (!WIFSTOPPED(status)) 
+            child_pid = 0;
+        
+        itimer.it_value.tv_sec = 0;
+        itimer.it_value.tv_usec = 0;
+        setitimer(ITIMER_REAL, &itimer, NULL);
+
+        if (WIFSIGNALED(status)) {
+            auto killSignal = WTERMSIG(status);
+            if (child_timed_out && killSignal == SIGKILL) {
+                cerr << "just timeout" << endl;
+                continue;
+            }
+            else {
+                cerr << RED << "find memory bug" << RESET << endl;
+                return -1;
+            }
+        }
+
+        if (WIFEXITED(status)) {
+            auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
+            cerr << "exit code " << exit_code << endl;
+            if (exit_code == 166) {
+                cerr << RED << "find correctness bug" << RESET << endl;
+                return -1;
+            }
+        }
+    }
 
     return 0;
 }
