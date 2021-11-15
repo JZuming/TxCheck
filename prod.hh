@@ -9,6 +9,7 @@
 
 #define TEST_SQLITE
 #define MAX_TRY_TIME 1
+#define TEST_TIME_FOR_EACH_DB 10
 
 /// Base class for walking the AST
 struct prod_visitor {

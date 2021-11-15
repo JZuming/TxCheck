@@ -138,15 +138,32 @@ pthread_cond_t  trans_1_cond_timeout;
 pthread_mutex_t trans_2_mutex_timeout;  
 pthread_cond_t  trans_2_cond_timeout;
 
-void alrm_signal(int signal)  
+void user_signal(int signal)  
 {  
-    if(signal != SIGALRM) {  
+    if(signal != SIGUSR1) {  
         printf("unexpect signal %d\n", signal);  
         exit(1);  
     }  
      
-    cerr << "get SIGALRM, stop the thread" << endl;
+    cerr << "get SIGUSR1, stop the thread" << endl;
     pthread_exit(0);
+    return;  
+}
+
+static int child_pid = 0;
+void kill_process_signal(int signal)  
+{  
+    if(signal != SIGUSR1) {  
+        printf("unexpect signal %d\n", signal);  
+        exit(1);  
+    }
+
+    if (child_pid > 0) {
+        printf("child pid timeout, kill it\n"); 
+		kill(child_pid, SIGKILL);
+	}
+
+    cerr << "get SIGUSR1, stop the process" << endl;
     return;  
 }
 
@@ -191,7 +208,7 @@ void dut_test(map<string,string>& options, const string& stmt)
 
     if (res == ETIMEDOUT) {
         cerr << "thread timeout!" << endl;
-        pthread_kill(thread, SIGALRM);
+        pthread_kill(thread, SIGUSR1);
 
         // must join (to release the resource of thread)
         pthread_join(thread, NULL);
@@ -527,9 +544,9 @@ void concurrently_execute_transaction(map<string,string>& options,
         if (res_1 == ETIMEDOUT || res_2 == ETIMEDOUT) {
             cerr << "concurrent test timeout!" << endl;
             if (res_1 == ETIMEDOUT)
-                pthread_kill(tid_1, SIGALRM);
+                pthread_kill(tid_1, SIGUSR1);
             if (res_2 == ETIMEDOUT)
-                pthread_kill(tid_2, SIGALRM);
+                pthread_kill(tid_2, SIGUSR1);
             
             // must join (to release the resource of thread)
             pthread_join(tid_1, NULL);
@@ -648,7 +665,7 @@ int random_test(map<string,string>& options)
     dut_reset(options); 
     generate_database(options, random_file);
 
-    int i = 20;
+    int i = TEST_TIME_FOR_EACH_DB;
     while (i--) {
         try {
             auto ret = transaction_test(options, random_file);
@@ -657,7 +674,6 @@ int random_test(map<string,string>& options)
         } catch(std::exception &e) { // ignore runtime error
             cerr << e.what() << endl;
         } 
-        
     }
     
     return 0;
@@ -701,11 +717,22 @@ int main(int argc, char *argv[])
     memset(&action, 0, sizeof(action));  
     sigemptyset(&action.sa_mask);  
     action.sa_flags = 0;  
-    action.sa_handler = alrm_signal;  
-    if (sigaction(SIGALRM, &action, NULL)) {
+    action.sa_handler = user_signal;  
+    if (sigaction(SIGUSR1, &action, NULL)) {
         cerr << "sigaction error" << endl;
         exit(1);
     }
+
+    // // set timeout action for fork
+    // struct sigaction sa;  
+    // memset(&sa, 0, sizeof(sa));  
+    // sigemptyset(&sa.sa_mask);  
+    // sa.sa_flags = 0;  
+    // sa.sa_handler = kill_process_signal;  
+    // if (sigaction(SIGUSR1, &sa, NULL)) {
+    //     cerr << "sigaction error" << endl;
+    //     exit(1);
+    // }
 
     // init the lock
     pthread_mutex_init(&mutex_timeout, NULL);  
@@ -715,7 +742,12 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&trans_2_mutex_timeout, NULL);  
     pthread_cond_init(&trans_2_cond_timeout, NULL);
 
-    random_test(options);
+    // child_pid = fork();
+    // if (child_pid == 0) {
+        random_test(options);
+    // }
+
+    
 
     return 0;
 }
