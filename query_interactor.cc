@@ -83,6 +83,7 @@ struct test_thread_arg {
 shared_ptr<schema> get_schema(map<string,string>& options)
 {
     shared_ptr<schema> schema;
+    static int try_time = 0;
     try {
         if (options.count("sqlite")) {
     #ifdef HAVE_LIBSQLITE3
@@ -105,8 +106,14 @@ shared_ptr<schema> get_schema(map<string,string>& options)
             throw runtime_error("Does not define target dbms and db");
         }
     } catch (exception &e) { // may occur occastional error
-        cerr << RED << "get schema error" << RESET << endl;
-        return get_schema(options);
+        if (try_time >= 128) {
+            cerr << "Fail in get_schema() " << try_time << " times, return" << endl;
+            exit(144); // ignore this kind of error
+        }
+        try_time++;
+        schema = get_schema(options);
+        try_time--;
+        return schema;
     }
     return schema;
 }
@@ -185,7 +192,7 @@ void* test_thread(void* argv)
         auto dut = dut_setup(*(data->options));
         dut->test(*(data->stmt));
     } catch (std::exception &e) {
-        // cerr << "in test thread: " << e.what() << endl;
+        cerr << "In test thread: " << e.what() << endl;
         data->e = e;
         data->has_exception = true;
     }
@@ -294,6 +301,7 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
     ostringstream s;
     gen->out(s);
 
+    static int try_time = 0;
     try {
         dut_test(options, s.str());
         auto sql = s.str() + ";";
@@ -304,7 +312,13 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
             cerr << "\n" << e.what() << "\n" << endl;
             cerr << s.str() << endl;
         }
+        if (try_time >= 128) {
+            cerr << "Fail in interect_test() " << try_time << " times, return" << endl;
+            exit(144); // ignore this kind of error
+        }
+        try_time++;
         interect_test(options, tmp_statement_factory, rec_vec);
+        try_time--;
     }
 }
 
@@ -317,6 +331,7 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
     ostringstream s;
     gen->out(s);
 
+    static int try_time = 0;
     try {
         dut_test(options, s.str());
         auto sql = s.str() + ";";
@@ -329,7 +344,13 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
         if (err.find("timeout") != string::npos) {
             cerr << e.what() << endl;
         }
+        if (try_time >= 128) {
+            cerr << "Fail in normal_test() " << try_time << " times, return" << endl;
+            exit(144); // ignore this kind of error
+        }
+        try_time++;
         normal_test(options, schema, tmp_statement_factory, rec_vec);
+        try_time--;
     }
 }
 
