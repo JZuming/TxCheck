@@ -383,8 +383,9 @@ void dut_libpq::reset_to_backup(void)
 }
 
 void dut_libpq::trans_test(const std::vector<std::string> &stmt_vec
-                            , std::vector<std::string>* exec_stmt_vec
-                            , vector<vector<string>>* output)
+                          , std::vector<std::string>* exec_stmt_vec
+                          , vector<vector<string>>* output
+                          , bool commit_or_not)
 {
 }
 

@@ -523,8 +523,9 @@ void dut_sqlite::reset_to_backup(void)
 }
 
 void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
-                , std::vector<std::string>* exec_stmt_vec
-                , vector<vector<string>>* output)
+                          , std::vector<std::string>* exec_stmt_vec
+                          , vector<vector<string>>* output
+                          , bool commit_or_not)
 {
     test("BEGIN TRANSACTION;");
     auto size = stmt_vec.size();
@@ -557,21 +558,26 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
         }
     }
     
-    cerr << pthread_self() << " commit" << endl;
+    string last_sql;
+    if (commit_or_not) 
+        last_sql = "COMMIT";
+    else
+        last_sql = "ABORT";
+    
+    cerr << pthread_self() << " " << last_sql << endl;
     while (1) {
         try{
             test("COMMIT;");
             break;
         }catch(std::exception &e) { // ignore runtime error
             string err = e.what();
-            if (err.find("locked") != string::npos) {
+            if (err.find("locked") != string::npos) 
                 continue; // not break and continue to test 
-            }
             cerr << pthread_self() << " " << err << endl;
             break;
         }
     }
-    cerr << pthread_self() << " commit done" << endl;
+    cerr << pthread_self() << " " << last_sql << " done" << endl;
     return;
 }
 
