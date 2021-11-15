@@ -414,8 +414,10 @@ bool seq_res_comp(map<string,string>& options, vector<string> table_names,
     dut_reset_to_backup(options);
 
     vector<vector<string>> seq_1_output, seq_2_output;
-    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output, trans_1_commit);
-    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output, trans_2_commit);
+    if (trans_1_commit)
+        normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output, trans_1_commit);
+    if (trans_2_commit)
+        normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output, trans_2_commit);
 
     map<string, vector<string>> sequential_content;
     dut_get_content(options, table_names, sequential_content);
@@ -424,11 +426,11 @@ bool seq_res_comp(map<string,string>& options, vector<string> table_names,
         cerr << "trans content is not equal to seq content" << endl;
         return false;
     }
-    if (!compare_output(trans_1_output, seq_1_output)) {
+    if (trans_1_commit && !compare_output(trans_1_output, seq_1_output)) {
         cerr << "trans_1_output is not equal to seq_1_output" << endl;
         return false;
     }
-    if (!compare_output(trans_2_output, seq_2_output)) {
+    if (trans_2_commit && !compare_output(trans_2_output, seq_2_output)) {
         cerr << "trans_2_output is not equal to seq_2_output" << endl;
         return false;
     }
