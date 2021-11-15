@@ -64,7 +64,7 @@ struct thread_data {
     vector<string>* trans_stmts;
     vector<string>* exec_trans_stmts;
     vector<vector<string>>* stmt_output;
-
+    bool commit_or_not;
     bool is_live;
     pthread_mutex_t* mutex_timeout;  
     pthread_cond_t*  cond_timeout;
@@ -227,7 +227,7 @@ void *dut_trans_test(void *thread_arg)
 {
     auto data = (thread_data *)thread_arg;
     auto dut = dut_setup(*(data->options));
-    dut->trans_test(*(data->trans_stmts), data->exec_trans_stmts, data->stmt_output);
+    dut->trans_test(*(data->trans_stmts), data->exec_trans_stmts, data->stmt_output, data->commit_or_not);
 
     pthread_mutex_lock(data->mutex_timeout);
     pthread_cond_signal(data->cond_timeout);
@@ -241,10 +241,11 @@ void *dut_trans_test(void *thread_arg)
 void normal_dut_trans_test(map<string,string>& options, 
                            vector<string>& stmts, 
                            vector<string>* exec_stmts,
-                           vector<vector<string>>* stmt_output)
+                           vector<vector<string>>* stmt_output,
+                           bool commit_or_not)
 {
     auto dut = dut_setup(options);
-    dut->trans_test(stmts, exec_stmts, stmt_output);
+    dut->trans_test(stmts, exec_stmts, stmt_output, commit_or_not);
 }
 
 void dut_get_content(map<string,string>& options, 
@@ -407,13 +408,14 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
 bool seq_res_comp(map<string,string>& options, vector<string> table_names,
                 map<string, vector<string>>& concurrent_content,
                 vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts)
+                vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
+                bool trans_1_commit, bool trans_2_commit)
 {
     dut_reset_to_backup(options);
 
     vector<vector<string>> seq_1_output, seq_2_output;
-    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output);
-    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output);
+    normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output, trans_1_commit);
+    normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output, trans_2_commit);
 
     map<string, vector<string>> sequential_content;
     dut_get_content(options, table_names, sequential_content);
@@ -468,6 +470,7 @@ void concurrently_execute_transaction(map<string,string>& options,
                                     vector<string>& trans_1_rec, vector<string>& trans_2_rec,
                                     vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
                                     vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
+                                    bool trans_1_commit, bool trans_2_commit,
                                     map<string, vector<string>>& concurrent_content, vector<string>& table_names)
 {
     cerr << YELLOW << "dut_reset_to_backup"  << RESET << endl;
@@ -486,6 +489,7 @@ void concurrently_execute_transaction(map<string,string>& options,
     data_1.exec_trans_stmts = &exec_trans_1_stmts;
     data_1.stmt_output = &trans_1_output;
     data_1.is_live = true;
+    data_1.commit_or_not = trans_1_commit;
     data_1.mutex_timeout = &trans_1_mutex_timeout;
     data_1.cond_timeout = &trans_1_cond_timeout;
 
@@ -494,6 +498,7 @@ void concurrently_execute_transaction(map<string,string>& options,
     data_2.exec_trans_stmts = &exec_trans_2_stmts;
     data_2.stmt_output = &trans_2_output;
     data_2.is_live = true;
+    data_2.commit_or_not = trans_2_commit;
     data_2.mutex_timeout = &trans_2_mutex_timeout;
     data_2.cond_timeout = &trans_2_cond_timeout;
 
@@ -547,18 +552,21 @@ void concurrently_execute_transaction(map<string,string>& options,
 bool sequentially_check(map<string,string>& options, vector<string> table_names,
                         map<string, vector<string>>& concurrent_content,
                         vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                        vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts)
+                        vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
+                        bool trans_1_commit, bool trans_2_commit)
 {
     cerr << YELLOW << "stage 6.1: first comparison: A -> B" << RESET << endl;
     if (seq_res_comp(options, table_names, concurrent_content, 
                 trans_1_output, trans_2_output, 
-                exec_trans_1_stmts, exec_trans_2_stmts)) {
+                exec_trans_1_stmts, exec_trans_2_stmts,
+                trans_1_commit, trans_2_commit)) {
         return false;
     }
     cerr << YELLOW << "stage 6.2: second comparison: B -> A" << RESET << endl;
     if (seq_res_comp(options, table_names, concurrent_content, 
                 trans_2_output, trans_1_output, 
-                exec_trans_2_stmts, exec_trans_1_stmts)) {
+                exec_trans_2_stmts, exec_trans_1_stmts,
+                trans_2_commit, trans_1_commit)) {
         return false;
     }
     return true;
@@ -574,14 +582,22 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     vector<vector<string>> trans_1_output, trans_2_output;
     map<string, vector<string>> concurrent_content;
     vector<string> table_names;
+    bool trans_1_commit = true, trans_2_commit = true;
+    if (d20() > 14)
+        trans_1_commit = false;
+    if (d20() > 14)
+        trans_2_commit = false;
+
     concurrently_execute_transaction(options, trans_1_rec, trans_2_rec, 
                                     exec_trans_1_stmts, exec_trans_2_stmts,
                                     trans_1_output, trans_2_output,
+                                    trans_1_commit, trans_2_commit,
                                     concurrent_content, table_names);
     
     auto res = sequentially_check(options, table_names, concurrent_content, 
                             trans_1_output, trans_2_output, 
-                            exec_trans_1_stmts, exec_trans_2_stmts);
+                            exec_trans_1_stmts, exec_trans_2_stmts,
+                            trans_1_commit, trans_2_commit);
     
     if (res == false)
         return 0;
