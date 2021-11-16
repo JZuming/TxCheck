@@ -68,9 +68,6 @@ struct thread_data {
     vector<string>* exec_trans_stmts;
     vector<vector<string>>* stmt_output;
     bool commit_or_not;
-    bool is_live;
-    pthread_mutex_t* mutex_timeout;  
-    pthread_cond_t*  cond_timeout;
 };
 
 struct test_thread_arg {
@@ -148,10 +145,10 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
 pthread_mutex_t mutex_timeout;  
 pthread_cond_t  cond_timeout;
 
-pthread_mutex_t trans_1_mutex_timeout;  
-pthread_cond_t  trans_1_cond_timeout;
-pthread_mutex_t trans_2_mutex_timeout;  
-pthread_cond_t  trans_2_cond_timeout;
+// pthread_mutex_t trans_1_mutex_timeout;  
+// pthread_cond_t  trans_1_cond_timeout;
+// pthread_mutex_t trans_2_mutex_timeout;  
+// pthread_cond_t  trans_2_cond_timeout;
 
 void user_signal(int signal)  
 {  
@@ -162,7 +159,6 @@ void user_signal(int signal)
      
     cerr << "get SIGUSR1, stop the thread" << endl;
     pthread_exit(0);
-    return;  
 }
 
 static int child_pid = 0;
@@ -208,7 +204,7 @@ void dut_test(map<string,string>& options, const string& stmt)
 {   
     // set timeout limit
     struct timespec m_time;
-    m_time.tv_sec = time(NULL) + 2; // 2 seconds  
+    m_time.tv_sec = time(NULL) + STATEMENT_TIMEOUT;  
     m_time.tv_nsec = 0; 
 
     // set pthread parameter 
@@ -220,6 +216,8 @@ void dut_test(map<string,string>& options, const string& stmt)
     data.has_exception = false;
 
     pthread_create(&thread, NULL, test_thread, &data);
+    pthread_detach(thread);
+
     pthread_mutex_lock(&mutex_timeout);  
     int res = pthread_cond_timedwait(&cond_timeout, &mutex_timeout, (const struct timespec *)&m_time);  
     pthread_mutex_unlock(&mutex_timeout);
@@ -227,14 +225,8 @@ void dut_test(map<string,string>& options, const string& stmt)
     if (res == ETIMEDOUT) {
         cerr << "thread timeout!" << endl;
         pthread_kill(thread, SIGUSR1);
-
-        // must join (to release the resource of thread)
-        pthread_join(thread, NULL);
         throw runtime_error(string("timeout in this stmt"));
     }
-
-    // must join (to release the resource of thread)
-    pthread_join(thread, NULL);
 
     if (data.has_exception)
         throw data.e;
@@ -263,12 +255,6 @@ void *dut_trans_test(void *thread_arg)
     auto data = (thread_data *)thread_arg;
     auto dut = dut_setup(*(data->options));
     dut->trans_test(*(data->trans_stmts), data->exec_trans_stmts, data->stmt_output, data->commit_or_not);
-
-    pthread_mutex_lock(data->mutex_timeout);
-    pthread_cond_signal(data->cond_timeout);
-    pthread_mutex_unlock(data->mutex_timeout);
-
-    data->is_live = false;
 
     return NULL;
 }
@@ -501,7 +487,7 @@ void generate_transaction(map<string,string>& options, file_random_machine* rand
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        cerr << "trans 1: " << i << endl;
+        // cerr << "trans 1: " << i << endl;
         normal_test(options, schema, &trans_statement_factory, trans_1_rec);
     }
 
@@ -512,7 +498,7 @@ void generate_transaction(map<string,string>& options, file_random_machine* rand
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        cerr << "trans 2: " << i << endl;
+        // cerr << "trans 2: " << i << endl;
         normal_test(options, schema, &trans_statement_factory, trans_2_rec);
     }
 }
@@ -528,67 +514,24 @@ void concurrently_execute_transaction(map<string,string>& options,
     dut_reset_to_backup(options);
     cerr << YELLOW << "stage 5: cocurrently execute transaction A and B"  << RESET << endl;
     
-    // set timeout limit
-    struct timespec m_time;
-    m_time.tv_sec = time(NULL) + 10; // 10 seconds  
-    m_time.tv_nsec = 0; 
-    
     thread_data data_1, data_2;
 
     data_1.options = &options;
     data_1.trans_stmts = &trans_1_rec;
     data_1.exec_trans_stmts = &exec_trans_1_stmts;
     data_1.stmt_output = &trans_1_output;
-    data_1.is_live = true;
     data_1.commit_or_not = trans_1_commit;
-    data_1.mutex_timeout = &trans_1_mutex_timeout;
-    data_1.cond_timeout = &trans_1_cond_timeout;
 
     data_2.options = &options;
     data_2.trans_stmts = &trans_2_rec;
     data_2.exec_trans_stmts = &exec_trans_2_stmts;
     data_2.stmt_output = &trans_2_output;
-    data_2.is_live = true;
     data_2.commit_or_not = trans_2_commit;
-    data_2.mutex_timeout = &trans_2_mutex_timeout;
-    data_2.cond_timeout = &trans_2_cond_timeout;
 
     pthread_t tid_1, tid_2;
     pthread_create(&tid_1, NULL, dut_trans_test, &data_1);
     pthread_create(&tid_2, NULL, dut_trans_test, &data_2);
 
-    int res_1 = 0, res_2 = 0;
-    if (data_1.is_live) {
-        pthread_mutex_lock(&trans_1_mutex_timeout);  
-        res_1 = pthread_cond_timedwait(&trans_1_cond_timeout, &trans_1_mutex_timeout, (const struct timespec *)&m_time);  
-        pthread_mutex_unlock(&trans_1_mutex_timeout);
-    }
-    cerr << "wake up from the trans 1" << endl;
-
-    if (data_2.is_live) {
-        pthread_mutex_lock(&trans_2_mutex_timeout);  
-        res_2 = pthread_cond_timedwait(&trans_2_cond_timeout, &trans_2_mutex_timeout, (const struct timespec *)&m_time);  
-        pthread_mutex_unlock(&trans_2_mutex_timeout);
-    }
-    cerr << "wake up from the trans 2" << endl;
-
-    if (data_1.is_live || data_2.is_live) {
-        if (res_1 == ETIMEDOUT || res_2 == ETIMEDOUT) {
-            cerr << "concurrent test timeout!" << endl;
-            if (res_1 == ETIMEDOUT)
-                pthread_kill(tid_1, SIGUSR1);
-            if (res_2 == ETIMEDOUT)
-                pthread_kill(tid_2, SIGUSR1);
-            
-            // must join (to release the resource of thread)
-            pthread_join(tid_1, NULL);
-            pthread_join(tid_2, NULL);
-            cerr << "throw timeout exception" << endl;
-            throw runtime_error(string("concurrent timeout in this test"));
-        }
-    }
-
-    // must join (to release the resource of thread)
     pthread_join(tid_1, NULL);
     pthread_join(tid_2, NULL);
 
@@ -685,11 +628,12 @@ int random_test(map<string,string>& options)
         random_file = file_random_machine::get(options["random-seed"]);
         file_random_machine::use_file(options["random-seed"]);
     }
-    else
+    else {
         random_file = NULL;
+    }
     
     if (random_file == NULL) {
-        // smith::rng.seed(getpid());
+        cerr << YELLOW << "initial seed as time(NULL)" << RESET << endl;
         smith::rng.seed(time(NULL));
     }
     
@@ -770,14 +714,10 @@ int main(int argc, char *argv[])
     // init the lock
     pthread_mutex_init(&mutex_timeout, NULL);  
     pthread_cond_init(&cond_timeout, NULL);
-    pthread_mutex_init(&trans_1_mutex_timeout, NULL);  
-    pthread_cond_init(&trans_1_cond_timeout, NULL);
-    pthread_mutex_init(&trans_2_mutex_timeout, NULL);  
-    pthread_cond_init(&trans_2_cond_timeout, NULL);
 
     static itimerval itimer;
     while (1) {
-        child_timed_out = true;
+        child_timed_out = false;
 
         cerr << RED << "New Test Database --------------------------" << RESET << endl;
         child_pid = fork();
@@ -787,8 +727,8 @@ int main(int argc, char *argv[])
         }
 
         // timeout is ms
-        itimer.it_value.tv_sec = 60000 / 1000; // 60 s limit
-        itimer.it_value.tv_usec = (60000 % 1000) * 1000; // us limit
+        itimer.it_value.tv_sec = DATABASE_TIMEOUT;
+        itimer.it_value.tv_usec = 0; // us limit
         setitimer(ITIMER_REAL, &itimer, NULL);
 
         cerr << "begin waiting" << endl;

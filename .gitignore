@@ -34,3 +34,4 @@ libsqlsmith.so
 query_interactor
 *.sql
 *output
+*nohup*
