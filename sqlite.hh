@@ -36,7 +36,7 @@ struct dut_sqlite : dut_base, sqlite_connection {
     virtual void trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output = NULL
-                          , bool commit_or_not = true);
+                          , int commit_or_not = 1);
     virtual void reset_to_backup(void);
     virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content);
     dut_sqlite(std::string &conninfo);

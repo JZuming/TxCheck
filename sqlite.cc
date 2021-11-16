@@ -522,12 +522,19 @@ void dut_sqlite::reset_to_backup(void)
     return;
 }
 
+// 0: abort or rollback
+// 1: commit
+// 2: do not use transaction (do not use begin and commit)
 void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output
-                          , bool commit_or_not)
+                          , int commit_or_not)
 {
-    test("BEGIN TRANSACTION;");
+    if (commit_or_not != 2) {
+        cerr << pthread_self() << ": BEGIN TRANSACTION" << endl;
+        test("BEGIN TRANSACTION;");
+    }
+
     auto size = stmt_vec.size();
     for (auto i = 0; i < size; i++) {
         auto &stmt = stmt_vec[i];
@@ -558,8 +565,11 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
         }
     }
     
+    if (commit_or_not == 2)
+        return;
+    
     string last_sql;
-    if (commit_or_not) 
+    if (commit_or_not == 1) 
         last_sql = "COMMIT";
     else
         last_sql = "ROLLBACK";
@@ -577,7 +587,7 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
             break;
         }
     }
-    cerr << pthread_self() << " " << last_sql << " done" << endl;
+    cerr << pthread_self() << ": " << last_sql << " done" << endl;
     return;
 }
 
