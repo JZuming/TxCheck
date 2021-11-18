@@ -972,7 +972,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     
     // create its columns
     string key_column_name = create_unique_column_name();
-    auto key_type = sqltype::get("INTEGER"); // at least one cols has integer type
+    auto key_type = scope->schema->inttype; // at least one cols has integer type
     column key_column(key_column_name, key_type);
     created_table->columns().push_back(key_column);
 #ifdef USE_CONSTRAINT
@@ -986,9 +986,9 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     for (int i = 0; i < column_num; i++) {
         string column_name = create_unique_column_name();
         vector<sqltype *> enable_type;
-        enable_type.push_back(sqltype::get("INTEGER"));
-        enable_type.push_back(sqltype::get("TEXT"));
-        enable_type.push_back(sqltype::get("REAL"));
+        enable_type.push_back(scope->schema->inttype);
+        enable_type.push_back(scope->schema->texttype);
+        enable_type.push_back(scope->schema->realtype);
         auto type = random_pick<>(enable_type);
 
         column create_column(column_name, type);
@@ -1006,7 +1006,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     key_num = key_num == 0 ? 1 : key_num; // not less than 1
     for (auto i = 0; i < key_num; i++) {
         auto picked_col = random_pick<>(created_table->columns().begin(), created_table->columns().end());
-        while (picked_col->type == sqltype::get("TEXT")) {
+        while (picked_col->type == scope->schema->texttype) {
             picked_col++;
             if (picked_col == created_table->columns().end())
                 picked_col = created_table->columns().begin();
@@ -1020,7 +1020,7 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     auto unique_num = d6() / 2;
     for (auto i = 0; i < unique_num; i++) {
         auto picked_col = random_pick<>(created_table->columns().begin(), created_table->columns().end());
-        while (picked_col->type == sqltype::get("TEXT")) {
+        while (picked_col->type == scope->schema->texttype) {
             picked_col++;
             if (picked_col == created_table->columns().end())
                 picked_col = created_table->columns().begin();
@@ -1117,7 +1117,7 @@ create_table_select_stmt::create_table_select_stmt(prod *parent, struct scope *s
     int size = columns.size();
 
     for (int i = 0; i < size; i++) {
-        if (sqltype::get("BOOLEAN") != columns[i].type)
+        if (scope->schema->booltype != columns[i].type)
             continue;
         
         columns.erase(columns.begin() + i);
@@ -1268,9 +1268,9 @@ prod(parent), myscope(s)
         }
 
         vector<sqltype *> enable_type;
-        enable_type.push_back(sqltype::get("INTEGER"));
-        enable_type.push_back(sqltype::get("TEXT"));
-        enable_type.push_back(sqltype::get("REAL"));
+        enable_type.push_back(scope->schema->inttype);
+        enable_type.push_back(scope->schema->realtype);
+        enable_type.push_back(scope->schema->texttype);
         auto type = random_pick<>(enable_type);
 
         stmt_string = "alter table " + table_ref->ident() + " add column " + new_column_name 
@@ -1344,7 +1344,7 @@ create_index_stmt::create_index_stmt(prod *parent, struct scope *s)
 
     auto target_columns = target_table->columns();
     for (auto &col : target_columns) {
-        if (col.type == sqltype::get("TEXT"))
+        if (col.type == scope->schema->texttype)
             continue;
         indexed_columns.push_back(col.name);
     }
@@ -1557,24 +1557,24 @@ shared_ptr<prod> statement_factory(struct scope *s)
         s->new_stmt();
         // if less than 2 tables, update_stmt will easily enter a dead loop.
         if (s->tables.size() < 2) { 
-#ifndef TEST_CLICKHOUSE
+            #ifndef TEST_CLICKHOUSE
             if (s->tables.empty() || d6() > 3)
                 return make_shared<create_table_stmt>((struct prod *)0, s);
             else
                 return make_shared<create_table_select_stmt>((struct prod *)0, s);
-#else
+            #else
             return make_shared<create_table_stmt>((struct prod *)0, s);
-#endif
+            #endif
         }
 
         auto choice = d20();
         if (s->tables.empty() || choice == 1)
             return make_shared<create_table_stmt>((struct prod *)0, s);
-#ifndef TEST_CLICKHOUSE
-#ifndef TEST_TIDB
+        #ifndef TEST_CLICKHOUSE
+        #ifndef TEST_TIDB
         if (choice == 2)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
-#endif
+        #endif
         if (choice == 3)
             return make_shared<alter_table_stmt>((struct prod *)0, s);
         if (choice == 18)
@@ -1585,14 +1585,15 @@ shared_ptr<prod> statement_factory(struct scope *s)
             return make_shared<update_stmt>((struct prod *)0, s);
         if (choice == 6)
             return make_shared<create_index_stmt>((struct prod *)0, s);
-#else
+        #else
         if (choice >= 2 && choice <= 5)
             return make_shared<drop_table_stmt>((struct prod *)0, s);
-#endif
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
+        #endif
+        
+        #if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
         if (choice == 7)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
-#endif
+        #endif
         if (choice == 8)
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice == 9)
@@ -1614,35 +1615,35 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
         s->new_stmt();
         // if less than 2 tables, update_stmt will easily enter a dead loop.
         if (s->tables.size() < 2) { 
-#if (!defined TEST_CLICKHOUSE) && (!defined TEST_TIDB)
+            #if (!defined TEST_CLICKHOUSE) && (!defined TEST_TIDB)
             if (s->tables.empty() || d6() > 3)
                 return make_shared<create_table_stmt>((struct prod *)0, s);
             else
                 return make_shared<create_table_select_stmt>((struct prod *)0, s);
-#else
+            #else
             return make_shared<create_table_stmt>((struct prod *)0, s);
-#endif
+            #endif
         }
 
         auto choice = d6();
-#ifndef TEST_CLICKHOUSE
-#ifndef TEST_TIDB
+        #ifndef TEST_CLICKHOUSE
+        #ifndef TEST_TIDB
         if (choice == 1)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
-#endif
+        #endif
         if (choice == 2)
             return make_shared<alter_table_stmt>((struct prod *)0, s);
         if (choice == 3)
             return make_shared<create_index_stmt>((struct prod *)0, s);
-#endif
+        #endif
         // database has at least 2 tables in case dml statements are used
         if (choice == 4 && s->tables.size() >= 3) 
             return make_shared<drop_table_stmt>((struct prod *)0, s);
 
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE) && (!defined TEST_TIDB)
+        #if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE) && (!defined TEST_TIDB)
         if (choice == 5)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
-#endif
+        #endif
         return ddl_statement_factory(s);
 
     } catch (runtime_error &e) {

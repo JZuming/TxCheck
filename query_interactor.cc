@@ -734,7 +734,7 @@ int main(int argc, char *argv[])
     pthread_cond_init(&cond_timeout, NULL);
 
     static itimerval itimer;
-    int j = 1;
+    // int j = 1;
     while (1) {
         child_timed_out = false;
 

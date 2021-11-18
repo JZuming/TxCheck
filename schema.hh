@@ -16,6 +16,8 @@
 struct schema {
     sqltype *booltype;
     sqltype *inttype;
+    sqltype *realtype;
+    sqltype *texttype;
     sqltype *internaltype;
     sqltype *arraytype;
 

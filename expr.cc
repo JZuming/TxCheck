@@ -24,7 +24,7 @@ shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint,
 vector<shared_ptr<named_relation> > *prefer_refs)
 {
     try {
-        if (sqltype::get("BOOLEAN") == type_constraint)
+        if (p->scope->schema->booltype == type_constraint)
             return bool_expr::factory(p); 
         
         if (p->level < d6()) {
@@ -95,28 +95,28 @@ string cast_type_name_wrapper(string origin_type_name)
 case_expr::case_expr(prod *p, sqltype *type_constraint)
   : value_expr(p)
 {
-  condition = bool_expr::factory(this);
-  true_expr = value_expr::factory(this, type_constraint);
-  false_expr = value_expr::factory(this, true_expr->type);
-
-  if(false_expr->type != true_expr->type) {
-       /* Types are consistent but not identical.  Try to find a more
-	  concrete one for a better match. */
-       if (true_expr->type->consistent(false_expr->type))
-	    true_expr = value_expr::factory(this, false_expr->type);
-       else 
-	    false_expr = value_expr::factory(this, true_expr->type);
-  }
-  type = true_expr->type;
+    condition = bool_expr::factory(this);
+    true_expr = value_expr::factory(this, type_constraint);
+    false_expr = value_expr::factory(this, true_expr->type);
+    
+    if(false_expr->type != true_expr->type) {
+        /* Types are consistent but not identical.  Try to find a more
+           concrete one for a better match. */
+        if (true_expr->type->consistent(false_expr->type))
+            true_expr = value_expr::factory(this, false_expr->type);
+        else 
+            false_expr = value_expr::factory(this, true_expr->type);
+    }
+    type = true_expr->type;
 }
 
 void case_expr::out(std::ostream &out)
 {
-  out << "case when " << *condition;
-  out << " then " << *true_expr;
-  out << " else " << *true_expr;
-  out << " end";
-  indent(out);
+    out << "case when " << *condition;
+    out << " then " << *true_expr;
+    out << " else " << *false_expr;
+    out << " end";
+    indent(out);
 }
 
 void case_expr::accept(prod_visitor *v)
@@ -296,24 +296,20 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     type = type_constraint ? type_constraint : scope->schema->inttype;
 
     if (type == scope->schema->inttype) {
-        // if (d100() == 1)
-        //     expr = "9223372036854775808";
-        // else
-            expr = to_string(d100());
-        
+        expr = to_string(d100());
         return;
     }
 
    if (d9() == 1) {
-#ifndef TEST_CLICKHOUSE
+        #ifndef TEST_CLICKHOUSE
         expr = "cast(null as " + cast_type_name_wrapper(type->name) + ")";
-#else
+        #else
         expr = "null";
-#endif
+        #endif
         return;
     }
 
-    if (type == sqltype::get("REAL")) {
+    if (type == scope->schema->realtype) {
         if (d100() == 1)
             expr = "2147483648.100000";
         else 
@@ -321,14 +317,15 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     }
     else if (type == scope->schema->booltype)
         expr += (d6() > 3) ? scope->schema->true_literal : scope->schema->false_literal;
-    else if (type == sqltype::get("TEXT")) 
+    else if (type == scope->schema->texttype) 
         expr = "'" + random_identifier_generate() + "'";
-    else
-#ifndef TEST_CLICKHOUSE
+    else {
+        #ifndef TEST_CLICKHOUSE
         expr += "cast(null as " + cast_type_name_wrapper(type->name) + ")";
-#else
+        #else
         expr += "null";
-#endif
+        #endif
+    }
 }
 
 funcall::funcall(prod *p, sqltype *type_constraint, bool agg)
@@ -555,7 +552,7 @@ between_op::between_op(prod *p) : bool_expr(p)
 
 like_op::like_op(prod *p) : bool_expr(p)
 {
-    lhs = value_expr::factory(this, sqltype::get("TEXT"));
+    lhs = value_expr::factory(this, scope->schema->texttype);
     
     like_format = random_identifier_generate();
     auto scope = like_format.size() / 3;

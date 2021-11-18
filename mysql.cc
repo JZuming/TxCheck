@@ -116,162 +116,161 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     }
     // cerr << "done." << endl;
 
+    booltype = sqltype::get("tinyint");
+    inttype = sqltype::get("int");
+    realtype = sqltype::get("double");
+    texttype = sqltype::get("text");
+
 #define BINOP(n, a, b, r) do {\
-    op o(#n, \
-         sqltype::get(#a), \
-         sqltype::get(#b), \
-         sqltype::get(#r)); \
+    op o(#n, a, b, r); \
     register_operator(o); \
 } while(0)
 
-    BINOP(||, TEXT, TEXT, TEXT);
-    BINOP(*, INTEGER, INTEGER, INTEGER);
-    BINOP(/, INTEGER, INTEGER, INTEGER);
-    BINOP(%, INTEGER, INTEGER, INTEGER);
+    BINOP(||, texttype, texttype, texttype);
+    BINOP(*, inttype, inttype, inttype);
+    BINOP(/, inttype, inttype, inttype);
+    BINOP(%, inttype, inttype, inttype);
 
-    BINOP(+, INTEGER, INTEGER, INTEGER);
-    BINOP(-, INTEGER, INTEGER, INTEGER);
+    BINOP(+, inttype, inttype, inttype);
+    BINOP(-, inttype, inttype, inttype);
 
-    BINOP(>>, INTEGER, INTEGER, INTEGER);
-    BINOP(<<, INTEGER, INTEGER, INTEGER);
+    BINOP(>>, inttype, inttype, inttype);
+    BINOP(<<, inttype, inttype, inttype);
 
-    BINOP(&, INTEGER, INTEGER, INTEGER);
-    BINOP(|, INTEGER, INTEGER, INTEGER);
+    BINOP(&, inttype, inttype, inttype);
+    BINOP(|, inttype, inttype, inttype);
 
-    BINOP(<, INTEGER, INTEGER, BOOLEAN);
-    BINOP(<=, INTEGER, INTEGER, BOOLEAN);
-    BINOP(>, INTEGER, INTEGER, BOOLEAN);
-    BINOP(>=, INTEGER, INTEGER, BOOLEAN);
+    BINOP(<, inttype, inttype, booltype);
+    BINOP(<=, inttype, inttype, booltype);
+    BINOP(>, inttype, inttype, booltype);
+    BINOP(>=, inttype, inttype, booltype);
 
-    BINOP(=, INTEGER, INTEGER, BOOLEAN);
-    BINOP(<>, INTEGER, INTEGER, BOOLEAN);
+    BINOP(=, inttype, inttype, booltype);
+    BINOP(<>, inttype, inttype, booltype);
 
-    BINOP(AND, BOOLEAN, BOOLEAN, BOOLEAN);
-    BINOP(OR, BOOLEAN, BOOLEAN, BOOLEAN);
+    BINOP(and, booltype, booltype, booltype);
+    BINOP(or, booltype, booltype, booltype);
   
 #define FUNC(n, r) do {							\
-    routine proc("", "", sqltype::get(#r), #n);				\
+    routine proc("", "", r, #n);				\
     register_routine(proc);						\
 } while(0)
 
 #define FUNC1(n, r, a) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
     register_routine(proc);						\
 } while(0)
 
 #define FUNC2(n, r, a, b) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
     register_routine(proc);						\
 } while(0)
 
 #define FUNC3(n, r, a, b, c) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
-    proc.argtypes.push_back(sqltype::get(#c));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
     register_routine(proc);						\
 } while(0)
 
-    FUNC1(abs, INTEGER, INTEGER);
-    FUNC1(abs, REAL, REAL);
-    FUNC1(hex, TEXT, TEXT);
-    FUNC1(length, INTEGER, TEXT);
-    FUNC1(lower, TEXT, TEXT);
-    FUNC1(ltrim, TEXT, TEXT);
-    FUNC1(quote, TEXT, TEXT);
-    FUNC1(round, INTEGER, REAL);
-    FUNC1(rtrim, TEXT, TEXT);
-    FUNC1(trim, TEXT, TEXT);
-    FUNC1(upper, TEXT, TEXT);
+    FUNC1(abs, inttype, inttype);
+    FUNC1(abs, realtype, realtype);
+    FUNC1(hex, texttype, texttype);
+    FUNC1(length, inttype, texttype);
+    FUNC1(lower, texttype, texttype);
+    FUNC1(ltrim, texttype, texttype);
+    FUNC1(quote, texttype, texttype);
+    FUNC1(round, inttype, realtype);
+    FUNC1(rtrim, texttype, texttype);
+    FUNC1(trim, texttype, texttype);
+    FUNC1(upper, texttype, texttype);
 
-    FUNC2(instr, INTEGER, TEXT, TEXT);
-    FUNC2(round, REAL, REAL, INTEGER);
-    FUNC2(substr, TEXT, TEXT, INTEGER);
+    FUNC2(instr, inttype, texttype, texttype);
+    FUNC2(round, realtype, realtype, inttype);
+    FUNC2(substr, texttype, texttype, inttype);
 
-    FUNC3(substr, TEXT, TEXT, INTEGER, INTEGER);
-    FUNC3(replace, TEXT, TEXT, TEXT, TEXT);
+    FUNC3(substr, texttype, texttype, inttype, inttype);
+    FUNC3(replace, texttype, texttype, texttype, texttype);
 
 #define AGG1(n, r, a) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
     register_aggregate(proc);						\
 } while(0)
 
 #define AGG3(n, r, a, b, c, d) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
-    proc.argtypes.push_back(sqltype::get(#c));				\
-    proc.argtypes.push_back(sqltype::get(#d));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
     register_aggregate(proc);						\
 } while(0)
 
 #define AGG(n, r) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
+    routine proc("", "", r, #n);				\
     register_aggregate(proc);						\
 } while(0)
 
-    AGG1(avg, INTEGER, INTEGER);
-    AGG1(avg, REAL, REAL);
-    AGG(count, INTEGER);
-    AGG1(count, INTEGER, REAL);
-    AGG1(count, INTEGER, TEXT);
-    AGG1(count, INTEGER, INTEGER);
+    AGG1(avg, inttype, inttype);
+    AGG1(avg, realtype, realtype);
+    AGG(count, inttype);
+    AGG1(count, inttype, realtype);
+    AGG1(count, inttype, texttype);
+    AGG1(count, inttype, inttype);
 
-    AGG1(max, REAL, REAL);
-    AGG1(max, INTEGER, INTEGER);
-    AGG1(min, REAL, REAL);
-    AGG1(min, INTEGER, INTEGER);
-    AGG1(sum, REAL, REAL);
-    AGG1(sum, INTEGER, INTEGER);
+    AGG1(max, realtype, realtype);
+    AGG1(max, inttype, inttype);
+    AGG1(min, realtype, realtype);
+    AGG1(min, inttype, inttype);
+    AGG1(sum, realtype, realtype);
+    AGG1(sum, inttype, inttype);
 
 #define WIN(n, r) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
+    routine proc("", "", r, #n);				\
     register_windows(proc);						\
 } while(0)
 
 #define WIN1(n, r, a) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
     register_windows(proc);						\
 } while(0)
 
 #define WIN2(n, r, a, b) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
     register_windows(proc);						\
 } while(0)
 
 #ifndef TEST_CLICKHOUSE
     // ranking window function
-    WIN(CUME_DIST, REAL);
-    WIN(DENSE_RANK, INTEGER);
-    WIN1(NTILE, INTEGER, INTEGER);
-    WIN(RANK, INTEGER);
-    WIN(ROW_NUMBER, INTEGER);
-    WIN(PERCENT_RANK, REAL);
+    WIN(CUME_DIST, realtype);
+    WIN(DENSE_RANK, inttype);
+    WIN1(NTILE, inttype, inttype);
+    WIN(RANK, inttype);
+    WIN(ROW_NUMBER, inttype);
+    WIN(PERCENT_RANK, realtype);
 
     // value window function
-    WIN1(FIRST_VALUE, INTEGER, INTEGER);
-    WIN1(FIRST_VALUE, REAL, REAL);
-    WIN1(FIRST_VALUE, TEXT, TEXT);
-    WIN1(LAST_VALUE, INTEGER, INTEGER);
-    WIN1(LAST_VALUE, REAL, REAL);
-    WIN1(LAST_VALUE, TEXT, TEXT);
-    WIN1(LAG, INTEGER, INTEGER);
-    WIN1(LAG, REAL, REAL);
-    WIN1(LAG, TEXT, TEXT);
-    WIN2(LEAD, INTEGER, INTEGER, INTEGER);
-    WIN2(LEAD, REAL, REAL, INTEGER);
-    WIN2(LEAD, TEXT, TEXT, INTEGER);
+    WIN1(FIRST_VALUE, inttype, inttype);
+    WIN1(FIRST_VALUE, realtype, realtype);
+    WIN1(FIRST_VALUE, texttype, texttype);
+    WIN1(LAST_VALUE, inttype, inttype);
+    WIN1(LAST_VALUE, realtype, realtype);
+    WIN1(LAST_VALUE, texttype, texttype);
+    WIN1(LAG, inttype, inttype);
+    WIN1(LAG, realtype, realtype);
+    WIN1(LAG, texttype, texttype);
+    WIN2(LEAD, inttype, inttype, inttype);
+    WIN2(LEAD, realtype, realtype, inttype);
+    WIN2(LEAD, texttype, texttype, inttype);
 #endif
-    
-    booltype = sqltype::get("BOOLEAN");
-    inttype = sqltype::get("INTEGER");
 
     internaltype = sqltype::get("internal");
     arraytype = sqltype::get("ARRAY");
@@ -337,7 +336,7 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output)
     }
 
     auto result = mysql_store_result(&mysql);
-    if (result) {
+    if (output && result) {
         auto column_num = mysql_num_fields(result);
         while (auto row = mysql_fetch_row(result)) {
             for (int i = 0; i < column_num; i++) {
