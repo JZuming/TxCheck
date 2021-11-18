@@ -32,33 +32,32 @@ mysql_connection::mysql_connection(string db, unsigned int port)
     if (!mysql_init(&mysql))
         throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
 
-    // host null: the local host
-    // user null: the current user (root)
     // password null: blank (empty) password field
-    if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, db.c_str(), port, NULL, 0)) {
-        string err = mysql_error(&mysql);
-        if (regex_match(err, e_unknown_database)) {
-            cerr << db + " does not exist, use default db" << endl;
-            if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, NULL, port, NULL, 0))
-                throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
-            
-            cerr << "create database " + test_db << endl;
-            string create_sql = "create database " + test_db + "; ";
-            if (mysql_real_query(&mysql, create_sql.c_str(), create_sql.size()))
-                throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
-            auto res = mysql_store_result(&mysql);
-            mysql_free_result(res);
+    if (mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, db.c_str(), port, NULL, 0)) 
+        return; // success
+    
+    string err = mysql_error(&mysql);
+    if (!regex_match(err, e_unknown_database))
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
 
-            cerr << "use database" + test_db << endl;
-            string use_sql = "use " + test_db + "; ";
-            if (mysql_real_query(&mysql, use_sql.c_str(), use_sql.size()))
-                throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
-            res = mysql_store_result(&mysql);
-            mysql_free_result(res);
-        }
-        else
-            throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
-    }
+    // error caused by unknown database, so create one
+    cerr << db + " does not exist, use default db" << endl;
+    if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, NULL, port, NULL, 0))
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+    
+    cerr << "create database " + test_db << endl;
+    string create_sql = "create database " + test_db + "; ";
+    if (mysql_real_query(&mysql, create_sql.c_str(), create_sql.size()))
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+    auto res = mysql_store_result(&mysql);
+    mysql_free_result(res);
+
+    cerr << "use database" + test_db << endl;
+    string use_sql = "use " + test_db + "; ";
+    if (mysql_real_query(&mysql, use_sql.c_str(), use_sql.size()))
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+    res = mysql_store_result(&mysql);
+    mysql_free_result(res);
 }
 
 mysql_connection::~mysql_connection()
