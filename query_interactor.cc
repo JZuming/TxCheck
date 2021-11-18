@@ -380,6 +380,44 @@ bool compare_content(vector<string>& table_names,
     return true;
 }
 
+size_t BKDRHash(const char *str, size_t hash)  
+{
+    while (size_t ch = (size_t)*str++)  
+    {         
+        hash = hash * 131 + ch;   // 也可以乘以31、131、1313、13131、131313..  
+        // 有人说将乘法分解为位运算及加减法可以提高效率，如将上式表达为：hash = hash << 7 + hash << 1 + hash + ch;  
+        // 但其实在Intel平台上，CPU内部对二者的处理效率都是差不多的，  
+        // 我分别进行了100亿次的上述两种运算，发现二者时间差距基本为0（如果是Debug版，分解成位运算后的耗时还要高1/3）；  
+        // 在ARM这类RISC系统上没有测试过，由于ARM内部使用Booth's Algorithm来模拟32位整数乘法运算，它的效率与乘数有关：  
+        // 当乘数8-31位都为1或0时，需要1个时钟周期  
+        // 当乘数16-31位都为1或0时，需要2个时钟周期  
+        // 当乘数24-31位都为1或0时，需要3个时钟周期  
+        // 否则，需要4个时钟周期  
+        // 因此，虽然我没有实际测试，但是我依然认为二者效率上差别不大          
+    }  
+    return hash;  
+}
+
+static void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set)
+{
+    size_t hash = 0;
+    size_t output_size = output.size();
+    for (size_t i = 0; i < output_size; i++) {
+        if (output[i] == "\n") {
+            hash_set.push_back(hash);
+            hash = 0;
+            continue;
+        }
+
+        hash = BKDRHash(output[i].c_str(), hash);
+    }
+
+    // sort the set, because some output order is random
+    sort(hash_set.begin(), hash_set.end());
+    return;
+}
+
+
 bool compare_output(vector<vector<string>>& trans_output,
                     vector<vector<string>>& seq_output)
 {
@@ -388,23 +426,44 @@ bool compare_output(vector<vector<string>>& trans_output,
         cerr << "output sizes are not equel: "<< trans_output.size() << " " << seq_output.size() << endl;
         return false;
     }
+
     for (auto i = 0; i < size; i++) {
         auto& trans_stmt_output = trans_output[i];
         auto& seq_stmt_output = seq_output[i];
-        
-        auto stmt_output_size = trans_stmt_output.size();
-        if (stmt_output_size != seq_stmt_output.size()) {
-            cerr << "stmt[" << i << "] output sizes are not equel: " << trans_stmt_output.size() << " " << seq_stmt_output.size() << endl;
+    
+        vector<size_t> trans_hash_set, seq_hash_set;
+        hash_output_to_set(trans_stmt_output, trans_hash_set);
+        hash_output_to_set(seq_stmt_output, seq_hash_set);
+
+        size_t stmt_output_size = trans_hash_set.size();
+        if (stmt_output_size != seq_hash_set.size()) {
+            cerr << "stmt[" << i << "] output sizes are not equel: " << trans_hash_set.size() << " " << seq_hash_set.size() << endl;
             return false;
         }
 
-        for (auto j = 0; j < stmt_output_size; j++) {
-            if (trans_stmt_output[j] != seq_stmt_output[j]) {
-                cerr << "stmt[" << i << "][" << j << "] outputs are not equel: " << trans_stmt_output[j] << " " << seq_stmt_output[j] << endl;
+        for (auto i = 0; i < size; i++) {
+            if (trans_hash_set[i] != seq_hash_set[i])
                 return false;
-            }
         }
     }
+    
+    // for (auto i = 0; i < size; i++) {
+    //     auto& trans_stmt_output = trans_output[i];
+    //     auto& seq_stmt_output = seq_output[i];
+        
+    //     auto stmt_output_size = trans_stmt_output.size();
+    //     if (stmt_output_size != seq_stmt_output.size()) {
+    //         cerr << "stmt[" << i << "] output sizes are not equel: " << trans_stmt_output.size() << " " << seq_stmt_output.size() << endl;
+    //         return false;
+    //     }
+
+    //     for (auto j = 0; j < stmt_output_size; j++) {
+    //         if (trans_stmt_output[j] != seq_stmt_output[j]) {
+    //             cerr << "stmt[" << i << "][" << j << "] outputs are not equel: " << trans_stmt_output[j] << " " << seq_stmt_output[j] << endl;
+    //             return false;
+    //         }
+    //     }
+    // }
 
     return true;
 }
@@ -592,10 +651,13 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     map<string, vector<string>> concurrent_content;
     vector<string> table_names;
     int trans_1_commit = 1, trans_2_commit = 1;
-    if (d20() > 14)
+    // if (d20() > 14)
+    //     trans_1_commit = 0;
+    // if (d20() > 14)
+    //     trans_2_commit = 0;
+    if (d6() > 3)
         trans_1_commit = 0;
-    if (d20() > 14)
-        trans_2_commit = 0;
+    trans_2_commit = 1 - trans_1_commit;
 
     concurrently_execute_transaction(options, trans_1_rec, trans_2_rec, 
                                     exec_trans_1_stmts, exec_trans_2_stmts,

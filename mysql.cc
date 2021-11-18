@@ -444,7 +444,7 @@ void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
             string err = e.what();
             if (err.find("locked") != string::npos) 
                 continue; // not break and continue to test 
-            cerr << pthread_self() << " " << err << endl;
+            cerr << pthread_self() << ": " << err << endl;
             break;
         }
     }
