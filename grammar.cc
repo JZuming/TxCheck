@@ -1571,8 +1571,10 @@ shared_ptr<prod> statement_factory(struct scope *s)
         if (s->tables.empty() || choice == 1)
             return make_shared<create_table_stmt>((struct prod *)0, s);
 #ifndef TEST_CLICKHOUSE
+#ifndef TEST_TIDB
         if (choice == 2)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
+#endif
         if (choice == 3)
             return make_shared<alter_table_stmt>((struct prod *)0, s);
         if (choice == 18)
@@ -1612,7 +1614,7 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
         s->new_stmt();
         // if less than 2 tables, update_stmt will easily enter a dead loop.
         if (s->tables.size() < 2) { 
-#ifndef TEST_CLICKHOUSE
+#if (!defined TEST_CLICKHOUSE) && (!defined TEST_TIDB)
             if (s->tables.empty() || d6() > 3)
                 return make_shared<create_table_stmt>((struct prod *)0, s);
             else
@@ -1624,8 +1626,10 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
 
         auto choice = d6();
 #ifndef TEST_CLICKHOUSE
+#ifndef TEST_TIDB
         if (choice == 1)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
+#endif
         if (choice == 2)
             return make_shared<alter_table_stmt>((struct prod *)0, s);
         if (choice == 3)
@@ -1635,13 +1639,11 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
         if (choice == 4 && s->tables.size() >= 3) 
             return make_shared<drop_table_stmt>((struct prod *)0, s);
 
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE)
+#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL) && (!defined TEST_CLICKHOUSE) && (!defined TEST_TIDB)
         if (choice == 5)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
 #endif
-        
-        // default
-        return make_shared<create_table_stmt>((struct prod *)0, s);
+        return ddl_statement_factory(s);
 
     } catch (runtime_error &e) {
         cerr << "catch a runtime error in " << __FUNCTION__  << endl;
@@ -1667,17 +1669,16 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
         s->new_stmt();
         auto choice = d9();
 #ifndef TEST_CLICKHOUSE
-        // if (choice == 1)
-        //     return make_shared<create_table_select_stmt>((struct prod *)0, s);
-        // if (choice == 2)
-        //     return make_shared<create_index_stmt>((struct prod *)0, s);
+#ifndef TEST_TIDB
+        if (choice == 1)
+            return make_shared<create_table_select_stmt>((struct prod *)0, s);
+#endif
+        if (choice == 2)
+            return make_shared<create_index_stmt>((struct prod *)0, s);
         if (choice == 3)
             return make_shared<delete_stmt>((struct prod *)0, s);
         if (choice == 4) 
             return make_shared<update_stmt>((struct prod *)0, s);
-#else
-        if (choice <= 4)
-            choice += 4;
 #endif
         if (choice == 5)
             return make_shared<insert_stmt>((struct prod *)0, s);

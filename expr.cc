@@ -58,6 +58,7 @@ vector<shared_ptr<named_relation> > *prefer_refs)
     return factory(p, type_constraint);
 }
 
+extern string upper_translate(string str);
 string cast_type_name_wrapper(string origin_type_name)
 {
 #ifdef TEST_MYSQL
@@ -69,21 +70,21 @@ string cast_type_name_wrapper(string origin_type_name)
 #endif
     
     string cast_type_name;
-    if (origin_type_name == "NUMERIC")
+    if (upper_translate(origin_type_name) == "NUMERIC")
         cast_type_name = integer_ret; 
-    if (origin_type_name == "NUM")
+    if (upper_translate(origin_type_name) == "NUM")
         cast_type_name = integer_ret;
-    else if (origin_type_name == "INTEGER")
+    else if (upper_translate(origin_type_name) == "INTEGER")
         cast_type_name = integer_ret; 
-    else if (origin_type_name == "INT")
+    else if (upper_translate(origin_type_name) == "INT")
         cast_type_name = integer_ret;
     else if (origin_type_name == "")
         cast_type_name = integer_ret;
-    else if (origin_type_name == "BOOLEAN")
+    else if (upper_translate(origin_type_name) == "BOOLEAN")
         cast_type_name = boolean_ret;
-    else if (origin_type_name == "REAL")
+    else if (upper_translate(origin_type_name) == "REAL")
         cast_type_name = integer_ret;
-    else if (origin_type_name == "TEXT")
+    else if (upper_translate(origin_type_name) == "TEXT")
         cast_type_name = "CHAR";
     else
         cast_type_name = origin_type_name;

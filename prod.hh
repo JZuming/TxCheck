@@ -8,6 +8,8 @@
 #define PROD_HH
 
 #define TEST_MYSQL
+#define TEST_TIDB
+
 #define MAX_TRY_TIME 1
 #define TEST_TIME_FOR_EACH_DB 10
 #define STATEMENT_TIMEOUT 5

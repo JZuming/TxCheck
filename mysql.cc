@@ -72,7 +72,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
         WHERE TABLE_SCHEMA='" + db + "' AND \
               TABLE_TYPE='BASE TABLE' ORDER BY 1;";
 
-    cerr << "Loading tables...";
+    // cerr << "Loading tables...";
     if (mysql_real_query(&mysql, get_table_query.c_str(), get_table_query.size()))
         throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql!");
     
@@ -82,9 +82,9 @@ schema_mysql::schema_mysql(string db, unsigned int port)
         tables.push_back(tab);
     }
     mysql_free_result(result);
-    cerr << "done." << endl;
+    // cerr << "done." << endl;
 
-    cerr << "Loading indexes...";
+    // cerr << "Loading indexes...";
     string get_index_query = "SELECT DISTINCT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS \
                 WHERE TABLE_SCHEMA='" + db + "' AND \
                     NON_UNIQUE=1 AND \
@@ -98,9 +98,9 @@ schema_mysql::schema_mysql(string db, unsigned int port)
         indexes.push_back(row[0]);
     }
     mysql_free_result(result);
-    cerr << "done." << endl;
+    // cerr << "done." << endl;
 
-    cerr << "Loading columns and constraints...";
+    // cerr << "Loading columns and constraints...";
     for (auto& t : tables) {
         string get_column_query = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS \
                 WHERE TABLE_NAME='" + t.ident() + "' AND \
@@ -114,7 +114,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
         }
         mysql_free_result(result);
     }
-    cerr << "done." << endl;
+    // cerr << "done." << endl;
 
 #define BINOP(n, a, b, r) do {\
     op o(#n, \
@@ -145,8 +145,6 @@ schema_mysql::schema_mysql(string db, unsigned int port)
 
     BINOP(=, INTEGER, INTEGER, BOOLEAN);
     BINOP(<>, INTEGER, INTEGER, BOOLEAN);
-    BINOP(IS, INTEGER, INTEGER, BOOLEAN);
-    BINOP(IS NOT, INTEGER, INTEGER, BOOLEAN);
 
     BINOP(AND, BOOLEAN, BOOLEAN, BOOLEAN);
     BINOP(OR, BOOLEAN, BOOLEAN, BOOLEAN);
