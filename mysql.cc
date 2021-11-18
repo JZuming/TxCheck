@@ -435,7 +435,7 @@ void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
     else
         last_sql = "ROLLBACK";
     
-    cerr << pthread_self() << " " << last_sql << endl;
+    cerr << pthread_self() << ": " << last_sql << endl;
     while (1) {
         try{
             test(last_sql);
