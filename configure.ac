@@ -28,6 +28,9 @@ AC_SUBST(CONFIG_GIT_REVISION,
 AC_CHECK_LIB(sqlite3, sqlite3_open_v2)
 AM_CONDITIONAL([DUT_SQLITE], [test x$ac_cv_lib_sqlite3_sqlite3_open_v2 = xyes])
 
+AC_CHECK_LIB(mysqlclient, mysql_init)
+AM_CONDITIONAL([DUT_MYSQL], [test x$ac_cv_lib_mysqlclient_mysql_init = xyes])
+
 AC_SUBST(REVISION)
 
 AC_CONFIG_HEADERS(config.h)

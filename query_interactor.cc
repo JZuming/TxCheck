@@ -30,6 +30,10 @@ using boost::regex_match;
 #include "sqlite.hh"
 #endif
 
+#ifdef HAVE_LIBMYSQLCLIENT
+#include "mysql.hh"
+#endif
+
 #ifdef HAVE_MONETDB
 #include "monetdb.hh"
 #endif
@@ -83,19 +87,26 @@ shared_ptr<schema> get_schema(map<string,string>& options)
     static int try_time = 0;
     try {
         if (options.count("sqlite")) {
-    #ifdef HAVE_LIBSQLITE3
+            #ifdef HAVE_LIBSQLITE3
             schema = make_shared<schema_sqlite>(options["sqlite"], true);
-    #else
+            #else
             cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
             throw runtime_error("Does not support SQLite");
-    #endif
-        } else if(options.count("monetdb")) {
-    #ifdef HAVE_MONETDB
+            #endif
+        } else if (options.count("mysql-db") && options.count("mysql-port")) {
+            #ifdef HAVE_LIBMYSQLCLIENT
+            schema = make_shared<schema_mysql>(options["mysql-db"], stoi(options["mysql-port"]));
+            #else
+            cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
+            throw runtime_error("Does not support MySQL");
+            #endif
+        } else if (options.count("monetdb")) {
+            #ifdef HAVE_MONETDB
             schema = make_shared<schema_monetdb>(options["monetdb"]);
-    #else
+            #else
             cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
             throw runtime_error("Does not support MonetDB");
-    #endif
+            #endif
         } else if(options.count("postgres")) 
             schema = make_shared<schema_pqxx>(options["postgres"], true);
         else {
@@ -119,19 +130,26 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
 {
     shared_ptr<dut_base> dut;
     if (options.count("sqlite")) {
-#ifdef HAVE_LIBSQLITE3
+        #ifdef HAVE_LIBSQLITE3
         dut = make_shared<dut_sqlite>(options["sqlite"]);
-#else
+        #else
         cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
         throw runtime_error("Does not support SQLite");
-#endif
+        #endif
+    } else if (options.count("mysql-db") && options.count("mysql-port")) {
+        #ifdef HAVE_LIBMYSQLCLIENT
+        dut = make_shared<dut_mysql>(options["mysql-db"], stoi(options["mysql-port"]));
+        #else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
+        throw runtime_error("Does not support MySQL");
+        #endif
     } else if(options.count("monetdb")) {
-#ifdef HAVE_MONETDB	   
+        #ifdef HAVE_MONETDB	   
         dut = make_shared<dut_monetdb>(options["monetdb"]);
-#else
+        #else
         cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
         throw runtime_error("Does not support MonetDB");
-#endif
+        #endif
     } else if(options.count("postgres")) 
         dut = make_shared<dut_libpq>(options["postgres"]);
     else {
@@ -144,11 +162,6 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
 
 pthread_mutex_t mutex_timeout;  
 pthread_cond_t  cond_timeout;
-
-// pthread_mutex_t trans_1_mutex_timeout;  
-// pthread_cond_t  trans_1_cond_timeout;
-// pthread_mutex_t trans_2_mutex_timeout;  
-// pthread_cond_t  trans_2_cond_timeout;
 
 void user_signal(int signal)  
 {  
@@ -628,9 +641,8 @@ int random_test(map<string,string>& options)
         random_file = file_random_machine::get(options["random-seed"]);
         file_random_machine::use_file(options["random-seed"]);
     }
-    else {
+    else 
         random_file = NULL;
-    }
     
     if (random_file == NULL) {
         cerr << YELLOW << "initial seed as time(NULL)" << RESET << endl;
@@ -660,7 +672,7 @@ int main(int argc, char *argv[])
 {
     // analyze the options
     map<string,string> options;
-    regex optregex("--(help|postgres|sqlite|monetdb|random-seed)(?:=((?:.|\n)*))?");
+    regex optregex("--(help|postgres|sqlite|monetdb|random-seed|mysql-db|mysql-port)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
         smatch match;
@@ -676,12 +688,16 @@ int main(int argc, char *argv[])
     if (options.count("help")) {
         cerr <<
             "    --postgres=connstr   postgres database to send queries to" << endl <<
-#ifdef HAVE_LIBSQLITE3
+            #ifdef HAVE_LIBSQLITE3
             "    --sqlite=URI         SQLite database to send queries to" << endl <<
-#endif
-#ifdef HAVE_MONETDB
+            #endif
+            #ifdef HAVE_MONETDB
             "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
-#endif
+            #endif
+            #ifdef HAVE_LIBMYSQLCLIENT
+            "    --mysql-db=constr    mysql database name to send queries to (should used with" << endl << 
+            "    --mysql-port=int     mysql server port number" << endl << 
+            #endif
             "    --random-seed=filename    random file for dynamic query interaction" << endl <<
             "    --help               print available command line options and exit" << endl;
         return 0;

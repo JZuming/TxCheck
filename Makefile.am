@@ -14,6 +14,9 @@ if DUT_SQLITE
 DUT += sqlite.cc
 endif
 
+if DUT_MYSQL
+DUT += mysql.cc
+endif
 
 sqlsmith_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
     random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	\
@@ -27,19 +30,12 @@ query_interactor_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
 
 query_interactor_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS) -lpthread
 
-# libsqlsmith_so_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
-#     random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	
-
-# libsqlsmith_so_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
-# libsqlsmith_so_LDFLAGS= -shared -fPIC $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS)
-
 AM_LDFLAGS = $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS) #-fsanitize=address -fno-omit-frame-pointer
 AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wno-sign-compare -Wextra -fPIC #-O0 -fsanitize=address
 
-
 EXTRA_DIST = gitrev.h dump.hh expr.hh grammar.hh log.hh prod.hh		\
     random.hh relmodel.hh schema.hh impedance.hh known.txt known_re.txt log.sql	\
-    README.org TODO.org ast.png logo.png dump.xsl util.hh sqlite.hh	\
+    README.org TODO.org ast.png logo.png dump.xsl util.hh sqlite.hh	mysql.hh \
     dut.hh postgres.hh monetdb.hh log-v1.0-to-v1.2.sql
 
 gitrev.h: $(HEADERS) $(SOURCES)
