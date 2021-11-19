@@ -1669,13 +1669,8 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
     try {
         s->new_stmt();
         auto choice = d9();
+        // should not have ddl statement, which will auto commit in tidb;
 #ifndef TEST_CLICKHOUSE
-#ifndef TEST_TIDB
-        if (choice == 1)
-            return make_shared<create_table_select_stmt>((struct prod *)0, s);
-#endif
-        if (choice == 2)
-            return make_shared<create_index_stmt>((struct prod *)0, s);
         if (choice == 3)
             return make_shared<delete_stmt>((struct prod *)0, s);
         if (choice == 4) 

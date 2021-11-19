@@ -201,7 +201,7 @@ void* test_thread(void* argv)
         auto dut = dut_setup(*(data->options));
         dut->test(*(data->stmt));
     } catch (std::exception &e) {
-        cerr << "In test thread: " << e.what() << endl;
+        // cerr << "In test thread: " << e.what() << endl;
         // cerr << *(data->stmt) << endl;
         // exit(144);
         data->e = e;
@@ -355,31 +355,6 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
     }
 }
 
-bool compare_content(vector<string>& table_names, 
-                    map<string, vector<string>>&con_content, 
-                    map<string, vector<string>>&seq_content)
-{
-    for (auto& table:table_names) {
-        auto& con_table_content = con_content[table];
-        auto& seq_table_content = seq_content[table];
-
-        auto size = con_table_content.size();
-        if (size != seq_table_content.size()) {
-            cerr << "table " + table + " sizes are not equal" << endl;
-            return false;
-        }
-
-        for (auto i = 0; i < size; i++) {
-            if (seq_table_content[i] != con_table_content[i]) {
-                cerr << "table " + table + " content are not equal" << endl;
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
 size_t BKDRHash(const char *str, size_t hash)  
 {
     while (size_t ch = (size_t)*str++)  
@@ -417,6 +392,53 @@ static void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set)
     return;
 }
 
+void output_diff(string item_name, vector<string>& con_result, vector<string>& seq_result)
+{
+    ofstream ofile("/tmp/comp_diff.txt", ios::app);
+    ofile << "============================" << endl;
+    ofile << "item name: " << item_name << endl;
+    ofile << "concurrent: " << endl;
+    for (auto& str : con_result) {
+        ofile << "    " << str;
+    }
+    ofile << endl;
+    ofile << "sequential: " << endl;
+    for (auto& str : seq_result) {
+        ofile << "    " << str;
+    }
+    ofile.close();
+}
+
+bool compare_content(vector<string>& table_names, 
+                    map<string, vector<string>>&con_content, 
+                    map<string, vector<string>>&seq_content)
+{
+    for (auto& table:table_names) {
+        auto& con_table_content = con_content[table];
+        auto& seq_table_content = seq_content[table];
+
+        vector<size_t> con_table_set, seq_table_set;
+        hash_output_to_set(con_table_content, con_table_set);
+        hash_output_to_set(seq_table_content, seq_table_set);
+
+        auto size = con_table_set.size();
+        if (size != seq_table_set.size()) {
+            cerr << "table " + table + " sizes are not equal" << endl;
+            output_diff(table, con_table_content, seq_table_content);
+            return false;
+        }
+
+        for (auto i = 0; i < size; i++) {
+            if (con_table_set[i] != seq_table_set[i]) {
+                cerr << "table " + table + " content are not equal" << endl;
+                output_diff(table, con_table_content, seq_table_content);
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
 
 bool compare_output(vector<vector<string>>& trans_output,
                     vector<vector<string>>& seq_output)
@@ -438,32 +460,18 @@ bool compare_output(vector<vector<string>>& trans_output,
         size_t stmt_output_size = trans_hash_set.size();
         if (stmt_output_size != seq_hash_set.size()) {
             cerr << "stmt[" << i << "] output sizes are not equel: " << trans_hash_set.size() << " " << seq_hash_set.size() << endl;
+            output_diff("stmt["+ to_string(i) + "]", trans_stmt_output, seq_stmt_output);
             return false;
         }
 
-        for (auto i = 0; i < size; i++) {
-            if (trans_hash_set[i] != seq_hash_set[i])
+        for (auto j = 0; j < stmt_output_size; j++) {
+            if (trans_hash_set[j] != seq_hash_set[j]) {
+                cerr << "stmt[" << i << "] output are not equel" << endl;
+                output_diff("stmt["+ to_string(i) + "]", trans_stmt_output, seq_stmt_output);
                 return false;
+            }
         }
     }
-    
-    // for (auto i = 0; i < size; i++) {
-    //     auto& trans_stmt_output = trans_output[i];
-    //     auto& seq_stmt_output = seq_output[i];
-        
-    //     auto stmt_output_size = trans_stmt_output.size();
-    //     if (stmt_output_size != seq_stmt_output.size()) {
-    //         cerr << "stmt[" << i << "] output sizes are not equel: " << trans_stmt_output.size() << " " << seq_stmt_output.size() << endl;
-    //         return false;
-    //     }
-
-    //     for (auto j = 0; j < stmt_output_size; j++) {
-    //         if (trans_stmt_output[j] != seq_stmt_output[j]) {
-    //             cerr << "stmt[" << i << "][" << j << "] outputs are not equel: " << trans_stmt_output[j] << " " << seq_stmt_output[j] << endl;
-    //             return false;
-    //         }
-    //     }
-    // }
 
     return true;
 }
@@ -523,11 +531,16 @@ bool seq_res_comp(map<string,string>& options, vector<string> table_names,
     dut_reset_to_backup(options);
 
     vector<vector<string>> seq_1_output, seq_2_output;
-    if (trans_1_commit)
+    if (trans_1_commit) {
+        cerr << "trans_1 commit" << endl;
         normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output, 2);
-    if (trans_2_commit)
+    }
+        
+    if (trans_2_commit) {
+        cerr << "trans_2 commit" << endl;
         normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output, 2);
-
+    }
+    
     map<string, vector<string>> sequential_content;
     dut_get_content(options, table_names, sequential_content);
 
@@ -655,9 +668,20 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     //     trans_1_commit = 0;
     // if (d20() > 14)
     //     trans_2_commit = 0;
-    if (d6() > 3)
+    
+    // tidb does not support serilization
+    auto choice = d9();
+    if (choice <= 4) {
+        trans_1_commit = 1;
+        trans_2_commit = 0;
+    } else if (choice <= 8) {
         trans_1_commit = 0;
-    trans_2_commit = 1 - trans_1_commit;
+        trans_2_commit = 1;
+    }
+    else {
+        trans_1_commit = 0;
+        trans_2_commit = 0;
+    }
 
     concurrently_execute_transaction(options, trans_1_rec, trans_2_rec, 
                                     exec_trans_1_stmts, exec_trans_2_stmts,
@@ -796,7 +820,8 @@ int main(int argc, char *argv[])
     pthread_cond_init(&cond_timeout, NULL);
 
     static itimerval itimer;
-    // int j = 1;
+    // random_test(options);
+    
     while (1) {
         child_timed_out = false;
 
