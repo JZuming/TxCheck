@@ -330,6 +330,7 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output)
         string err = mysql_error(&mysql);
         if (regex_match(err, e_crash)) {
             cerr << "find a crash: " + err << endl;
+            cerr << stmt << endl;
             exit(166);
         }
         throw std::runtime_error(err + " in mysql::test"); 

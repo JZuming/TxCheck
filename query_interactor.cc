@@ -230,6 +230,11 @@ void dut_test(map<string,string>& options, const string& stmt)
     data.stmt = &str;
     data.has_exception = false;
 
+    // record the test case firstly
+    ofstream ofile("cur_test_smt.sql");
+    ofile << stmt << endl;
+    ofile.close();
+
     pthread_create(&thread, NULL, test_thread, &data);
     pthread_detach(thread);
 
@@ -409,6 +414,57 @@ void output_diff(string item_name, vector<string>& con_result, vector<string>& s
     ofile.close();
 }
 
+bool is_number(const string &s) {
+    if (s.empty() || s.length() <= 0) 
+        return false;
+
+    int point = 0;
+    if (s.length() == 1 && (s[0] >'9' || s[0] < '0')) 
+        return false;
+
+    if(s.length() > 1) {
+        if (s[0]!='.' && (s[0] >'9' || s[0] < '0')&&s[0]!='-' && s[0]!='+') 
+            return false;
+        
+        if (s[0] == '.') 
+            ++point;
+
+        if ((s[0] == '+' || s[0] == '-') && (s[1] >'9' || s[1] < '0')) 
+            return false;
+
+        for (size_t i = 1; i < s.length(); ++i) {
+            if (s[i]!='.' && (s[i] >'9' || s[i] < '0')) 
+                return false;
+
+            if (s[i] == '.') 
+                ++point;
+        }
+    }
+
+    if (point > 1) return false;
+    
+    return true;
+}
+
+bool nomoalize_content(vector<string> &content)
+{
+    auto size = content.size();
+
+    for (int i = 0; i < size; i++) {
+        auto str = content[i];
+        double value = 0;
+        
+        if (!is_number(str) || str.find(".") == string::npos)
+            continue;
+
+        // value is a float
+        value = stod(str);
+        value = floor(value * 1000) / 1000; // keep 3 number after the point
+        content[i] = to_string(value);
+    }
+    return true;
+}
+
 bool compare_content(vector<string>& table_names, 
                     map<string, vector<string>>&con_content, 
                     map<string, vector<string>>&seq_content)
@@ -416,6 +472,9 @@ bool compare_content(vector<string>& table_names,
     for (auto& table:table_names) {
         auto& con_table_content = con_content[table];
         auto& seq_table_content = seq_content[table];
+
+        nomoalize_content(con_table_content);
+        nomoalize_content(seq_table_content);
 
         vector<size_t> con_table_set, seq_table_set;
         hash_output_to_set(con_table_content, con_table_set);
@@ -453,6 +512,9 @@ bool compare_output(vector<vector<string>>& trans_output,
         auto& trans_stmt_output = trans_output[i];
         auto& seq_stmt_output = seq_output[i];
     
+        nomoalize_content(trans_stmt_output);
+        nomoalize_content(seq_stmt_output);
+        
         vector<size_t> trans_hash_set, seq_hash_set;
         hash_output_to_set(trans_stmt_output, trans_hash_set);
         hash_output_to_set(seq_stmt_output, seq_hash_set);
@@ -659,6 +721,17 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     vector<string> trans_2_rec;
     generate_transaction(options, random_file, trans_1_rec, trans_2_rec);
 
+    ofstream ofile;
+    ofile.open("trans_1.sql");
+    for (auto& stmt:trans_1_rec)
+        ofile << stmt << endl;
+    ofile.close();
+
+    ofile.open("trans_2.sql");
+    for (auto& stmt:trans_2_rec)
+        ofile << stmt << endl;
+    ofile.close();
+
     vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
     vector<vector<string>> trans_1_output, trans_2_output;
     map<string, vector<string>> concurrent_content;
@@ -698,23 +771,13 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
         return 0;
 
     cerr << RED << "find a bug, and record the detail" << RESET << endl;
-    ofstream ofile("exec_trans_1.sql");
+    ofile.open("exec_trans_1.sql");
     for (auto& stmt:exec_trans_1_stmts)
         ofile << stmt << endl;
     ofile.close();
 
     ofile.open("exec_trans_2.sql");
     for (auto& stmt:exec_trans_2_stmts)
-        ofile << stmt << endl;
-    ofile.close();
-
-    ofile.open("trans_1.sql");
-    for (auto& stmt:trans_1_rec)
-        ofile << stmt << endl;
-    ofile.close();
-
-    ofile.open("trans_2.sql");
-    for (auto& stmt:trans_2_rec)
         ofile << stmt << endl;
     ofile.close();
 
