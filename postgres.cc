@@ -362,7 +362,7 @@ void dut_libpq::command(const std::string &stmt)
     }
 }
 
-void dut_libpq::test(const std::string &stmt, std::vector<std::string>* output)
+void dut_libpq::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
     command("ROLLBACK;");
     command("BEGIN;");

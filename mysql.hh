@@ -28,7 +28,7 @@ struct schema_mysql : schema, mysql_connection {
 };
 
 struct dut_mysql : dut_base, mysql_connection {
-    virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL);
+    virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
     virtual void reset(void);
     virtual void backup(void);
     virtual void trans_test(const std::vector<std::string> &stmt_vec

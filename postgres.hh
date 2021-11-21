@@ -58,7 +58,7 @@ struct dut_pqxx : dut_base {
 struct dut_libpq : dut_base {
      PGconn *conn = 0;
      std::string conninfo_;
-     virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL);
+     virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
      virtual void reset(void);
      virtual void backup(void);
      virtual void reset_to_backup(void);

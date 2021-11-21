@@ -30,7 +30,7 @@ struct schema_sqlite : schema, sqlite_connection {
 };
 
 struct dut_sqlite : dut_base, sqlite_connection {
-    virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL);
+    virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
     virtual void reset(void);
     virtual void backup(void);
     virtual void trans_test(const std::vector<std::string> &stmt_vec

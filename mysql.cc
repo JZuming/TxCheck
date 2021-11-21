@@ -324,7 +324,7 @@ dut_mysql::dut_mysql(string db, unsigned int port)
 {
 }
 
-void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output)
+void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
@@ -335,6 +335,9 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output)
         }
         throw std::runtime_error(err + " in mysql::test"); 
     }
+
+    if (affected_row_num)
+        *affected_row_num = mysql_affected_rows(&mysql);
 
     auto result = mysql_store_result(&mysql);
     if (output && result) {

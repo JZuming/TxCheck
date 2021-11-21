@@ -413,7 +413,7 @@ extern "C" int content_callback(void *data, int argc, char **argv, char **azColN
     return 0;
 }
 
-void dut_sqlite::test(const std::string &stmt, std::vector<std::string>* output)
+void dut_sqlite::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
     // alarm(6);
     rc = sqlite3_exec(db, stmt.c_str(), content_callback, (void *)output, &zErrMsg);
@@ -433,6 +433,9 @@ void dut_sqlite::test(const std::string &stmt, std::vector<std::string>* output)
             throw e;
         }
     }
+
+    if (affected_row_num)
+        *affected_row_num = sqlite3_changes(db);
 }
 
 void dut_sqlite::reset(void)

@@ -77,6 +77,8 @@ struct thread_data {
 struct test_thread_arg {
     map<string,string>* options;
     string* stmt;
+    vector<string>* stmt_output;
+    int* affected_row_num;
     exception e;
     bool has_exception;
 };
@@ -199,7 +201,7 @@ void* test_thread(void* argv)
     auto data = (test_thread_arg *)argv;
     try {
         auto dut = dut_setup(*(data->options));
-        dut->test(*(data->stmt));
+        dut->test(*(data->stmt), data->stmt_output, data->affected_row_num);
     } catch (std::exception &e) {
         // cerr << "In test thread: " << e.what() << endl;
         // cerr << *(data->stmt) << endl;
@@ -215,7 +217,7 @@ void* test_thread(void* argv)
     return NULL;
 }
 
-void dut_test(map<string,string>& options, const string& stmt)
+void dut_test(map<string,string>& options, const string& stmt, bool need_affect)
 {   
     // set timeout limit
     struct timespec m_time;
@@ -223,12 +225,17 @@ void dut_test(map<string,string>& options, const string& stmt)
     m_time.tv_nsec = 0; 
 
     // set pthread parameter 
+    vector<string> stmt_output;
+    int affected_row_num = 0;
+
     pthread_t thread;
     test_thread_arg data;
     data.options = &options;
     auto str = stmt;
     data.stmt = &str;
     data.has_exception = false;
+    data.affected_row_num = &affected_row_num;
+    data.stmt_output = &stmt_output;
 
     // record the test case firstly
     ofstream ofile("cur_test_smt.sql");
@@ -250,6 +257,9 @@ void dut_test(map<string,string>& options, const string& stmt)
 
     if (data.has_exception)
         throw data.e;
+    
+    if (need_affect && affected_row_num == 0 && stmt_output.empty())
+        throw runtime_error(string("affect result empty"));
 }
 
 void dut_reset(map<string,string>& options)
@@ -297,7 +307,10 @@ void dut_get_content(map<string,string>& options,
     dut->get_content(tables_name, content);
 }
 
-void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statement_factory)(scope *), vector<string>& rec_vec)
+void interect_test(map<string,string>& options, 
+                    shared_ptr<prod> (* tmp_statement_factory)(scope *), 
+                    vector<string>& rec_vec,
+                    bool need_affect)
 {
     auto schema = get_schema(options);
     scope scope;
@@ -309,7 +322,7 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
 
     static int try_time = 0;
     try {
-        dut_test(options, s.str());
+        dut_test(options, s.str(), need_affect);
         auto sql = s.str() + ";";
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
@@ -323,12 +336,16 @@ void interect_test(map<string,string>& options, shared_ptr<prod> (* tmp_statemen
             exit(144); // ignore this kind of error
         }
         try_time++;
-        interect_test(options, tmp_statement_factory, rec_vec);
+        interect_test(options, tmp_statement_factory, rec_vec, need_affect);
         try_time--;
     }
 }
 
-void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared_ptr<prod> (* tmp_statement_factory)(scope *), vector<string>& rec_vec)
+void normal_test(map<string,string>& options, 
+                    shared_ptr<schema>& schema, 
+                    shared_ptr<prod> (* tmp_statement_factory)(scope *), 
+                    vector<string>& rec_vec,
+                    bool need_affect)
 {
     scope scope;
     schema->fill_scope(scope);
@@ -339,7 +356,7 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
 
     static int try_time = 0;
     try {
-        dut_test(options, s.str());
+        dut_test(options, s.str(), need_affect);
         auto sql = s.str() + ";";
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
@@ -355,7 +372,7 @@ void normal_test(map<string,string>& options, shared_ptr<schema>& schema, shared
             exit(144); // ignore this kind of error
         }
         try_time++;
-        normal_test(options, schema, tmp_statement_factory, rec_vec);
+        normal_test(options, schema, tmp_statement_factory, rec_vec, need_affect);
         try_time--;
     }
 }
@@ -563,7 +580,7 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
 
-        interect_test(options, &ddl_statement_factory, stage_1_rec); // has disabled the not null, check and unique clause 
+        interect_test(options, &ddl_statement_factory, stage_1_rec, false); // has disabled the not null, check and unique clause 
     }
 
     // stage 2: basic DML stage (only insert),
@@ -574,7 +591,7 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec);
+        normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec, false);
     }
 
     // stage 3: backup database
@@ -637,7 +654,7 @@ void generate_transaction(map<string,string>& options, file_random_machine* rand
             break;
         
         // cerr << "trans 1: " << i << endl;
-        normal_test(options, schema, &trans_statement_factory, trans_1_rec);
+        normal_test(options, schema, &trans_statement_factory, trans_1_rec, true);
     }
 
     cerr << YELLOW << "reset to backup" << RESET << endl;
@@ -648,7 +665,7 @@ void generate_transaction(map<string,string>& options, file_random_machine* rand
             break;
         
         // cerr << "trans 2: " << i << endl;
-        normal_test(options, schema, &trans_statement_factory, trans_2_rec);
+        normal_test(options, schema, &trans_statement_factory, trans_2_rec, true);
     }
 }
 
