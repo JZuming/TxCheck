@@ -243,7 +243,6 @@ void dut_test(map<string,string>& options, const string& stmt, bool need_affect)
     ofile.close();
 
     pthread_create(&thread, NULL, test_thread, &data);
-    pthread_detach(thread);
 
     pthread_mutex_lock(&mutex_timeout);  
     int res = pthread_cond_timedwait(&cond_timeout, &mutex_timeout, (const struct timespec *)&m_time);  
@@ -252,14 +251,19 @@ void dut_test(map<string,string>& options, const string& stmt, bool need_affect)
     if (res == ETIMEDOUT) {
         cerr << "thread timeout!" << endl;
         pthread_kill(thread, SIGUSR1);
+        pthread_join(thread, NULL);
+
         throw runtime_error(string("timeout in this stmt"));
     }
+
+    pthread_join(thread, NULL);
 
     if (data.has_exception)
         throw data.e;
     
-    if (need_affect && affected_row_num == 0 && stmt_output.empty())
+    if (need_affect && affected_row_num <= 0 && stmt_output.empty()) {
         throw runtime_error(string("affect result empty"));
+    }
 }
 
 void dut_reset(map<string,string>& options)
@@ -648,7 +652,7 @@ void generate_transaction(map<string,string>& options, file_random_machine* rand
     auto schema = get_schema(options);
 
     cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B" << RESET << endl;
-    auto trans_1_stmt_num = 9 + d6(); // 10-15
+    auto trans_1_stmt_num = d12(); // 1-12
     for (auto i = 0; i < trans_1_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
@@ -659,7 +663,7 @@ void generate_transaction(map<string,string>& options, file_random_machine* rand
 
     cerr << YELLOW << "reset to backup" << RESET << endl;
     dut_reset_to_backup(options);
-    auto trans_2_stmt_num = 9 + d6(); // 10-15
+    auto trans_2_stmt_num = d12(); // 1-12
     for (auto i = 0; i < trans_2_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;

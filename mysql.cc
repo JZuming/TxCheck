@@ -33,7 +33,7 @@ mysql_connection::mysql_connection(string db, unsigned int port)
         throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
 
     // password null: blank (empty) password field
-    if (mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, db.c_str(), port, NULL, 0)) 
+    if (mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
         return; // success
     
     string err = mysql_error(&mysql);
@@ -41,7 +41,7 @@ mysql_connection::mysql_connection(string db, unsigned int port)
         throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
 
     // error caused by unknown database, so create one
-    cerr << db + " does not exist, use default db" << endl;
+    cerr << test_db + " does not exist, use default db" << endl;
     if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, NULL, port, NULL, 0))
         throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
     
@@ -341,6 +341,12 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
 
     auto result = mysql_store_result(&mysql);
     if (output && result) {
+        auto row_num = mysql_num_rows(result);
+        if (row_num == 0) {
+            mysql_free_result(result);
+            return;
+        }
+
         auto column_num = mysql_num_fields(result);
         while (auto row = mysql_fetch_row(result)) {
             for (int i = 0; i < column_num; i++) {
@@ -463,8 +469,13 @@ void dut_mysql::reset_to_backup(void)
     if (access(bk_file.c_str(), F_OK ) == -1) 
         return;
     
+    mysql_close(&mysql);
+    
     string mysql_source = "mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
     system(mysql_source.c_str());
+
+    if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
 }
 
 void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
