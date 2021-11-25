@@ -83,6 +83,45 @@ struct test_thread_arg {
     bool has_exception;
 };
 
+struct transaction {
+    shared_ptr<dut_base> dut;
+    vector<string> stmts;
+    vector<vector<string>> stmt_outputs;
+    vector<string> executed_stmts;
+
+    int stmt_num;
+    int status;
+    set<int> scheduled_after_tid;
+};
+
+class transaction_test {
+    shared_ptr<transaction[]> trans_arr;
+
+    map<string,string>* options;
+    file_random_machine* random_file;
+
+    bool is_serializable;
+    int trans_num;
+    int stmt_num;
+
+    vector<int> tid_queue;
+    vector<string> stmt_queue;
+
+    vector<int> executed_tid_queue;
+    vector<string> executed_stmt_queue;
+
+    void arrage_trans_for_tid_queue();
+    void assign_trans_status();
+    void gen_stmt_for_each_trans();
+
+    void schedule_last_stmt_pos(int stmt_index);
+
+public:
+    transaction_test(map<string,string>& options, file_random_machine* random_file, bool is_serializable);
+    ~transaction_test();
+    void test();
+};
+
 shared_ptr<schema> get_schema(map<string,string>& options)
 {
     shared_ptr<schema> schema;
@@ -643,34 +682,33 @@ bool seq_res_comp(map<string,string>& options, vector<string> table_names,
     return true;
 }
 
-void generate_transaction(map<string,string>& options, file_random_machine* random_file, 
-                        vector<string>& trans_1_rec, vector<string>& trans_2_rec)
+void gen_trans_stmts(map<string,string>& options, 
+                        file_random_machine* random_file, 
+                        shared_ptr<schema> &db_schema,
+                        int trans_stmt_num,
+                        vector<string>& trans_rec)
 {
     cerr << YELLOW << "reset to backup" << RESET << endl;
     dut_reset_to_backup(options);
+    for (auto i = 0; i < trans_stmt_num; i++) {
+        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
+            break;
+        
+        normal_test(options, db_schema, &trans_statement_factory, trans_rec, true);
+    }
+}
 
+void gen_current_trans(map<string,string>& options, file_random_machine* random_file, 
+                        vector<string>& trans_1_rec, vector<string>& trans_2_rec)
+{
     auto schema = get_schema(options);
-
-    cerr << YELLOW << "stage 4: generate SQL statements for transaction A and B" << RESET << endl;
     auto trans_1_stmt_num = d12(); // 1-12
-    for (auto i = 0; i < trans_1_stmt_num; i++) {
-        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
-            break;
-        
-        // cerr << "trans 1: " << i << endl;
-        normal_test(options, schema, &trans_statement_factory, trans_1_rec, true);
-    }
-
-    cerr << YELLOW << "reset to backup" << RESET << endl;
-    dut_reset_to_backup(options);
     auto trans_2_stmt_num = d12(); // 1-12
-    for (auto i = 0; i < trans_2_stmt_num; i++) {
-        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
-            break;
-        
-        // cerr << "trans 2: " << i << endl;
-        normal_test(options, schema, &trans_statement_factory, trans_2_rec, true);
-    }
+    
+    gen_trans_stmts(options, random_file, schema, trans_1_stmt_num, trans_1_rec);
+    gen_trans_stmts(options, random_file, schema, trans_2_stmt_num, trans_2_rec);
+
+    return;
 }
 
 void concurrently_execute_transaction(map<string,string>& options, 
@@ -736,11 +774,11 @@ bool sequentially_check(map<string,string>& options, vector<string> table_names,
     return true;
 }
 
-int transaction_test(map<string,string>& options, file_random_machine* random_file)
+int old_transaction_test(map<string,string>& options, file_random_machine* random_file)
 {
     vector<string> trans_1_rec;
     vector<string> trans_2_rec;
-    generate_transaction(options, random_file, trans_1_rec, trans_2_rec);
+    gen_current_trans(options, random_file, trans_1_rec, trans_2_rec);
 
     ofstream ofile;
     ofile.open("trans_1.sql");
@@ -805,6 +843,204 @@ int transaction_test(map<string,string>& options, file_random_machine* random_fi
     return 1;
 }
 
+void transaction_test::arrage_trans_for_tid_queue()
+{
+    for (int tid = 0; tid < trans_num; tid++)
+        trans_arr[tid].stmt_num = 0;
+    
+    for (int i = 0; i < stmt_num; i++) {
+        int tid = dx(trans_num) - 1;
+        tid_queue.push_back(tid);
+        trans_arr[tid].stmt_num++;
+    }
+
+    // each transaction at least has two statement (begin and commit/abort)
+    for (int tid = 0; tid < trans_num; tid++) {
+        if (trans_arr[tid].stmt_num >= 2)
+            continue;
+        
+        tid_queue.push_back(tid);
+        stmt_num++;
+        trans_arr[tid].stmt_num++;
+    }
+    return;
+}
+
+void transaction_test::assign_trans_status()
+{   
+    if (is_serializable) {
+        // interleaved transaction can be both committed
+        for (int i = 0; i < trans_num; i ++) {
+            trans_arr[i].status = d12() <=6 ? 1 : 2;
+        }
+        return;
+    }
+    
+    // it is not serializable, so only one of the interleaved transactions can be commit
+
+    // set transaction_status is zero
+    for (int i = 0; i < trans_num; i++) {
+        trans_arr[i].status = 0;
+    }
+
+    // set transaction_status is zero
+    shared_ptr<int[]> transaction_start(new int[trans_num]);
+    shared_ptr<int[]> transaction_end(new int[trans_num]);
+    for (int i = 0; i < trans_num; i++) {
+        transaction_start[i] = -1;
+        transaction_end[i] = -1;
+    }
+
+    auto stmt_num = tid_queue.size();
+    for (int i = 0; i < stmt_num; i ++) {
+        auto tid = tid_queue[i];
+        
+        if (transaction_start[tid] == -1) {
+            transaction_start[tid] = i;
+            continue;
+        }
+
+        transaction_end[tid] = i;
+    }
+
+    for (int i = 0; i < trans_num; i++) {
+        if (trans_arr[i].status != 0) // has been assigned
+            continue;
+        
+        trans_arr[i].status = d12() <=6 ? 1 : 2; // assign
+        if (trans_arr[i].status == 2) // abort, do not affect other transaction
+            continue;
+        
+        // it is commit, so the interleaved one should be abort
+        for (int j = i; j < trans_num; j++) { // the transations before i have been assigned
+            if (transaction_start[j] < transaction_start[i] 
+                    && transaction_start[i] < transaction_end[j])
+                trans_arr[j].status = 2;
+            else if (transaction_start[j] < transaction_end[i]
+                    && transaction_end[i] < transaction_end[j])
+                trans_arr[j].status = 2;
+        }
+    }
+
+    return;
+}
+
+void transaction_test::gen_stmt_for_each_trans()
+{    
+    shared_ptr<int[]> stmt_pos_of_trans(new int[trans_num]);
+    
+    auto schema = get_schema(*options);
+    for (int tid = 0; tid < trans_num; tid++) {
+        trans_arr[tid].dut = dut_setup(*options);
+        stmt_pos_of_trans[tid] = 0;
+        
+        // save 2 stmts for begin and commit/abort
+        gen_trans_stmts(*options, random_file, schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts);
+        trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == 1);
+    }
+
+    
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        auto &stmt = trans_arr[tid].stmts[stmt_pos_of_trans[tid]];
+        stmt_queue.push_back(stmt);
+        stmt_pos_of_trans[tid]++;
+    }
+
+    // just debug
+    int total_stmts_num = 0;
+    for (int tid = 0; tid < trans_num; tid++) {
+        total_stmts_num += trans_arr[tid].stmts.size();
+    }
+    if (total_stmts_num != tid_queue.size()) {
+        cerr << "total_stmts_num is not equal to tid_queue.size(), some problems!!" << endl;
+        exit(-1);
+    }
+}
+
+void transaction_test::schedule_last_stmt_pos(int stmt_index)
+{
+    // get tid
+    auto tid = tid_queue[stmt_index];
+    auto& stmt = stmt_queue[stmt_index];
+
+    bool scheduled = false;
+    for (int i = stmt_index + 1; i < stmt_num; i++) {
+        auto other_tid = tid_queue[i];
+        // has been scheduled after this transaction already.
+        if (trans_arr[tid].scheduled_after_tid.count(other_tid))
+            continue;
+        
+        auto& other_stmt = stmt_queue[i];
+        if (!trans_arr[other_tid].dut->is_commit_abort_stmt(other_stmt))
+            continue;
+        
+        trans_arr[tid].scheduled_after_tid.insert(other_tid);
+        tid_queue.insert(tid_queue.begin() + i + 1, tid); // after the target stmt
+        tid_queue.erase(tid_queue.begin() + stmt_index);
+
+        stmt_queue.insert(stmt_queue.begin() + i + 1, stmt);
+        stmt_queue.erase(stmt_queue.begin() + stmt_index);
+
+        scheduled = true;
+        break;
+    }
+
+    if (scheduled == false) {
+        tid_queue.insert(tid_queue.begin() + stmt_num, tid);
+        tid_queue.erase(tid_queue.begin() + stmt_index);
+
+        stmt_queue.insert(stmt_queue.begin() + stmt_num, stmt);
+        stmt_queue.erase(stmt_queue.begin() + stmt_index);
+    }
+}
+
+void transaction_test::test()
+{
+    int stmt_index = 0;
+    while(stmt_index < stmt_num) {
+        auto tid = tid_queue[stmt_index];
+        auto &stmt = stmt_queue[stmt_index];
+        vector<string> output;
+        
+        try {
+            trans_arr[tid].dut->test(stmt, &output);
+            trans_arr[tid].executed_stmts.push_back(stmt);
+
+            executed_tid_queue.push_back(tid);
+            executed_stmt_queue.push_back(stmt);
+            stmt_index++;
+        } catch(exception &e) {
+            // the last stmt must be executed, because it is "commit" or "abort"
+            if (trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+                // schedule
+                schedule_last_stmt_pos(stmt_index);
+            }
+            else {
+                // just skip the stmt
+                stmt_index++;
+            }
+            cerr << e.what() << endl;
+        }
+    }
+}
+
+transaction_test::transaction_test(map<string,string>& options_arg, file_random_machine* random_file_arg, bool is_seri)
+{
+    options = &options_arg;
+    random_file = random_file_arg;
+    
+    trans_num = d6();
+    stmt_num = trans_num * 5; // average statement number of each transaction is 5
+    is_serializable = is_seri;
+
+    trans_arr = make_shared<transaction[]>(new transaction[trans_num]);
+
+    arrage_trans_for_tid_queue();
+    assign_trans_status();
+    gen_stmt_for_each_trans();
+}
+
 int random_test(map<string,string>& options)
 {
     struct file_random_machine* random_file;
@@ -828,7 +1064,7 @@ int random_test(map<string,string>& options)
     int i = TEST_TIME_FOR_EACH_DB;
     while (i--) {
         try {
-            auto ret = transaction_test(options, random_file);
+            auto ret = old_transaction_test(options, random_file);
             if (ret == 1) {
                 exit(166);
             }
