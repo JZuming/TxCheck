@@ -89,6 +89,9 @@ struct transaction {
     vector<vector<string>> stmt_outputs;
     vector<string> executed_stmts;
 
+    vector<string> normal_test_stmts;
+    vector<vector<string>> normal_test_stmt_outputs;
+
     int stmt_num;
     int status;
     set<int> scheduled_after_tid;
@@ -110,16 +113,23 @@ class transaction_test {
     vector<int> executed_tid_queue;
     vector<string> executed_stmt_queue;
 
+    map<string, vector<string>> trans_content;
+    map<string, vector<string>> normal_content;
+
     void arrage_trans_for_tid_queue();
     void assign_trans_status();
     void gen_stmt_for_each_trans();
 
     void schedule_last_stmt_pos(int stmt_index);
+    
+    void trans_test();
+    void normal_test();
+    bool check_result();
 
 public:
     transaction_test(map<string,string>& options, file_random_machine* random_file, bool is_serializable);
     ~transaction_test();
-    void test();
+    int test();
 };
 
 shared_ptr<schema> get_schema(map<string,string>& options)
@@ -525,12 +535,23 @@ bool nomoalize_content(vector<string> &content)
     return true;
 }
 
-bool compare_content(vector<string>& table_names, 
-                    map<string, vector<string>>&con_content, 
-                    map<string, vector<string>>&seq_content)
+bool compare_content(map<string, vector<string>>&con_content, 
+                     map<string, vector<string>>&seq_content)
 {
-    for (auto& table:table_names) {
-        auto& con_table_content = con_content[table];
+    if (con_content.size() != seq_content.size()) {
+        cerr << "con_content is not seq_content" << endl;
+        return false;
+    }
+    
+    for (auto iter = con_content.begin(); iter != con_content.begin(); iter++) {
+        auto& table = iter->first;
+        auto& con_table_content = iter->second;
+        
+        if (seq_content.count(table) == 0) {
+            cerr << "seq_content does not have " << table << endl;
+            return false;
+        }
+
         auto& seq_table_content = seq_content[table];
 
         nomoalize_content(con_table_content);
@@ -666,7 +687,7 @@ bool seq_res_comp(map<string,string>& options, vector<string> table_names,
     map<string, vector<string>> sequential_content;
     dut_get_content(options, table_names, sequential_content);
 
-    if (!compare_content(table_names, concurrent_content, sequential_content)) {
+    if (!compare_content(concurrent_content, sequential_content)) {
         cerr << "trans content is not equal to seq content" << endl;
         return false;
     }
@@ -995,8 +1016,10 @@ void transaction_test::schedule_last_stmt_pos(int stmt_index)
     }
 }
 
-void transaction_test::test()
+void transaction_test::trans_test()
 {
+    dut_reset_to_backup(*options);
+    
     int stmt_index = 0;
     while(stmt_index < stmt_num) {
         auto tid = tid_queue[stmt_index];
@@ -1006,6 +1029,7 @@ void transaction_test::test()
         try {
             trans_arr[tid].dut->test(stmt, &output);
             trans_arr[tid].executed_stmts.push_back(stmt);
+            trans_arr[tid].stmt_outputs.push_back(output);
 
             executed_tid_queue.push_back(tid);
             executed_stmt_queue.push_back(stmt);
@@ -1022,6 +1046,91 @@ void transaction_test::test()
             }
             cerr << e.what() << endl;
         }
+    }
+
+    // collect database information
+    vector<string> table_names;
+    auto schema = get_schema(*options);
+    for (auto& table:schema->tables)
+        table_names.push_back(table.ident());
+    dut_get_content(*options, table_names, trans_content);
+}
+
+void transaction_test::normal_test()
+{
+    dut_reset_to_backup(*options);
+    
+    vector<int> trans_order;
+    auto executed_stmt_size = executed_stmt_queue.size();
+    for (int i = 0; i < executed_stmt_size; i++) {
+        auto tid = executed_tid_queue[i];
+        
+        // just ignore the aborted stmt
+        if (trans_arr[tid].status == 2)
+            continue;
+        
+        // it is not the final stmt (commit)
+        if (!trans_arr[tid].dut->is_commit_abort_stmt(executed_stmt_queue[i]))
+            continue;
+        
+        trans_order.push_back(tid);
+    }
+
+    auto normal_dut = dut_setup(*options);
+    for (auto tid:trans_order) {
+        trans_arr[tid].normal_test_stmts = trans_arr[tid].executed_stmts;
+
+        // erase "begin" and "commit"
+        trans_arr[tid].normal_test_stmts.erase(trans_arr[tid].normal_test_stmts.begin());
+        trans_arr[tid].normal_test_stmts.pop_back();
+
+        auto normal_stmt_num = trans_arr[tid].normal_test_stmts.size();
+        for (int i = 0; i < normal_stmt_num; i++) {
+            auto& stmt = trans_arr[tid].normal_test_stmts[i];
+            vector<string> output;
+
+            normal_dut->test(stmt, &output);
+            trans_arr[tid].normal_test_stmt_outputs.push_back(output);
+        }
+    }
+    normal_dut.reset();
+
+    // collect database information
+    vector<string> table_names;
+    auto schema = get_schema(*options);
+    for (auto& table:schema->tables)
+        table_names.push_back(table.ident());
+    dut_get_content(*options, table_names, normal_content);
+}
+
+bool transaction_test::check_result()
+{
+    if (!compare_content(trans_content, normal_content)) {
+        cerr << "trans_content is not equal to normal_content" << endl;
+        return false;
+    }
+
+    for (auto i = 0; i < trans_num; i++) {
+        if (trans_arr[i].status == 2) // just ignore abort
+            continue;
+        if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
+            continue;
+        
+        if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].normal_test_stmt_outputs)) {
+            cerr << "trans "<< i << " is not equal to normal one" << endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+int transaction_test::test()
+{
+    trans_test();
+    normal_test();
+    if (check_result()) {
+        return 0;
     }
 }
 
