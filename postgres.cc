@@ -387,9 +387,26 @@ void dut_libpq::trans_test(const std::vector<std::string> &stmt_vec
                           , vector<vector<string>>* output
                           , int commit_or_not)
 {
+  (void)stmt_vec;
+  (void)exec_stmt_vec;
+  (void)output;
+  (void)commit_or_not;
 }
 
 void dut_libpq::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
 {
+  (void)tables_name;
+  (void)content;
+}
 
+bool dut_libpq::is_commit_abort_stmt(string& stmt)
+{
+  (void)stmt;
+  return false;
+}
+
+void dut_libpq::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
+{
+  (void)stmt_vec;
+  (void)is_commit;
 }

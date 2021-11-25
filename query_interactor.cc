@@ -98,7 +98,7 @@ struct transaction {
 };
 
 class transaction_test {
-    shared_ptr<transaction[]> trans_arr;
+    transaction* trans_arr;
 
     map<string,string>* options;
     file_random_machine* random_file;
@@ -120,7 +120,7 @@ class transaction_test {
     void assign_trans_status();
     void gen_stmt_for_each_trans();
 
-    void schedule_last_stmt_pos(int stmt_index);
+    bool schedule_last_stmt_pos(int stmt_index);
     
     void trans_test();
     void normal_test();
@@ -870,7 +870,7 @@ void transaction_test::arrage_trans_for_tid_queue()
         trans_arr[tid].stmt_num = 0;
     
     for (int i = 0; i < stmt_num; i++) {
-        int tid = dx(trans_num) - 1;
+        int tid = dx(trans_num) - 1; // [0, trans_num - 1]
         tid_queue.push_back(tid);
         trans_arr[tid].stmt_num++;
     }
@@ -979,7 +979,7 @@ void transaction_test::gen_stmt_for_each_trans()
     }
 }
 
-void transaction_test::schedule_last_stmt_pos(int stmt_index)
+bool transaction_test::schedule_last_stmt_pos(int stmt_index)
 {
     // get tid
     auto tid = tid_queue[stmt_index];
@@ -1007,13 +1007,19 @@ void transaction_test::schedule_last_stmt_pos(int stmt_index)
         break;
     }
 
-    if (scheduled == false) {
-        tid_queue.insert(tid_queue.begin() + stmt_num, tid);
-        tid_queue.erase(tid_queue.begin() + stmt_index);
+    if (scheduled == true)
+        return true;
+    
+    if (trans_arr[tid].scheduled_after_tid.count(-1))
+        return false; // has scheduled to last before
 
-        stmt_queue.insert(stmt_queue.begin() + stmt_num, stmt);
-        stmt_queue.erase(stmt_queue.begin() + stmt_index);
-    }
+    tid_queue.insert(tid_queue.begin() + stmt_num, tid);
+    tid_queue.erase(tid_queue.begin() + stmt_index);
+    stmt_queue.insert(stmt_queue.begin() + stmt_num, stmt);
+    stmt_queue.erase(stmt_queue.begin() + stmt_index);
+
+    trans_arr[tid].scheduled_after_tid.insert(-1);
+    return true;
 }
 
 void transaction_test::trans_test()
@@ -1035,16 +1041,29 @@ void transaction_test::trans_test()
             executed_stmt_queue.push_back(stmt);
             stmt_index++;
         } catch(exception &e) {
-            // the last stmt must be executed, because it is "commit" or "abort"
-            if (trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
-                // schedule
-                schedule_last_stmt_pos(stmt_index);
-            }
-            else {
-                // just skip the stmt
-                stmt_index++;
-            }
             cerr << e.what() << endl;
+            if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+                stmt_index++; // just skip the stmt
+                continue;
+            }
+            
+            // the last stmt must be executed, because it is "commit" or "abort"
+            auto scheduled = schedule_last_stmt_pos(stmt_index);
+            if (scheduled)
+                continue;
+            
+            if (trans_arr[tid].status == 2) {
+                cerr << "something error, fail to abort in any position" << endl;
+                exit(-1);
+            }
+
+            // change commit to abort;
+            trans_arr[tid].status = 2;
+            trans_arr[tid].stmts.erase(trans_arr[tid].stmts.begin());
+            trans_arr[tid].stmts.pop_back();
+            trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
+
+            stmt_queue[stmt_index] = trans_arr[tid].stmts.back();
         }
     }
 
@@ -1134,7 +1153,9 @@ int transaction_test::test()
     }
 }
 
-transaction_test::transaction_test(map<string,string>& options_arg, file_random_machine* random_file_arg, bool is_seri)
+transaction_test::transaction_test(map<string,string>& options_arg, 
+                        file_random_machine* random_file_arg, 
+                        bool is_seri)
 {
     options = &options_arg;
     random_file = random_file_arg;
@@ -1143,11 +1164,16 @@ transaction_test::transaction_test(map<string,string>& options_arg, file_random_
     stmt_num = trans_num * 5; // average statement number of each transaction is 5
     is_serializable = is_seri;
 
-    trans_arr = make_shared<transaction[]>(new transaction[trans_num]);
+    trans_arr = new transaction[trans_num];
 
     arrage_trans_for_tid_queue();
     assign_trans_status();
     gen_stmt_for_each_trans();
+}
+
+transaction_test::~transaction_test()
+{
+    delete[] trans_arr;
 }
 
 int random_test(map<string,string>& options)

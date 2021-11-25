@@ -573,9 +573,9 @@ void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
     
     string last_sql;
     if (commit_or_not == 1) 
-        last_sql = "COMMIT";
+        last_sql = "COMMIT;";
     else
-        last_sql = "ROLLBACK";
+        last_sql = "ROLLBACK;";
     
     cerr << pthread_self() << " " << last_sql << endl;
     while (1) {
@@ -609,4 +609,24 @@ void dut_sqlite::get_content(vector<string>& tables_name, map<string, vector<str
 
         content[table] = table_content;
     }
+}
+
+bool dut_sqlite::is_commit_abort_stmt(string& stmt)
+{
+    if (stmt == "COMMIT;")
+        return true;
+    if (stmt == "ROLLBACK;")
+        return true;
+    return false;
+}
+
+void dut_sqlite::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
+{
+    stmt_vec.insert(stmt_vec.begin(), "BEGIN TRANSACTION;");
+    string last_sql;
+    if (is_commit) 
+        last_sql = "COMMIT;";
+    else
+        last_sql = "ROLLBACK;";
+    stmt_vec.push_back(last_sql);
 }

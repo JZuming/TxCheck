@@ -33,6 +33,10 @@ struct dut_sqlite : dut_base, sqlite_connection {
     virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
     virtual void reset(void);
     virtual void backup(void);
+
+    virtual bool is_commit_abort_stmt(string& stmt);
+    virtual void wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit);
+
     virtual void trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output = NULL
