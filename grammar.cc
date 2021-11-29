@@ -138,7 +138,7 @@ void table_subquery::accept(prod_visitor *v) {
 shared_ptr<join_cond> join_cond::factory(prod *p, table_ref &lhs, table_ref &rhs)
 {
     try {
-#ifndef TEST_CLICKHOUSE
+#if (!defined TEST_CLICKHOUSE) && (!defined TEST_TIDB)
     if (d6() < 6)
         return make_shared<expr_join_cond>(p, lhs, rhs);
     else
@@ -504,10 +504,10 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
         has_order = true;
     }
 
-    if (in_in_clause == 0 && d6() < 3) { // the subquery in clause cannot use limit (mysql) 
-        has_limit = true;
-        limit_num = d100() + d100();
-    }
+    // if (in_in_clause == 0 && d6() < 3) { // the subquery in clause cannot use limit (mysql) 
+    //     has_limit = true;
+    //     limit_num = d100() + d100();
+    // }
 }
 
 long prepare_stmt::seq;

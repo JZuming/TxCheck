@@ -78,6 +78,8 @@ string cast_type_name_wrapper(string origin_type_name)
         cast_type_name = integer_ret; 
     else if (upper_translate(origin_type_name) == "INT")
         cast_type_name = integer_ret;
+    else if (upper_translate(origin_type_name) == "BIGINT")
+        cast_type_name = integer_ret;
     else if (origin_type_name == "")
         cast_type_name = integer_ret;
     else if (upper_translate(origin_type_name) == "BOOLEAN")

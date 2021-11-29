@@ -343,9 +343,8 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
         if (regex_match(err, e_crash)) {
-            cerr << "find a crash: " + err << endl;
+            cerr << "\033[31m" << "find a crash: " + err << "\033[0m" << endl;
             cerr << stmt << endl;
-            exit(166);
         }
         throw std::runtime_error(err + " in mysql::test"); 
     }
@@ -500,7 +499,10 @@ void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<stri
 
         if (mysql_real_query(&mysql, query.c_str(), query.size())) {
             string err = mysql_error(&mysql);
-            throw std::runtime_error(err + " in mysql::get_content");
+            cerr << "Cannot get content of " + table + "in mysql::get_content" << endl;
+            cerr << "Error: " + err + " in mysql::get_content" << endl;
+            // throw std::runtime_error(err + " in mysql::get_content");
+            continue;
         }
 
         auto result = mysql_store_result(&mysql);

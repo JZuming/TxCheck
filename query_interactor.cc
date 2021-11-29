@@ -257,7 +257,7 @@ void* test_thread(void* argv)
     } catch (std::exception &e) {
         // cerr << "In test thread: " << e.what() << endl;
         // cerr << *(data->stmt) << endl;
-        // exit(144);
+        // exit(166);
         data->e = e;
         data->has_exception = true;
     }
@@ -1089,7 +1089,11 @@ void transaction_test::trans_test()
 
             cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
         } catch(exception &e) {
-            cerr << e.what() << endl;
+            string err = e.what();
+            cerr << err << endl;
+            if (err.find("ost connection") != string::npos)
+                throw e;
+            
             if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
                 stmt_index++; // just skip the stmt
                 continue;
@@ -1199,11 +1203,16 @@ bool transaction_test::check_result()
 
 int transaction_test::test()
 {
-    trans_test();
-    normal_test();
-    if (check_result())
-        return 0;
+    try {
+        trans_test();
+        normal_test();
+        if (check_result())
+            return 0;
+    } catch(exception &e) {
+        cerr << "error captured by test: " << e.what() << endl;
+    }
     
+    cerr << RED << "Saving test cases..." << RESET;
     for (int i = 0; i < trans_num; i++) {
         string file_name = "trans_" + to_string(i) + ".sql";
         ofstream ofile(file_name);
@@ -1219,6 +1228,7 @@ int transaction_test::test()
         outfile << tid_queue[i] << endl;
     }
     outfile.close();
+    cerr << RED << "done" << RESET << endl;
     
     return 1;
 }
