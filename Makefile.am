@@ -2,7 +2,7 @@
 
 BUILT_SOURCES = gitrev.h
 
-bin_PROGRAMS = sqlsmith query_interactor
+bin_PROGRAMS = sqlsmith transfuzz
 
 DUT = postgres.cc
 
@@ -24,11 +24,11 @@ sqlsmith_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
 
 sqlsmith_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS)
 
-query_interactor_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
+transfuzz_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
     random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	\
-    query_interactor.cc
+    transfuzz.cc
 
-query_interactor_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS) -lpthread
+transfuzz_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS) -lpthread
 
 AM_LDFLAGS = $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS) #-fsanitize=address -fno-omit-frame-pointer
 AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wno-sign-compare -Wextra -fPIC #-O0 -fsanitize=address
