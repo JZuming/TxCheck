@@ -35,3 +35,4 @@ query_interactor
 *.sql
 *output
 *nohup*
+transfuzz
