@@ -68,17 +68,31 @@ mysql_connection::~mysql_connection()
 schema_mysql::schema_mysql(string db, unsigned int port)
   : mysql_connection(db, port)
 {
+    // cerr << "Loading tables...";
     string get_table_query = "SELECT DISTINCT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES \
         WHERE TABLE_SCHEMA='" + db + "' AND \
               TABLE_TYPE='BASE TABLE' ORDER BY 1;";
-
-    // cerr << "Loading tables...";
+    
     if (mysql_real_query(&mysql, get_table_query.c_str(), get_table_query.size()))
         throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql!");
     
     auto result = mysql_store_result(&mysql);
     while (auto row = mysql_fetch_row(result)) {
         table tab(row[0], "main", true, true);
+        tables.push_back(tab);
+    }
+    mysql_free_result(result);
+    // cerr << "done." << endl;
+
+    // cerr << "Loading views...";
+    string get_view_query = "select distinct table_name from information_schema.views \
+        where table_schema='" + db + "' order by 1;";
+    if (mysql_real_query(&mysql, get_view_query.c_str(), get_view_query.size()))
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql!");
+    
+    result = mysql_store_result(&mysql);
+    while (auto row = mysql_fetch_row(result)) {
+        table tab(row[0], "main", false, false);
         tables.push_back(tab);
     }
     mysql_free_result(result);

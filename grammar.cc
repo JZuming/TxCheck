@@ -1630,12 +1630,17 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
         #ifndef TEST_TIDB
         if (choice == 1)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
+        #else
+            return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
         #endif
+        
         if (choice == 2)
             return make_shared<alter_table_stmt>((struct prod *)0, s);
+        
         if (choice == 3)
             return make_shared<create_index_stmt>((struct prod *)0, s);
         #endif
+        
         // database has at least 2 tables in case dml statements are used
         if (choice == 4 && s->tables.size() >= 3) 
             return make_shared<drop_table_stmt>((struct prod *)0, s);
@@ -1644,6 +1649,10 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
         if (choice == 5)
             return make_shared<create_trigger_stmt>((struct prod *)0, s);
         #endif
+
+        if (choice == 6)
+            return make_shared<create_table_stmt>((struct prod *)0, s);
+        
         return ddl_statement_factory(s);
 
     } catch (runtime_error &e) {
