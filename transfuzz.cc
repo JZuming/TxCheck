@@ -1216,7 +1216,7 @@ int transaction_test::test()
     for (int i = 0; i < trans_num; i++) {
         string file_name = "trans_" + to_string(i) + ".sql";
         ofstream ofile(file_name);
-        for (auto& stmt : trans_arr[i].executed_stmts) {
+        for (auto& stmt : trans_arr[i].normal_test_stmts) {
             ofile << stmt << endl;
             ofile << endl;
         }
