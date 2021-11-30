@@ -278,9 +278,9 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     WIN1(LAST_VALUE, inttype, inttype);
     WIN1(LAST_VALUE, realtype, realtype);
     WIN1(LAST_VALUE, texttype, texttype);
-    WIN1(LAG, inttype, inttype);
-    WIN1(LAG, realtype, realtype);
-    WIN1(LAG, texttype, texttype);
+    // WIN1(LAG, inttype, inttype);
+    // WIN1(LAG, realtype, realtype);
+    // WIN1(LAG, texttype, texttype);
     WIN2(LEAD, inttype, inttype, inttype);
     WIN2(LEAD, realtype, realtype, inttype);
     WIN2(LEAD, texttype, texttype, inttype);
