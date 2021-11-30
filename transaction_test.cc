@@ -1075,12 +1075,20 @@ int transaction_test::test()
     for (int i = 0; i < trans_num; i++) {
         string file_name = "trans_" + to_string(i) + ".sql";
         ofstream ofile(file_name);
-        for (auto& stmt : trans_arr[i].normal_test_stmts) {
+        for (auto& stmt : trans_arr[i].stmts) {
             ofile << stmt << endl;
             ofile << endl;
         }
         ofile.close();
     }
+
+    string total_file_name = "trans_total.sql";
+    ofstream totalfile(total_file_name);
+    for (int i = 0; i < stmt_num; i++) {
+        totalfile << stmt_queue[i] << endl;
+        totalfile << endl;
+    }
+    totalfile.close();
 
     ofstream outfile("trans_queue.txt");
     for (int i = 0; i < stmt_num; i++) {
