@@ -343,8 +343,6 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
         if (regex_match(err, e_crash)) {
-            cerr << "\033[31m" << "find a crash: " + err << "\033[0m" << endl;
-            cerr << stmt << endl;
             throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
         }
         throw std::runtime_error(err + " in mysql::test"); 

@@ -600,17 +600,25 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
         try {
             dut->test(stmt);
             trans_rec.push_back(stmt);
+            cerr << "generate a statement" << endl;
+
+            // record the success stmt
+            ofstream stmt_file("gen_stmts.sql", ios::app);
+            stmt_file << stmt << "zuming\n\n";
+            stmt_file.close();
             return;
         } catch (std::exception &e) {
             string err_info = e.what();
-            // if (err_info.find("syntax") != string::npos) {
-            //     cerr << "trigger a syntax problem: " << err_info << endl;
-            //     cerr << "sql: " << stmt;
-            // }
+            /* 
+            if (err_info.find("syntax") != string::npos) {
+                cerr << "trigger a syntax problem: " << err_info << endl;
+                cerr << "sql: " << stmt;
+            }*/
 
             if (err_info.find("BUG") != string::npos) {
                 cerr << "Potential BUG triggered at stmt gen: " << err_info << endl;
                 trans_rec.push_back(stmt); // record the test case;
+                
                 cerr << "try to reproduce it" << endl;
                 try {
                     dut_reset_to_backup(options);
@@ -618,6 +626,11 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
                     for (auto &bug_stmt:trans_rec) 
                         other_dut->test(bug_stmt);
                     cerr << "reproduce fail, just a occasional problem" << endl;
+
+                    // record the success stmt
+                    ofstream stmt_file("gen_stmts.sql", ios::app);
+                    stmt_file << stmt << "zuming\n\n";
+                    stmt_file.close();
                     return;
                 } catch (exception &e2) {
                     string err2 = e2.what();
@@ -635,7 +648,12 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
 
     if (try_time >= 128) {
         cerr << "fail in gen_single_stmt() " << try_time << " times, return" << endl;
-        trans_rec.push_back("select 111"); // just push a simple seelct
+        trans_rec.push_back("select 111;"); // just push a simple seelct
+
+        // record the success stmt
+        ofstream stmt_file("gen_stmts.sql", ios::app);
+        stmt_file << "select 111;" << "zuming\n\n";
+        stmt_file.close();
     }
 }
 
@@ -648,8 +666,8 @@ void new_gen_trans_stmts(map<string,string>& options,
     static itimerval itimer;
 
     dut_reset_to_backup(options);
-
     child_timed_out = false;
+    remove("gen_stmts.sql");
     
     child_pid = fork();
     if (child_pid == 0) {
@@ -658,13 +676,6 @@ void new_gen_trans_stmts(map<string,string>& options,
             auto dut = dut_setup(options);
             for (int i = 0; i < trans_stmt_num; i++)
                 gen_single_stmt(dut, db_schema, tmp_vec, options);
-            dut.reset();
-
-            ofstream stmt_file("gen_stmts.sql");
-            for (int i = 0; i < trans_stmt_num; i++) {
-                stmt_file << tmp_vec[i] << "zuming\n\n";
-            }
-            stmt_file.close();
 
             exit(0); // normal
         } catch (std::exception &e) {
@@ -698,21 +709,6 @@ void new_gen_trans_stmts(map<string,string>& options,
     itimer.it_value.tv_usec = 0;
     setitimer(ITIMER_REAL, &itimer, NULL);
 
-    if (WIFSIGNALED(status)) {
-        auto killSignal = WTERMSIG(status);
-        if (child_timed_out && killSignal == SIGKILL) {
-            cerr << "timeout in generating stmt" << endl;
-            new_gen_trans_stmts(options, random_file, 
-                            db_schema, trans_stmt_num, 
-                            trans_rec);
-            return;
-        }
-        else {
-            cerr << RED << "find memory bug" << RESET << endl;
-            throw runtime_error(string("!!BUG!!memory bug"));
-        }
-    }
-
     if (WIFEXITED(status)) {
         auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
         cerr << "exit code " << exit_code << endl;
@@ -729,7 +725,9 @@ void new_gen_trans_stmts(map<string,string>& options,
     stmt_file.close();
     
     string stmts(buffer.str());
+
     int old_off = 0;
+    int gen_stmt_num = 0;
     while (1) {
         int new_off = stmts.find("zuming\n\n", old_off);
         if (new_off == string::npos) 
@@ -739,7 +737,30 @@ void new_gen_trans_stmts(map<string,string>& options,
         old_off = new_off + string("zuming\n\n").size();
 
         trans_rec.push_back(each_sql);
+        gen_stmt_num++;
     }
+
+    if (WIFSIGNALED(status)) {
+        auto killSignal = WTERMSIG(status);
+        if (child_timed_out && killSignal == SIGKILL) {
+            cerr << "timeout in generating stmt" << endl;
+            new_gen_trans_stmts(options, random_file, 
+                            db_schema, trans_stmt_num - gen_stmt_num, 
+                            trans_rec);
+            return;
+        }
+        else {
+            cerr << RED << "find memory bug" << RESET << endl;
+            throw runtime_error(string("!!BUG!!memory bug"));
+        }
+    }
+
+    // cerr << 222 << endl;
+    // cerr << "trans_rec.size(): " << trans_rec.size() << endl;
+    // cerr << 333 << endl;
+    // for (int i = 0; i < trans_rec.size(); i++) {
+    //     auto &str = trans_rec[i];
+    // }
     return;
 }
 
@@ -1022,7 +1043,7 @@ void transaction_test::gen_stmt_for_each_trans()
         new_gen_trans_stmts(*options, random_file, schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts);
         trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == 1);
     }
-
+    cerr << "222" << endl;
     for (int i = 0; i < stmt_num; i++) {
         auto tid = tid_queue[i];
         auto &stmt = trans_arr[tid].stmts[stmt_pos_of_trans[tid]];
@@ -1031,6 +1052,7 @@ void transaction_test::gen_stmt_for_each_trans()
     }
 
     // just debug
+    cerr << "333" << endl;
     int total_stmts_num = 0;
     for (int tid = 0; tid < trans_num; tid++) {
         total_stmts_num += trans_arr[tid].stmts.size();
@@ -1200,11 +1222,13 @@ void transaction_test::normal_test()
             auto& stmt = trans_arr[tid].normal_test_stmts[i];
             vector<string> output;
 
-            normal_dut->test(stmt, &output);
-            if (!output.empty())
-                trans_arr[tid].normal_test_stmt_outputs.push_back(output);
-
-            cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+            try {
+                normal_dut->test(stmt, &output);
+                if (!output.empty())
+                    trans_arr[tid].normal_test_stmt_outputs.push_back(output);
+                cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+            } catch(exception &e) {
+            }
         }
     }
     normal_dut.reset();
