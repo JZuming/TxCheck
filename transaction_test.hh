@@ -170,7 +170,6 @@ bool compare_content(map<string, vector<string>>&con_content,
                      map<string, vector<string>>&seq_content);
 bool compare_output(vector<vector<string>>& trans_output,
                     vector<vector<string>>& seq_output);
-void write_output(vector<vector<string>>& output, string file_name);
 int generate_database(map<string,string>& options, file_random_machine* random_file);
 bool seq_res_comp(map<string,string>& options, vector<string> table_names,
                 map<string, vector<string>>& concurrent_content,

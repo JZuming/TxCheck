@@ -117,6 +117,10 @@ void* test_thread(void* argv)
         // cerr << "In test thread: " << e.what() << endl;
         // cerr << *(data->stmt) << endl;
         // exit(166);
+        string err = e.what();
+        if (err.find("BUG") != string::npos) {
+            cerr << "BUG trigger in test_thread: " << err << endl;
+        }
         data->e = e;
         data->has_exception = true;
     }
@@ -191,6 +195,7 @@ void dut_backup(map<string,string>& options)
 
 void dut_reset_to_backup(map<string,string>& options)
 {
+    cerr << YELLOW << "reset to backup" << RESET << endl;
     auto dut = dut_setup(options);
     dut->reset_to_backup();
 }
@@ -277,11 +282,18 @@ void normal_test(map<string,string>& options,
     } catch(std::exception &e) { // ignore runtime error
         string err = e.what();
         if (err.find("syntax") != string::npos) {
-            cerr << s.str() << endl;
+            cerr << "trigger a syntax problem: " << err << endl;
+            cerr << "sql: " << s.str();
         }
-        if (err.find("timeout") != string::npos) {
-            cerr << e.what() << endl;
+
+        if (err.find("timeout") != string::npos)
+            cerr << "time out in normal test: " << err << endl;
+
+        if (err.find("BUG") != string::npos) {
+            cerr << "BUG is triggered in normal_test: " << err << endl;
+            throw e;
         }
+        
         if (try_time >= 128) {
             cerr << "Fail in normal_test() " << try_time << " times, return" << endl;
             exit(144); // ignore this kind of error
@@ -481,19 +493,6 @@ bool compare_output(vector<vector<string>>& trans_output,
     return true;
 }
 
-void write_output(vector<vector<string>>& output, string file_name)
-{
-    ofstream ofile(file_name);
-    auto size = output.size();
-    for (auto i = 0; i < size; i++) {
-        ofile << "stmt " << i << " output" << endl;
-        for (auto& str: output[i]) {
-            ofile << " " << str;
-        }
-    }
-    ofile.close();
-}
-
 int generate_database(map<string,string>& options, file_random_machine* random_file)
 {
     vector<string> stage_1_rec;
@@ -571,13 +570,25 @@ void gen_trans_stmts(map<string,string>& options,
                         int trans_stmt_num,
                         vector<string>& trans_rec)
 {
-    cerr << YELLOW << "reset to backup" << RESET << endl;
     dut_reset_to_backup(options);
     for (auto i = 0; i < trans_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        normal_test(options, db_schema, &trans_statement_factory, trans_rec, true);
+        normal_test(options, db_schema, &trans_statement_factory, trans_rec, false);
+    }
+}
+
+void new_gen_trans_stmts(map<string,string>& options, 
+                        file_random_machine* random_file, 
+                        shared_ptr<schema> &db_schema,
+                        int trans_stmt_num,
+                        vector<string>& trans_rec)
+{
+    dut_reset_to_backup(options);
+    auto child = fork();
+    if (child == 0) {
+
     }
 }
 
@@ -601,7 +612,6 @@ void concurrently_execute_transaction(map<string,string>& options,
                                     int trans_1_commit, int trans_2_commit,
                                     map<string, vector<string>>& concurrent_content, vector<string>& table_names)
 {
-    cerr << YELLOW << "dut_reset_to_backup"  << RESET << endl;
     dut_reset_to_backup(options);
     cerr << YELLOW << "stage 5: cocurrently execute transaction A and B"  << RESET << endl;
     
@@ -862,7 +872,6 @@ void transaction_test::gen_stmt_for_each_trans()
         trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == 1);
     }
 
-    
     for (int i = 0; i < stmt_num; i++) {
         auto tid = tid_queue[i];
         auto &stmt = trans_arr[tid].stmts[stmt_pos_of_trans[tid]];
@@ -1063,6 +1072,16 @@ bool transaction_test::check_result()
 int transaction_test::test()
 {
     try {
+        arrage_trans_for_tid_queue();
+        assign_trans_status();
+        gen_stmt_for_each_trans();
+    } catch(exception &e) {
+        cerr << "Trigger a normal bugs when inializing the stmts" << endl;
+        cerr << "Bug info: " << e.what() << endl;
+        return 1; // not need to do other transaction thing
+    }
+    
+    try {
         trans_test();
         normal_test();
         if (check_result())
@@ -1115,10 +1134,6 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     must_commit_tid_2 = 1;
 
     trans_arr = new transaction[trans_num];
-
-    arrage_trans_for_tid_queue();
-    assign_trans_status();
-    gen_stmt_for_each_trans();
 }
 
 transaction_test::~transaction_test()

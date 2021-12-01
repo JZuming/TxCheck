@@ -38,7 +38,7 @@ mysql_connection::mysql_connection(string db, unsigned int port)
     
     string err = mysql_error(&mysql);
     if (!regex_match(err, e_unknown_database))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+        throw std::runtime_error("BUG!!!" + string(mysql_error(&mysql)) + " in mysql_connection!");
 
     // error caused by unknown database, so create one
     cerr << test_db + " does not exist, use default db" << endl;
@@ -345,6 +345,7 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
         if (regex_match(err, e_crash)) {
             cerr << "\033[31m" << "find a crash: " + err << "\033[0m" << endl;
             cerr << stmt << endl;
+            throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
         }
         throw std::runtime_error(err + " in mysql::test"); 
     }
