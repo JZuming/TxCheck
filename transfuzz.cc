@@ -59,9 +59,6 @@ extern "C" {
 pthread_mutex_t mutex_timeout;  
 pthread_cond_t  cond_timeout;
 
-int child_pid = 0;
-bool child_timed_out = false;
-
 int random_test(map<string,string>& options)
 {
     struct file_random_machine* random_file;
@@ -103,7 +100,7 @@ int main(int argc, char *argv[])
 {
     // analyze the options
     map<string,string> options;
-    regex optregex("--(help|postgres|sqlite|monetdb|random-seed|mysql-db|mysql-port)(?:=((?:.|\n)*))?");
+    regex optregex("--(help|postgres|sqlite|monetdb|random-seed|mysql-db|mysql-port|reproduce-sql)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
         smatch match;
@@ -130,6 +127,7 @@ int main(int argc, char *argv[])
             "    --mysql-port=int     mysql server port number" << endl << 
             #endif
             "    --random-seed=filename    random file for dynamic query interaction" << endl <<
+            "    --reproduce-sql=filename    sql file to reproduce the problem" << endl <<
             "    --help               print available command line options and exit" << endl;
         return 0;
     } else if (options.count("version")) {
@@ -162,62 +160,85 @@ int main(int argc, char *argv[])
     pthread_mutex_init(&mutex_timeout, NULL);  
     pthread_cond_init(&cond_timeout, NULL);
 
-    static itimerval itimer;
+    // static itimerval itimer;
     // random_test(options);
+
+    if (options.count("reproduce-sql")) {
+        // no bug: read the generated stmt
+        ifstream stmt_file(options["reproduce-sql"]);
+        stringstream buffer;
+        buffer << stmt_file.rdbuf();
+        stmt_file.close();
+        
+        string stmts(buffer.str());
+        int old_off = 0;
+        auto dut = dut_setup(options);
+        while (1) {
+            int new_off = stmts.find(";\n\n", old_off);
+            if (new_off == string::npos) 
+                break;
+            
+            auto each_sql = stmts.substr(old_off, new_off - old_off); // not include ;\n\n
+            old_off = new_off + string(";\n\n").size();
+
+            dut->test(each_sql);
+        }
+        return 0;
+    }
     
     while (1) {
-        child_timed_out = false;
+        // child_timed_out = false;
 
-        cerr << RED << "New Test Database --------------------------" << RESET << endl;
-        child_pid = fork();
-        if (child_pid == 0) {
+        // cerr << RED << "New Test Database --------------------------" << RESET << endl;
+        // child_pid = fork();
+        // if (child_pid == 0) {
             random_test(options);
-            exit(0);
-        }
+        //     exit(0);
+        // }
 
-        // timeout is ms
-        itimer.it_value.tv_sec = DATABASE_TIMEOUT;
-        itimer.it_value.tv_usec = 0; // us limit
-        setitimer(ITIMER_REAL, &itimer, NULL);
+        // // timeout is ms
+        // itimer.it_value.tv_sec = DATABASE_TIMEOUT;
+        // itimer.it_value.tv_usec = 0; // us limit
+        // setitimer(ITIMER_REAL, &itimer, NULL);
 
-        cerr << "begin waiting" << endl;
+        // cerr << "begin waiting" << endl;
 
-        // wait for the tests
-        int status;
-        auto res = waitpid(child_pid, &status, 0);
-        if (res <= 0) {
-            cerr << "waitpid() fail: " <<  res << endl;
-            exit(-1);
-        }
+        // // wait for the tests
+        // int status;
+        // auto res = waitpid(child_pid, &status, 0);
+        // if (res <= 0) {
+        //     cerr << "waitpid() fail: " <<  res << endl;
+        //     exit(-1);
+        // }
 
-        // disable HandleTimeout
-        if (!WIFSTOPPED(status)) 
-            child_pid = 0;
+        // // disable HandleTimeout
+        // if (!WIFSTOPPED(status)) 
+        //     child_pid = 0;
         
-        itimer.it_value.tv_sec = 0;
-        itimer.it_value.tv_usec = 0;
-        setitimer(ITIMER_REAL, &itimer, NULL);
+        // itimer.it_value.tv_sec = 0;
+        // itimer.it_value.tv_usec = 0;
+        // setitimer(ITIMER_REAL, &itimer, NULL);
 
-        if (WIFSIGNALED(status)) {
-            auto killSignal = WTERMSIG(status);
-            if (child_timed_out && killSignal == SIGKILL) {
-                cerr << "just timeout" << endl;
-                continue;
-            }
-            else {
-                cerr << RED << "find memory bug" << RESET << endl;
-                return -1;
-            }
-        }
+        // if (WIFSIGNALED(status)) {
+        //     auto killSignal = WTERMSIG(status);
+        //     if (child_timed_out && killSignal == SIGKILL) {
+        //         cerr << "just timeout" << endl;
+        //         continue;
+        //     }
+        //     else {
+        //         cerr << RED << "find memory bug" << RESET << endl;
+        //         return -1;
+        //     }
+        // }
 
-        if (WIFEXITED(status)) {
-            auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
-            cerr << "exit code " << exit_code << endl;
-            if (exit_code == 166) {
-                cerr << RED << "find correctness bug" << RESET << endl;
-                return -1;
-            }
-        }
+        // if (WIFEXITED(status)) {
+        //     auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
+        //     cerr << "exit code " << exit_code << endl;
+        //     if (exit_code == 166) {
+        //         cerr << RED << "find correctness bug" << RESET << endl;
+        //         return -1;
+        //     }
+        // }
     }
 
     return 0;

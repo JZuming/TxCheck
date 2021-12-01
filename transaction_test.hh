@@ -199,5 +199,3 @@ int old_transaction_test(map<string,string>& options, file_random_machine* rando
 
 extern pthread_mutex_t mutex_timeout;  
 extern pthread_cond_t  cond_timeout;
-extern int child_pid;
-extern bool child_timed_out;
