@@ -592,15 +592,17 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
 
     int try_time = 0;
     while (try_time <= 128) {
+        cerr << "generating a statement...";
         shared_ptr<prod> gen = trans_statement_factory(&scope);
         ostringstream stmt_stream;
         gen->out(stmt_stream);
         auto stmt = stmt_stream.str() + ";";
 
         try {
+            cerr << "testing...";
             dut->test(stmt);
             trans_rec.push_back(stmt);
-            cerr << "generate a statement" << endl;
+            cerr << "success" << endl;
 
             // record the success stmt
             ofstream stmt_file("gen_stmts.sql", ios::app);
@@ -1335,7 +1337,7 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     random_file = random_file_arg;
     
     trans_num = d6() + 4; // 5 - 11
-    stmt_num = trans_num * 10; // average statement number of each transaction is 10
+    stmt_num = trans_num * 5; // average statement number of each transaction is 10
     is_serializable = is_seri;
 
     must_commit_num = dx(trans_num);
