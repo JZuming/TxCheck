@@ -913,12 +913,13 @@ void transaction_test::arrage_trans_for_tid_queue()
     for (int tid = 0; tid < trans_num; tid++)
         trans_arr[tid].stmt_num = 0;
     
+    int holder_tid = -7;
     for (int i = 0; i < stmt_num; i++) {
         int tid = dx(trans_num) - 1; // [0, trans_num - 1]
         
-        if (tid == must_commit_tid_1 || tid == must_commit_tid_2) {
-            tid_queue.push_back(must_commit_tid_1);
-            trans_arr[must_commit_tid_1].stmt_num++;
+        if (tid < must_commit_num) {
+            tid_queue.push_back(holder_tid); // space holder
+            trans_arr[tid].stmt_num++;
             continue;
         }
 
@@ -926,24 +927,38 @@ void transaction_test::arrage_trans_for_tid_queue()
         trans_arr[tid].stmt_num++;
     }
 
-    // must have more than 4 statements
-    while (trans_arr[must_commit_tid_1].stmt_num < 4) {
-        tid_queue.push_back(must_commit_tid_1);
-        trans_arr[must_commit_tid_1].stmt_num++;
-        stmt_num++;
+    // must have more than 2 in each must_commit tid
+    for (int tid = 0; tid < must_commit_num; tid++) {
+        while (trans_arr[tid].stmt_num < 2) {
+            tid_queue.push_back(holder_tid);
+            stmt_num++;
+            trans_arr[tid].stmt_num++;
+        }
     }
 
-    trans_arr[must_commit_tid_2].stmt_num = trans_arr[must_commit_tid_1].stmt_num / 2;
-    trans_arr[must_commit_tid_1].stmt_num = trans_arr[must_commit_tid_1].stmt_num - 
-                                                trans_arr[must_commit_tid_2].stmt_num;
-    int num = trans_arr[must_commit_tid_2].stmt_num;
+    int tid_now = 0;
+    int tid_now_arranged = 0;
     for (int i = 0; i < stmt_num; i++) {
-        if (num == 0)
-            break;
+        if (tid_queue[i] != holder_tid)
+            continue;
         
-        if (tid_queue[i] == must_commit_tid_1) {
-            tid_queue[i] = must_commit_tid_2;
-            num--;
+        tid_queue[i] = tid_now;
+        tid_now_arranged++;
+        if (tid_now_arranged < trans_arr[tid_now].stmt_num)
+            continue;
+        
+        tid_now++;
+        tid_now_arranged = 0;
+
+        if (tid_now >= must_commit_num)
+            break;
+    }
+
+    // just debug
+    for (int i = 0; i < stmt_num; i++) {
+        if (tid_queue[i] == holder_tid) {
+            cerr << RED << "error: tid_queue[" << i << "] is still holder_tid" << RESET << endl;
+            exit(-1); 
         }
     }
 
@@ -971,11 +986,11 @@ void transaction_test::assign_trans_status()
     // it is not serializable, so only one of the interleaved transactions can be commit
 
     // initialize transaction_status
-    for (int i = 0; i < trans_num; i++) {
-        if (i == must_commit_tid_1 || i == must_commit_tid_2)
-            trans_arr[i].status = 1;
+    for (int tid = 0; tid < trans_num; tid++) {
+        if (tid < must_commit_num)
+            trans_arr[tid].status = 1;
         else
-            trans_arr[i].status = 0;
+            trans_arr[tid].status = 0;
     }
 
     // set transaction_status is zero
@@ -1043,7 +1058,7 @@ void transaction_test::gen_stmt_for_each_trans()
         new_gen_trans_stmts(*options, random_file, schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts);
         trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == 1);
     }
-    cerr << "222" << endl;
+
     for (int i = 0; i < stmt_num; i++) {
         auto tid = tid_queue[i];
         auto &stmt = trans_arr[tid].stmts[stmt_pos_of_trans[tid]];
@@ -1052,15 +1067,14 @@ void transaction_test::gen_stmt_for_each_trans()
     }
 
     // just debug
-    cerr << "333" << endl;
-    int total_stmts_num = 0;
-    for (int tid = 0; tid < trans_num; tid++) {
-        total_stmts_num += trans_arr[tid].stmts.size();
-    }
-    if (total_stmts_num != tid_queue.size()) {
-        cerr << "total_stmts_num is not equal to tid_queue.size(), some problems!!" << endl;
-        exit(-1);
-    }
+    // int total_stmts_num = 0;
+    // for (int tid = 0; tid < trans_num; tid++) {
+    //     total_stmts_num += trans_arr[tid].stmts.size();
+    // }
+    // if (total_stmts_num != tid_queue.size()) {
+    //     cerr << "total_stmts_num is not equal to tid_queue.size(), some problems!!" << endl;
+    //     exit(-1);
+    // }
 }
 
 bool transaction_test::schedule_last_stmt_pos(int stmt_index)
@@ -1320,12 +1334,11 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     options = &options_arg;
     random_file = random_file_arg;
     
-    trans_num = d6() + 1; // 2 - 7 
+    trans_num = d6() + 4; // 5 - 11
     stmt_num = trans_num * 10; // average statement number of each transaction is 10
     is_serializable = is_seri;
 
-    must_commit_tid_1 = 0;
-    must_commit_tid_2 = 1;
+    must_commit_num = dx(trans_num);
 
     trans_arr = new transaction[trans_num];
 }

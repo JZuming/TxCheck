@@ -101,8 +101,7 @@ class transaction_test {
     map<string,string>* options;
     file_random_machine* random_file;
 
-    int must_commit_tid_1;
-    int must_commit_tid_2;
+    int must_commit_num;
 
     bool is_serializable;
     int trans_num;

@@ -498,7 +498,7 @@ void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<stri
 
         if (mysql_real_query(&mysql, query.c_str(), query.size())) {
             string err = mysql_error(&mysql);
-            cerr << "Cannot get content of " + table + "in mysql::get_content" << endl;
+            cerr << "Cannot get content of " + table + " in mysql::get_content" << endl;
             cerr << "Error: " + err + " in mysql::get_content" << endl;
             // throw std::runtime_error(err + " in mysql::get_content");
             continue;
