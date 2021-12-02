@@ -604,12 +604,13 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
         try {
             cerr << "testing...";
             dut->test(stmt, &stmt_output, &affected_row_num);
+            
             if (need_affect && stmt_output.empty() && affected_row_num <= 0) {
+                trans_rec.push_back(stmt);
                 throw runtime_error(string("affect result empty"));
             }
             trans_rec.push_back(stmt);
             cerr << "succeed" << endl;
-
             // record the success stmt
             ofstream stmt_file("gen_stmts.sql", ios::app);
             stmt_file << stmt << "zuming\n\n";
@@ -752,7 +753,8 @@ void new_gen_trans_stmts(map<string,string>& options,
     if (WIFSIGNALED(status)) {
         auto killSignal = WTERMSIG(status);
         if (child_timed_out && killSignal == SIGKILL) {
-            cerr << "timeout in generating stmt" << endl;
+            cerr << "timeout in generating stmt, reset the seed" << endl;
+            smith::rng.seed(time(NULL));
             new_gen_trans_stmts(options, random_file, 
                             db_schema, trans_stmt_num - gen_stmt_num, 
                             trans_rec, need_affect);
@@ -764,12 +766,6 @@ void new_gen_trans_stmts(map<string,string>& options,
         }
     }
 
-    // cerr << 222 << endl;
-    // cerr << "trans_rec.size(): " << trans_rec.size() << endl;
-    // cerr << 333 << endl;
-    // for (int i = 0; i < trans_rec.size(); i++) {
-    //     auto &str = trans_rec[i];
-    // }
     return;
 }
 
@@ -1149,6 +1145,7 @@ void transaction_test::trans_test()
             cerr << RED 
             << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
             << err << RESET << endl;
+
             if (err.find("ost connection") != string::npos)
                 throw e;
             
@@ -1169,28 +1166,14 @@ void transaction_test::trans_test()
                     stmt = stmt_queue[stmt_index];
                     trans_arr[tid].dut->test(stmt);
                     cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+                    
+                    trans_arr[tid].executed_stmts.push_back(stmt);
+                    executed_tid_queue.push_back(tid);
+                    executed_stmt_queue.push_back(stmt);
                     stmt_index++;
                 } catch(exception &e2) {
                 }
             }
-            
-            // // the last stmt must be executed, because it is "commit" or "abort"
-            // auto scheduled = schedule_last_stmt_pos(stmt_index);
-            // if (scheduled)
-            //     continue;
-            
-            // if (trans_arr[tid].status == 2) {
-            //     cerr << "something error, fail to abort in any position" << endl;
-            //     exit(-1);
-            // }
-
-            // // change commit to abort;
-            // trans_arr[tid].status = 2;
-            // trans_arr[tid].stmts.erase(trans_arr[tid].stmts.begin());
-            // trans_arr[tid].stmts.pop_back();
-            // trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
-
-            // stmt_queue[stmt_index] = trans_arr[tid].stmts.back();
         }
     }
 
@@ -1350,7 +1333,7 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     random_file = random_file_arg;
     
     trans_num = d6() + 4; // 5 - 11
-    stmt_num = trans_num * 5; // average statement number of each transaction is 10
+    stmt_num = trans_num * 7; // average statement number of each transaction is 10
     is_serializable = is_seri;
 
     must_commit_num = dx(trans_num);

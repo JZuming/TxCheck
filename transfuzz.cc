@@ -77,7 +77,15 @@ int random_test(map<string,string>& options)
     
     // reset the target DBMS to initial state
     dut_reset(options); 
-    generate_database(options, random_file);
+    while (1) {
+        try {
+            generate_database(options, random_file);
+            break;
+        } catch(std::exception &e) {
+            cerr << e.what() << endl;
+        }
+    }
+    
 
     int i = TEST_TIME_FOR_EACH_DB;
     while (i--) {

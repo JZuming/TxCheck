@@ -405,7 +405,11 @@ void dut_mysql::reset(void)
 void dut_mysql::backup(void)
 {
     string mysql_dump = "mysqldump -h 127.0.0.1 -P " + to_string(test_port) + " -u root " + test_db + " > /tmp/mysql_bk.sql";
-    system(mysql_dump.c_str());
+    int ret = system(mysql_dump.c_str());
+    if (ret != 0) {
+        cerr << "backup fail in dut_mysql::backup!!" << endl;
+        throw std::runtime_error("backup fail in dut_mysql::backup"); 
+    }
 }
 
 void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
