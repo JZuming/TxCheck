@@ -102,6 +102,7 @@ class transaction_test {
     file_random_machine* random_file;
 
     int must_commit_num;
+    bool need_affect;
 
     bool is_serializable;
     int trans_num;

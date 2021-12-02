@@ -585,24 +585,30 @@ void gen_trans_stmts(map<string,string>& options,
 void gen_single_stmt(shared_ptr<dut_base> dut,
                     shared_ptr<schema> &db_schema,
                     vector<string>& trans_rec,
-                    map<string,string>& options)
+                    map<string,string>& options,
+                    bool need_affect)
 {
     scope scope;
     db_schema->fill_scope(scope);
 
     int try_time = 0;
     while (try_time <= 128) {
-        cerr << "generating a statement...";
+        cerr << "generating...";
         shared_ptr<prod> gen = trans_statement_factory(&scope);
         ostringstream stmt_stream;
         gen->out(stmt_stream);
         auto stmt = stmt_stream.str() + ";";
 
+        vector<string> stmt_output;
+        int affected_row_num = 0;
         try {
             cerr << "testing...";
-            dut->test(stmt);
+            dut->test(stmt, &stmt_output, &affected_row_num);
+            if (need_affect && stmt_output.empty() && affected_row_num <= 0) {
+                throw runtime_error(string("affect result empty"));
+            }
             trans_rec.push_back(stmt);
-            cerr << "success" << endl;
+            cerr << "succeed" << endl;
 
             // record the success stmt
             ofstream stmt_file("gen_stmts.sql", ios::app);
@@ -663,7 +669,8 @@ void new_gen_trans_stmts(map<string,string>& options,
                         file_random_machine* random_file, 
                         shared_ptr<schema> &db_schema,
                         int trans_stmt_num,
-                        vector<string>& trans_rec)
+                        vector<string>& trans_rec,
+                        bool need_affect)
 {
     static itimerval itimer;
 
@@ -677,7 +684,7 @@ void new_gen_trans_stmts(map<string,string>& options,
         try {
             auto dut = dut_setup(options);
             for (int i = 0; i < trans_stmt_num; i++)
-                gen_single_stmt(dut, db_schema, tmp_vec, options);
+                gen_single_stmt(dut, db_schema, tmp_vec, options, need_affect);
 
             exit(0); // normal
         } catch (std::exception &e) {
@@ -748,7 +755,7 @@ void new_gen_trans_stmts(map<string,string>& options,
             cerr << "timeout in generating stmt" << endl;
             new_gen_trans_stmts(options, random_file, 
                             db_schema, trans_stmt_num - gen_stmt_num, 
-                            trans_rec);
+                            trans_rec, need_affect);
             return;
         }
         else {
@@ -1057,7 +1064,9 @@ void transaction_test::gen_stmt_for_each_trans()
         stmt_pos_of_trans[tid] = 0;
         
         // save 2 stmts for begin and commit/abort
-        new_gen_trans_stmts(*options, random_file, schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts);
+        new_gen_trans_stmts(*options, random_file, schema, 
+                        trans_arr[tid].stmt_num - 2, 
+                        trans_arr[tid].stmts, need_affect);
         trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == 1);
     }
 
@@ -1067,16 +1076,6 @@ void transaction_test::gen_stmt_for_each_trans()
         stmt_queue.push_back(stmt);
         stmt_pos_of_trans[tid]++;
     }
-
-    // just debug
-    // int total_stmts_num = 0;
-    // for (int tid = 0; tid < trans_num; tid++) {
-    //     total_stmts_num += trans_arr[tid].stmts.size();
-    // }
-    // if (total_stmts_num != tid_queue.size()) {
-    //     cerr << "total_stmts_num is not equal to tid_queue.size(), some problems!!" << endl;
-    //     exit(-1);
-    // }
 }
 
 bool transaction_test::schedule_last_stmt_pos(int stmt_index)
@@ -1357,6 +1356,11 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     must_commit_num = dx(trans_num);
 
     trans_arr = new transaction[trans_num];
+
+    if (d6() <= 3)
+        need_affect = false;
+    else
+        need_affect = true;
 }
 
 transaction_test::~transaction_test()
