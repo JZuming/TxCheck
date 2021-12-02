@@ -956,13 +956,13 @@ void transaction_test::arrage_trans_for_tid_queue()
             break;
     }
 
-    // just debug
-    for (int i = 0; i < stmt_num; i++) {
-        if (tid_queue[i] == holder_tid) {
-            cerr << RED << "error: tid_queue[" << i << "] is still holder_tid" << RESET << endl;
-            exit(-1); 
-        }
-    }
+    // // just debug
+    // for (int i = 0; i < stmt_num; i++) {
+    //     if (tid_queue[i] == holder_tid) {
+    //         cerr << RED << "error: tid_queue[" << i << "] is still holder_tid" << RESET << endl;
+    //         exit(-1); 
+    //     }
+    // }
 
     // each transaction at least has two statement (begin and commit/abort)
     for (int tid = 0; tid < trans_num; tid++) {
@@ -1213,25 +1213,40 @@ void transaction_test::normal_test()
     auto executed_stmt_size = executed_stmt_queue.size();
     for (int i = 0; i < executed_stmt_size; i++) {
         auto tid = executed_tid_queue[i];
-        
-        // just ignore the aborted stmt
-        if (trans_arr[tid].status == 2)
-            continue;
-        
-        // it is not the final stmt (commit)
-        if (!trans_arr[tid].dut->is_commit_abort_stmt(executed_stmt_queue[i]))
-            continue;
-        
-        trans_order.push_back(tid);
+        if (trans_arr[tid].status == 1) { // commit;
+            if (!trans_arr[tid].dut->is_commit_abort_stmt(executed_stmt_queue[i]))
+                continue;
+            
+            trans_order.push_back(tid);
+        } else { // abort;
+            bool is_contained = false;
+            for (auto tmp_tid:trans_order) {
+                if (tmp_tid != tid)
+                    continue;
+                is_contained = true;
+                break;
+            }
+            if (is_contained)
+                continue;
+            trans_order.push_back(tid);
+        }
     }
+
+    // normal execute order
+    cerr << "normal execute order: " << endl;
+    for (auto tmp_tid:trans_order) {
+        cerr << tmp_tid << " ";
+    }
+    cerr << endl;
 
     auto normal_dut = dut_setup(*options);
     for (auto tid:trans_order) {
         trans_arr[tid].normal_test_stmts = trans_arr[tid].executed_stmts;
 
-        // erase "begin" and "commit"
-        trans_arr[tid].normal_test_stmts.erase(trans_arr[tid].normal_test_stmts.begin());
-        trans_arr[tid].normal_test_stmts.pop_back();
+        if (trans_arr[tid].status == 1) { // if it is commit, erase "begin" and "commit"
+            trans_arr[tid].normal_test_stmts.erase(trans_arr[tid].normal_test_stmts.begin());
+            trans_arr[tid].normal_test_stmts.pop_back();
+        }
 
         auto normal_stmt_num = trans_arr[tid].normal_test_stmts.size();
         for (int i = 0; i < normal_stmt_num; i++) {
@@ -1265,11 +1280,10 @@ bool transaction_test::check_result()
     }
 
     for (auto i = 0; i < trans_num; i++) {
-        if (trans_arr[i].status == 2) // just ignore abort
-            continue;
         if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
             continue;
         
+        cerr << "check the output of " << i << endl;
         if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].normal_test_stmt_outputs)) {
             cerr << "trans "<< i << " is not equal to normal one" << endl;
             return false;
