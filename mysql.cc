@@ -418,8 +418,8 @@ void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
                           , int commit_or_not)
 {
     if (commit_or_not != 2) {
-        cerr << pthread_self() << ": START TRANSACTION" << endl;
-        test("START TRANSACTION;");
+        cerr << pthread_self() << ": BEGIN OPTIMISTIC;" << endl;
+        test("BEGIN OPTIMISTIC;");
     }
 
     auto size = stmt_vec.size();
@@ -540,7 +540,7 @@ bool dut_mysql::is_commit_abort_stmt(string& stmt)
 
 void dut_mysql::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
 {
-    stmt_vec.insert(stmt_vec.begin(), "START TRANSACTION;");
+    stmt_vec.insert(stmt_vec.begin(), "BEGIN OPTIMISTIC;");
     string last_sql;
     if (is_commit) 
         last_sql = "COMMIT;";

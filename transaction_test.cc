@@ -406,7 +406,7 @@ bool nomoalize_content(vector<string> &content)
 
         // value is a float
         value = stod(str);
-        value = floor(value * 1000) / 1000; // keep 3 number after the point
+        value = round(value * 100) / 100; // keep 2 number after the point
         content[i] = to_string(value);
     }
     return true;
@@ -635,6 +635,7 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
                     for (auto &bug_stmt:trans_rec) 
                         other_dut->test(bug_stmt);
                     cerr << "reproduce fail, just a occasional problem" << endl;
+                    smith::rng.seed(time(NULL));
 
                     // record the success stmt
                     ofstream stmt_file("gen_stmts.sql", ios::app);
@@ -648,6 +649,7 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
                         throw exception(e2);
                     }
                     cerr << "reproduce fail, just a occasional problem, and trigger a syntax error" << endl;
+                    smith::rng.seed(time(NULL));
                     trans_rec.pop_back();
                 }
             }
@@ -1060,6 +1062,7 @@ void transaction_test::gen_stmt_for_each_trans()
         stmt_pos_of_trans[tid] = 0;
         
         // save 2 stmts for begin and commit/abort
+        smith::rng.seed(time(NULL));
         new_gen_trans_stmts(*options, random_file, schema, 
                         trans_arr[tid].stmt_num - 2, 
                         trans_arr[tid].stmts, need_affect);

@@ -82,6 +82,7 @@ int random_test(map<string,string>& options)
             generate_database(options, random_file);
             break;
         } catch(std::exception &e) {
+            smith::rng.seed(time(NULL));
             cerr << e.what() << endl;
         }
     }
