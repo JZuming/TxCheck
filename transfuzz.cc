@@ -95,7 +95,7 @@ int random_test(map<string,string>& options)
             auto ret = tt.test();
             //auto ret = old_transaction_test(options, random_file);
             if (ret == 1) {
-                exit(166);
+                cerr << RED << "find a bug" << RESET << endl;
             }
         } catch(std::exception &e) { // ignore runtime error
             cerr << e.what() << endl;

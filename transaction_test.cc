@@ -1,7 +1,20 @@
 #include "transaction_test.hh"
 
+#define NORMAL_BUG_FILE "bug_trigger_stmt.sql"
+#define GEN_STMT_FILE "gen_stmts.sql"
+
 int child_pid = 0;
 bool child_timed_out = false;
+
+int make_dir_error_exit(string folder)
+{
+    if (mkdir(folder.c_str(), 0700)) {
+        cout << "fail to mkdir "<< folder << endl;
+        exit(-1);
+    }
+
+    return 0;
+}
 
 shared_ptr<schema> get_schema(map<string,string>& options)
 {
@@ -513,13 +526,13 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
 
     // stage 2: basic DML stage (only insert),
     cerr << YELLOW << "stage 2: insert data into the database" << RESET << endl;
-    auto basic_dml_stmt_num = 20 + d20(); // 20-40 statements to insert data
+    auto basic_dml_stmt_num = 3 + d9(); // 4-10 statements to insert data
     auto schema = get_schema(options); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) {
         if (random_file != NULL && random_file->read_byte > random_file->end_pos)
             break;
         
-        normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec, false);
+        normal_test(options, schema, &basic_dml_statement_factory, stage_2_rec, true);
     }
 
     // stage 3: backup database
@@ -612,17 +625,17 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
             trans_rec.push_back(stmt);
             cerr << "succeed" << endl;
             // record the success stmt
-            ofstream stmt_file("gen_stmts.sql", ios::app);
+            ofstream stmt_file(GEN_STMT_FILE, ios::app);
             stmt_file << stmt << "zuming\n\n";
             stmt_file.close();
             return;
         } catch (std::exception &e) {
             string err_info = e.what();
-            /* 
+             
             if (err_info.find("syntax") != string::npos) {
                 cerr << "trigger a syntax problem: " << err_info << endl;
                 cerr << "sql: " << stmt;
-            }*/
+            }
 
             if (err_info.find("BUG") != string::npos) {
                 cerr << "Potential BUG triggered at stmt gen: " << err_info << endl;
@@ -638,7 +651,7 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
                     smith::rng.seed(time(NULL));
 
                     // record the success stmt
-                    ofstream stmt_file("gen_stmts.sql", ios::app);
+                    ofstream stmt_file(GEN_STMT_FILE, ios::app);
                     stmt_file << stmt << "zuming\n\n";
                     stmt_file.close();
                     return;
@@ -662,7 +675,7 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
         trans_rec.push_back("select 111;"); // just push a simple seelct
 
         // record the success stmt
-        ofstream stmt_file("gen_stmts.sql", ios::app);
+        ofstream stmt_file(GEN_STMT_FILE, ios::app);
         stmt_file << "select 111;" << "zuming\n\n";
         stmt_file.close();
     }
@@ -676,13 +689,12 @@ void new_gen_trans_stmts(map<string,string>& options,
                         bool need_affect)
 {
     static itimerval itimer;
-
-    dut_reset_to_backup(options);
     child_timed_out = false;
-    remove("gen_stmts.sql");
+    remove(GEN_STMT_FILE);
     
     child_pid = fork();
     if (child_pid == 0) {
+        dut_reset_to_backup(options);
         vector<string> tmp_vec;
         try {
             auto dut = dut_setup(options);
@@ -693,7 +705,7 @@ void new_gen_trans_stmts(map<string,string>& options,
         } catch (std::exception &e) {
             string err = e.what();
             cerr << "!!BUG!! is triggered at stmt gen: " << err << endl;
-            ofstream bug_trigger("bug_trigger_stmt.sql");
+            ofstream bug_trigger(NORMAL_BUG_FILE);
             for (auto& stmt:tmp_vec) {
                 bug_trigger << stmt << "\n\n";
             }
@@ -731,7 +743,7 @@ void new_gen_trans_stmts(map<string,string>& options,
     }
 
     // no bug: read the generated stmt
-    ifstream stmt_file("gen_stmts.sql");
+    ifstream stmt_file(GEN_STMT_FILE);
     stringstream buffer;
     buffer << stmt_file.rdbuf();
     stmt_file.close();
@@ -1287,6 +1299,16 @@ int transaction_test::test()
     } catch(exception &e) {
         cerr << "Trigger a normal bugs when inializing the stmts" << endl;
         cerr << "Bug info: " << e.what() << endl;
+
+        string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_normal/"; 
+        record_bug_num++;
+
+        make_dir_error_exit("dir_name");
+        string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
+        system(cmd.c_str());
+        cmd = "cp /tmp/mysql_bk.sql " + dir_name;
+        system(cmd.c_str());
+
         return 1; // not need to do other transaction thing
     }
     
@@ -1298,10 +1320,14 @@ int transaction_test::test()
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }
+
+    string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
+    record_bug_num++;
+    make_dir_error_exit("dir_name");
     
     cerr << RED << "Saving test cases..." << RESET;
     for (int i = 0; i < trans_num; i++) {
-        string file_name = "trans_" + to_string(i) + ".sql";
+        string file_name = dir_name + "trans_" + to_string(i) + ".sql";
         ofstream ofile(file_name);
         for (auto& stmt : trans_arr[i].stmts) {
             ofile << stmt << endl;
@@ -1310,7 +1336,7 @@ int transaction_test::test()
         ofile.close();
     }
 
-    string total_file_name = "trans_total.sql";
+    string total_file_name = dir_name + "trans_total.sql";
     ofstream totalfile(total_file_name);
     for (int i = 0; i < stmt_num; i++) {
         totalfile << stmt_queue[i] << endl;
@@ -1318,7 +1344,8 @@ int transaction_test::test()
     }
     totalfile.close();
 
-    ofstream outfile("trans_queue.txt");
+    string total_tid_file = dir_name + "trans_queue.txt";
+    ofstream outfile(total_tid_file);
     for (int i = 0; i < stmt_num; i++) {
         outfile << tid_queue[i] << endl;
     }
@@ -1327,6 +1354,8 @@ int transaction_test::test()
     
     return 1;
 }
+
+int transaction_test::record_bug_num = 0;
 
 transaction_test::transaction_test(map<string,string>& options_arg, 
                         file_random_machine* random_file_arg, 
@@ -1347,6 +1376,15 @@ transaction_test::transaction_test(map<string,string>& options_arg,
         need_affect = false;
     else
         need_affect = true;
+
+    output_path_dir = "found_bugs/";
+    struct stat buffer;
+    if (stat(output_path_dir.c_str(), &buffer) == 0) {
+        cout << "output folder is exist" << endl;
+    }
+    else {
+        make_dir_error_exit(output_path_dir);
+    }
 }
 
 transaction_test::~transaction_test()

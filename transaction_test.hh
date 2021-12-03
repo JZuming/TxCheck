@@ -43,6 +43,8 @@ using boost::regex_match;
 #include <sys/time.h>
 #include <sys/wait.h>
 
+#include <sys/stat.h> 
+
 using namespace std;
 
 using namespace std::chrono;
@@ -97,10 +99,13 @@ struct transaction {
 
 class transaction_test {
 public:
+    static int record_bug_num;
+
     transaction* trans_arr;
 
     map<string,string>* options;
     file_random_machine* random_file;
+    string output_path_dir;
 
     int must_commit_num;
     bool need_affect;
