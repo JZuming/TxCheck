@@ -595,8 +595,7 @@ void gen_trans_stmts(map<string,string>& options,
     }
 }
 
-void gen_single_stmt(shared_ptr<dut_base> dut,
-                    shared_ptr<schema> &db_schema,
+void gen_single_stmt(shared_ptr<schema> &db_schema,
                     vector<string>& trans_rec,
                     map<string,string>& options,
                     bool need_affect)
@@ -616,6 +615,7 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
         int affected_row_num = 0;
         try {
             cerr << "testing...";
+            auto dut = dut_setup(options);
             dut->test(stmt, &stmt_output, &affected_row_num);
             
             if (need_affect && stmt_output.empty() && affected_row_num <= 0) {
@@ -624,6 +624,7 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
             }
             trans_rec.push_back(stmt);
             cerr << "succeed" << endl;
+            
             // record the success stmt
             ofstream stmt_file(GEN_STMT_FILE, ios::app);
             stmt_file << stmt << "zuming\n\n";
@@ -631,7 +632,7 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
             return;
         } catch (std::exception &e) {
             string err_info = e.what();
-             
+
             if (err_info.find("syntax") != string::npos) {
                 cerr << "trigger a syntax problem: " << err_info << endl;
                 cerr << "sql: " << stmt;
@@ -643,10 +644,8 @@ void gen_single_stmt(shared_ptr<dut_base> dut,
                 
                 cerr << "try to reproduce it" << endl;
                 try {
-                    dut_reset_to_backup(options);
-                    auto other_dut = dut_setup(options);
-                    for (auto &bug_stmt:trans_rec) 
-                        other_dut->test(bug_stmt);
+                    auto dut = dut_setup(options);
+                    dut->test(stmt);
                     cerr << "reproduce fail, just a occasional problem" << endl;
                     smith::rng.seed(time(NULL));
 
@@ -697,9 +696,8 @@ void new_gen_trans_stmts(map<string,string>& options,
         dut_reset_to_backup(options);
         vector<string> tmp_vec;
         try {
-            auto dut = dut_setup(options);
             for (int i = 0; i < trans_stmt_num; i++)
-                gen_single_stmt(dut, db_schema, tmp_vec, options, need_affect);
+                gen_single_stmt(db_schema, tmp_vec, options, need_affect);
 
             exit(0); // normal
         } catch (std::exception &e) {
@@ -1303,7 +1301,7 @@ int transaction_test::test()
         string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_normal/"; 
         record_bug_num++;
 
-        make_dir_error_exit("dir_name");
+        make_dir_error_exit(dir_name);
         string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
         system(cmd.c_str());
         cmd = "cp /tmp/mysql_bk.sql " + dir_name;
@@ -1323,7 +1321,7 @@ int transaction_test::test()
 
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;
-    make_dir_error_exit("dir_name");
+    make_dir_error_exit(dir_name);
     
     cerr << RED << "Saving test cases..." << RESET;
     for (int i = 0; i < trans_num; i++) {
@@ -1372,10 +1370,10 @@ transaction_test::transaction_test(map<string,string>& options_arg,
 
     trans_arr = new transaction[trans_num];
 
-    if (d6() <= 3)
+    // if (d6() <= 3)
         need_affect = false;
-    else
-        need_affect = true;
+    // else
+    //     need_affect = true;
 
     output_path_dir = "found_bugs/";
     struct stat buffer;
