@@ -277,9 +277,6 @@ coalesce::coalesce(prod *p, sqltype *type_constraint, const char *abbrev)
  
 void coalesce::out(std::ostream &out)
 {
-#ifndef TEST_CLICKHOUSE
-    out << "cast(" ;
-#endif
     out << abbrev_ << "(";
     for (auto expr = value_exprs.begin(); expr != value_exprs.end(); expr++) {
     out << **expr;
@@ -287,9 +284,6 @@ void coalesce::out(std::ostream &out)
         out << ",", indent(out);
     }
     out << ")";
-#ifndef TEST_CLICKHOUSE
-    out << " as " << cast_type_name_wrapper(type->name) << ")";
-#endif
 }
 
 const_expr::const_expr(prod *p, sqltype *type_constraint)
@@ -303,11 +297,7 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     }
 
    if (d9() == 1) {
-        #ifndef TEST_CLICKHOUSE
-        expr = "cast(null as " + cast_type_name_wrapper(type->name) + ")";
-        #else
         expr = "null";
-        #endif
         return;
     }
 
@@ -322,11 +312,7 @@ const_expr::const_expr(prod *p, sqltype *type_constraint)
     else if (type == scope->schema->texttype) 
         expr = "'" + random_identifier_generate() + "'";
     else {
-        #ifndef TEST_CLICKHOUSE
-        expr += "cast(null as " + cast_type_name_wrapper(type->name) + ")";
-        #else
         expr += "null";
-        #endif
     }
 }
 
@@ -388,13 +374,7 @@ void funcall::out(std::ostream &out)
     out << proc->ident() << "(";
     for (auto expr = parms.begin(); expr != parms.end(); expr++) {
         indent(out);
-#ifndef TEST_CLICKHOUSE
-        out << "cast(";
-#endif
         out << **expr;
-#ifndef TEST_CLICKHOUSE
-        out << " as " << cast_type_name_wrapper((*expr)->type->name) << ")";
-#endif
         if (expr+1 != parms.end())
             out << ",";
     }
@@ -711,13 +691,7 @@ void win_funcall::out(std::ostream &out)
     out << proc->ident() << "(";
     for (auto expr = parms.begin(); expr != parms.end(); expr++) {
         indent(out);
-#ifndef TEST_CLICKHOUSE
-        out << "cast(";
-#endif
         out << **expr;
-#ifndef TEST_CLICKHOUSE
-        out << " as " << cast_type_name_wrapper((*expr)->type->name) << ")";
-#endif
         if (expr+1 != parms.end())
             out << ",";
     }

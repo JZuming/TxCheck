@@ -1437,7 +1437,7 @@ named_window::named_window(prod *p, struct scope *s):
     scope = &myscope;
     scope->tables = s->tables;
 
-    window_name = random_identifier_generate();
+    window_name = "w_" + random_identifier_generate();
 
     int partition_num = d6() > 4 ? 2 : 1;
     while (partition_num > 0) {

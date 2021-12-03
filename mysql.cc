@@ -281,9 +281,9 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     // WIN1(LAG, inttype, inttype);
     // WIN1(LAG, realtype, realtype);
     // WIN1(LAG, texttype, texttype);
-    WIN2(LEAD, inttype, inttype, inttype);
-    WIN2(LEAD, realtype, realtype, inttype);
-    WIN2(LEAD, texttype, texttype, inttype);
+    // WIN2(LEAD, inttype, inttype, inttype);
+    // WIN2(LEAD, realtype, realtype, inttype);
+    // WIN2(LEAD, texttype, texttype, inttype);
 #endif
 
     internaltype = sqltype::get("internal");
