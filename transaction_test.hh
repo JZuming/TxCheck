@@ -96,6 +96,7 @@ struct transaction {
 };
 
 class transaction_test {
+public:
     transaction* trans_arr;
 
     map<string,string>* options;
@@ -127,7 +128,6 @@ class transaction_test {
     void normal_test();
     bool check_result();
 
-public:
     transaction_test(map<string,string>& options, file_random_machine* random_file, bool is_serializable);
     ~transaction_test();
     int test();

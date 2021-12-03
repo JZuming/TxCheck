@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 {
     // analyze the options
     map<string,string> options;
-    regex optregex("--(help|postgres|sqlite|monetdb|random-seed|mysql-db|mysql-port|reproduce-sql)(?:=((?:.|\n)*))?");
+    regex optregex("--(help|postgres|sqlite|monetdb|random-seed|mysql-db|mysql-port|reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
         smatch match;
@@ -136,6 +136,7 @@ int main(int argc, char *argv[])
             #endif
             "    --random-seed=filename    random file for dynamic query interaction" << endl <<
             "    --reproduce-sql=filename    sql file to reproduce the problem" << endl <<
+            "    --reproduce-tid=filename    tid file to reproduce the problem" << endl <<
             "    --help               print available command line options and exit" << endl;
         return 0;
     } else if (options.count("version")) {
@@ -172,7 +173,13 @@ int main(int argc, char *argv[])
     // random_test(options);
 
     if (options.count("reproduce-sql")) {
-        // no bug: read the generated stmt
+        cerr << "enter reproduce mode" << endl;
+        if (!options.count("reproduce-tid"))
+            cerr << "should also provide tid file" << endl;
+
+        transaction_test re_test(options, NULL, false);
+
+        // get stmt queue
         ifstream stmt_file(options["reproduce-sql"]);
         stringstream buffer;
         buffer << stmt_file.rdbuf();
@@ -180,7 +187,6 @@ int main(int argc, char *argv[])
         
         string stmts(buffer.str());
         int old_off = 0;
-        auto dut = dut_setup(options);
         while (1) {
             int new_off = stmts.find(";\n\n", old_off);
             if (new_off == string::npos) 
@@ -189,8 +195,45 @@ int main(int argc, char *argv[])
             auto each_sql = stmts.substr(old_off, new_off - old_off); // not include ;\n\n
             old_off = new_off + string(";\n\n").size();
 
-            dut->test(each_sql);
+            re_test.stmt_queue.push_back(each_sql + ";");
         }
+	    
+        // get tid queue
+        set<int> tid_set;
+        ifstream tid_file(options["reproduce-tid"]);
+        int tid;
+        while (tid_file >> tid) {
+            re_test.tid_queue.push_back(tid);
+            tid_set.insert(tid);
+        }
+        tid_file.close();
+
+        re_test.stmt_num = re_test.tid_queue.size();
+        re_test.trans_num = tid_set.size();
+        delete[] re_test.trans_arr;
+        re_test.trans_arr = new transaction[re_test.trans_num];
+	
+        cerr << re_test.trans_num << " " << re_test.stmt_num<< " " << re_test.stmt_queue.size() << endl;
+        for (int i = 0; i < re_test.stmt_num; i++) {
+            auto tid = re_test.tid_queue[i];
+            re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
+        }
+        
+        for (int tid = 0; tid < re_test.trans_num; tid++) {
+            re_test.trans_arr[tid].dut = dut_setup(options);
+            re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
+            if (re_test.trans_arr[tid].stmts.back().find("COMMIT") != string::npos)
+                re_test.trans_arr[tid].status = 1;
+            else
+                re_test.trans_arr[tid].status = 2;
+        }
+	
+        re_test.trans_test();
+        re_test.normal_test();
+        if (!re_test.check_result()) {
+            cerr << "reproduce successfully" << endl;
+        }
+
         return 0;
     }
     
