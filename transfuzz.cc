@@ -76,12 +76,16 @@ int random_test(map<string,string>& options)
     }
     
     // reset the target DBMS to initial state
-    try {
-        transaction_test just_setup(options, random_file, false);
-        dut_reset(options);
-    } catch(std::exception &e) {
-        cerr << e.what() << "in setup stage" << endl;
-        exit(-1);
+    while (1) {
+        try {
+            transaction_test just_setup(options, random_file, false);
+            just_setup.fork_if_server_closed();
+            dut_reset(options);
+            break;
+        } catch(std::exception &e) {
+            cerr << e.what() << "in setup stage" << endl;
+            exit(-1);
+        }
     }
     
     while (1) {
@@ -99,6 +103,9 @@ int random_test(map<string,string>& options)
     while (i--) {
         try {
             transaction_test tt(options, random_file, false);
+            auto restart = tt.fork_if_server_closed();
+            if (restart)
+                break;
             auto ret = tt.test();
             //auto ret = old_transaction_test(options, random_file);
             if (ret == 1) {

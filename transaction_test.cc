@@ -1378,8 +1378,9 @@ static void kill_process_with_SIGTERM(pid_t process_id)
     }
 }
 
-pid_t transaction_test::fork_if_server_closed()
+bool transaction_test::fork_if_server_closed()
 {
+    bool server_restart = false;
     auto time_begin = get_cur_time_ms();
 
     while (1) {
@@ -1395,6 +1396,7 @@ pid_t transaction_test::fork_if_server_closed()
                 kill_process_with_SIGTERM(server_process_id); // just for safe
                 server_process_id = fork_db_server(*options);
                 time_begin = get_cur_time_ms();
+                server_restart = true;
                 continue;
             }
 
@@ -1405,12 +1407,13 @@ pid_t transaction_test::fork_if_server_closed()
                 kill_process_with_SIGTERM(server_process_id);
                 server_process_id = fork_db_server(*options);
                 time_begin = get_cur_time_ms();
+                server_restart = true;
                 continue;
             }
         }
     }
 
-    return server_process_id;
+    return server_restart;
 }
 
 
@@ -1442,8 +1445,6 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     else {
         make_dir_error_exit(output_path_dir);
     }
-
-    fork_if_server_closed();
 }
 
 transaction_test::~transaction_test()
