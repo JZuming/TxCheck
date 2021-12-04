@@ -87,14 +87,14 @@ struct transaction {
     shared_ptr<dut_base> dut;
     vector<string> stmts;
     vector<vector<string>> stmt_outputs;
-    vector<string> executed_stmts;
+    vector<string> stmt_err_info;
 
     vector<string> normal_test_stmts;
     vector<vector<string>> normal_test_stmt_outputs;
+    vector<string> normal_test_stmt_err_info;
 
     int stmt_num;
     int status;
-    set<int> scheduled_after_tid;
 };
 
 class transaction_test {
@@ -117,17 +117,12 @@ public:
     vector<int> tid_queue;
     vector<string> stmt_queue;
 
-    vector<int> executed_tid_queue;
-    vector<string> executed_stmt_queue;
-
     map<string, vector<string>> trans_content;
     map<string, vector<string>> normal_content;
 
     void arrage_trans_for_tid_queue();
     void assign_trans_status();
     void gen_stmt_for_each_trans();
-
-    bool schedule_last_stmt_pos(int stmt_index);
     
     void trans_test();
     void normal_test();

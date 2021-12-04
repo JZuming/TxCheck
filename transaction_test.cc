@@ -1087,49 +1087,6 @@ void transaction_test::gen_stmt_for_each_trans()
     }
 }
 
-bool transaction_test::schedule_last_stmt_pos(int stmt_index)
-{
-    // get tid
-    auto tid = tid_queue[stmt_index];
-    auto& stmt = stmt_queue[stmt_index];
-
-    bool scheduled = false;
-    for (int i = stmt_index + 1; i < stmt_num; i++) {
-        auto other_tid = tid_queue[i];
-        // has been scheduled after this transaction already.
-        if (trans_arr[tid].scheduled_after_tid.count(other_tid))
-            continue;
-        
-        auto& other_stmt = stmt_queue[i];
-        if (!trans_arr[other_tid].dut->is_commit_abort_stmt(other_stmt))
-            continue;
-        
-        trans_arr[tid].scheduled_after_tid.insert(other_tid);
-        tid_queue.insert(tid_queue.begin() + i + 1, tid); // after the target stmt
-        tid_queue.erase(tid_queue.begin() + stmt_index);
-
-        stmt_queue.insert(stmt_queue.begin() + i + 1, stmt);
-        stmt_queue.erase(stmt_queue.begin() + stmt_index);
-
-        scheduled = true;
-        break;
-    }
-
-    if (scheduled == true)
-        return true;
-    
-    if (trans_arr[tid].scheduled_after_tid.count(-1))
-        return false; // has scheduled to last before
-
-    tid_queue.insert(tid_queue.begin() + stmt_num, tid);
-    tid_queue.erase(tid_queue.begin() + stmt_index);
-    stmt_queue.insert(stmt_queue.begin() + stmt_num, stmt);
-    stmt_queue.erase(stmt_queue.begin() + stmt_index);
-
-    trans_arr[tid].scheduled_after_tid.insert(-1);
-    return true;
-}
-
 void transaction_test::trans_test()
 {
     dut_reset_to_backup(*options);
@@ -1144,14 +1101,10 @@ void transaction_test::trans_test()
         
         try {
             trans_arr[tid].dut->test(stmt, &output);
-            trans_arr[tid].executed_stmts.push_back(stmt);
             if (!output.empty())
                 trans_arr[tid].stmt_outputs.push_back(output);
 
-            executed_tid_queue.push_back(tid);
-            executed_stmt_queue.push_back(stmt);
             stmt_index++;
-
             cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
         } catch(exception &e) {
             string err = e.what();
@@ -1162,7 +1115,9 @@ void transaction_test::trans_test()
             if (err.find("ost connection") != string::npos)
                 throw e;
             
+            // store the error info of non-commit statement
             if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+                trans_arr[tid].stmt_err_info.push_back(err);
                 stmt_index++; // just skip the stmt
                 continue;
             }
@@ -1179,10 +1134,6 @@ void transaction_test::trans_test()
                     stmt = stmt_queue[stmt_index];
                     trans_arr[tid].dut->test(stmt);
                     cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
-                    
-                    trans_arr[tid].executed_stmts.push_back(stmt);
-                    executed_tid_queue.push_back(tid);
-                    executed_stmt_queue.push_back(stmt);
                     stmt_index++;
                 } catch(exception &e2) {
                 }
@@ -1205,11 +1156,11 @@ void transaction_test::normal_test()
     cerr << YELLOW << "normal test" << RESET << endl;
     
     vector<int> trans_order;
-    auto executed_stmt_size = executed_stmt_queue.size();
-    for (int i = 0; i < executed_stmt_size; i++) {
-        auto tid = executed_tid_queue[i];
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        
         if (trans_arr[tid].status == 1) { // commit;
-            if (!trans_arr[tid].dut->is_commit_abort_stmt(executed_stmt_queue[i]))
+            if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt_queue[i]))
                 continue;
             
             trans_order.push_back(tid);
@@ -1236,7 +1187,7 @@ void transaction_test::normal_test()
 
     auto normal_dut = dut_setup(*options);
     for (auto tid:trans_order) {
-        trans_arr[tid].normal_test_stmts = trans_arr[tid].executed_stmts;
+        trans_arr[tid].normal_test_stmts = trans_arr[tid].stmts;
 
         if (trans_arr[tid].status == 1) { // if it is commit, erase "begin" and "commit"
             trans_arr[tid].normal_test_stmts.erase(trans_arr[tid].normal_test_stmts.begin());
@@ -1254,6 +1205,11 @@ void transaction_test::normal_test()
                     trans_arr[tid].normal_test_stmt_outputs.push_back(output);
                 cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
             } catch(exception &e) {
+                string err = e.what();
+                cerr << RED 
+                << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+                << err << RESET << endl;
+                trans_arr[tid].normal_test_stmt_err_info.push_back(err);
             }
         }
     }
@@ -1269,6 +1225,7 @@ void transaction_test::normal_test()
 
 bool transaction_test::check_result()
 {
+    cerr << "check the content " << endl;
     if (!compare_content(trans_content, normal_content)) {
         cerr << "trans_content is not equal to normal_content" << endl;
         return false;
@@ -1283,6 +1240,22 @@ bool transaction_test::check_result()
             cerr << "trans "<< i << " is not equal to normal one" << endl;
             return false;
         }
+
+        // cerr << "check the error inf of " << i << endl;
+        // auto err_size = trans_arr[i].stmt_err_info.size();
+        // if (err_size != trans_arr[i].normal_test_stmt_err_info.size()) {
+        //     cerr << "error info size is different to normal one "<< err_size 
+        //         << trans_arr[i].normal_test_stmt_err_info.size() << endl;
+        //     return false;
+        // }
+        // for (int j = 0; j < err_size; j++) {
+        //     if (trans_arr[i].stmt_err_info[j] != trans_arr[i].normal_test_stmt_err_info[j]) {
+        //         cerr << "error info is different to normal one" << endl;
+        //         cerr << "trans one: " << trans_arr[i].stmt_err_info[j] << endl;
+        //         cerr << "normal one: " << trans_arr[i].normal_test_stmt_err_info[j] << endl;
+        //         return false;
+        //     }
+        // }
     }
 
     return true;
@@ -1322,6 +1295,10 @@ int transaction_test::test()
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;
     make_dir_error_exit(dir_name);
+
+    cerr << RED << "Saving database..." << RESET << endl;
+    string cmd = "cp /tmp/mysql_bk.sql " + dir_name;
+    system(cmd.c_str());
     
     cerr << RED << "Saving test cases..." << RESET;
     for (int i = 0; i < trans_num; i++) {
