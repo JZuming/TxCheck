@@ -3,6 +3,9 @@
 #define NORMAL_BUG_FILE "bug_trigger_stmt.sql"
 #define GEN_STMT_FILE "gen_stmts.sql"
 
+#define KILL_PROC_TIME_MS 10000
+#define WAIT_FOR_PROC_TIME_MS 20000
+
 int child_pid = 0;
 bool child_timed_out = false;
 
@@ -93,6 +96,23 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
     }
 
     return dut;
+}
+
+pid_t fork_db_server(map<string,string>& options)
+{
+    pid_t fork_pid;
+    if (options.count("sqlite")) {
+        fork_pid = 0;
+    }
+    else if (options.count("mysql-db") && options.count("mysql-port")) {
+        fork_pid = dut_mysql::fork_db_server();
+    }
+    else {
+        cerr << "Sorry,  you should specify a dbms or your dbms not support" << endl;
+        throw runtime_error("Does not define target dbms and db");
+    }
+
+    return fork_pid;
 }
 
 void user_signal(int signal)  
@@ -1331,6 +1351,68 @@ int transaction_test::test()
 }
 
 int transaction_test::record_bug_num = 0;
+pid_t transaction_test::server_process_id = 0xabcde;
+
+static unsigned long long get_cur_time_ms(void) {
+	struct timeval tv;
+	struct timezone tz;
+
+	gettimeofday(&tv, &tz);
+
+	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
+}
+
+static void kill_process_with_SIGTERM(pid_t process_id)
+{
+    kill(process_id, SIGTERM);
+    int ret;
+    auto begin_time = get_cur_time_ms();
+    while (1) {
+        ret = kill(process_id, 0);
+        if (ret != 0)
+            break;
+        
+        auto now_time = get_cur_time_ms();
+        if (now_time - begin_time > KILL_PROC_TIME_MS)
+            break;
+    }
+}
+
+pid_t transaction_test::fork_if_server_closed()
+{
+    auto time_begin = get_cur_time_ms();
+
+    while (1) {
+        try {
+            auto dut = dut_setup(*options);
+            break; // connect successfully, so break;
+        
+        } catch (exception &e) { // connect fail
+            auto ret = kill(server_process_id, 0);
+            if (ret != 0) { // server has die
+                cerr << "testing server die, restart it" << endl;
+
+                kill_process_with_SIGTERM(server_process_id); // just for safe
+                server_process_id = fork_db_server(*options);
+                time_begin = get_cur_time_ms();
+                continue;
+            }
+
+            auto time_end = get_cur_time_ms();
+            if (time_end - time_begin > WAIT_FOR_PROC_TIME_MS) {
+                cerr << "testing server hang, kill it and restart" << endl;
+                
+                kill_process_with_SIGTERM(server_process_id);
+                server_process_id = fork_db_server(*options);
+                time_begin = get_cur_time_ms();
+                continue;
+            }
+        }
+    }
+
+    return server_process_id;
+}
+
 
 transaction_test::transaction_test(map<string,string>& options_arg, 
                         file_random_machine* random_file_arg, 
@@ -1360,6 +1442,8 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     else {
         make_dir_error_exit(output_path_dir);
     }
+
+    fork_if_server_closed();
 }
 
 transaction_test::~transaction_test()

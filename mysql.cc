@@ -548,3 +548,24 @@ void dut_mysql::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commi
         last_sql = "ROLLBACK;";
     stmt_vec.push_back(last_sql);
 }
+
+pid_t dut_mysql::fork_db_server()
+{
+    pid_t child = fork();
+    if (child < 0) {
+        throw std::runtime_error(string("Fork db server fail") + " in dut_mysql::fork_db_server!");
+    }
+
+    if (child == 0) {
+        char *server_argv[128];
+        int i = 0;
+        server_argv[i++] = "/root/.tiup/bin/tiup"; // path of tiup
+        server_argv[i++] = "playground";
+        server_argv[i++] = NULL;
+        execv(server_argv[0], server_argv);
+        cerr << "fork tidb server fail in dut_mysql::fork_db_server" << endl; 
+    }
+
+    cout << "server pid: " << child << endl;
+    return child;
+}

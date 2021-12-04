@@ -100,6 +100,7 @@ struct transaction {
 class transaction_test {
 public:
     static int record_bug_num;
+    static pid_t server_process_id;
 
     transaction* trans_arr;
 
@@ -127,6 +128,8 @@ public:
     void trans_test();
     void normal_test();
     bool check_result();
+
+    pid_t fork_if_server_closed();
 
     transaction_test(map<string,string>& options, file_random_machine* random_file, bool is_serializable);
     ~transaction_test();

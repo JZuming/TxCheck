@@ -76,7 +76,14 @@ int random_test(map<string,string>& options)
     }
     
     // reset the target DBMS to initial state
-    dut_reset(options); 
+    try {
+        transaction_test just_setup(options, random_file, false);
+        dut_reset(options);
+    } catch(std::exception &e) {
+        cerr << e.what() << "in setup stage" << endl;
+        exit(-1);
+    }
+    
     while (1) {
         try {
             generate_database(options, random_file);
