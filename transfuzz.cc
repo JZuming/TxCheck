@@ -80,24 +80,14 @@ int random_test(map<string,string>& options)
         try {
             transaction_test just_setup(options, random_file, false);
             just_setup.fork_if_server_closed();
+            
             dut_reset(options);
-            break;
-        } catch(std::exception &e) {
-            cerr << e.what() << "in setup stage" << endl;
-            exit(-1);
-        }
-    }
-    
-    while (1) {
-        try {
             generate_database(options, random_file);
             break;
         } catch(std::exception &e) {
-            smith::rng.seed(time(NULL));
-            cerr << e.what() << endl;
+            cerr << e.what() << "in setup stage" << endl;
         }
-    }
-    
+    } 
 
     int i = TEST_TIME_FOR_EACH_DB;
     while (i--) {
