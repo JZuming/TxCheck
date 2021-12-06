@@ -54,7 +54,7 @@ shared_ptr<schema> get_schema(map<string,string>& options)
     } catch (exception &e) { // may occur occastional error
         if (try_time >= 128) {
             cerr << "Fail in get_schema() " << try_time << " times, return" << endl;
-            exit(144); // ignore this kind of error
+            throw e;
         }
         try_time++;
         schema = get_schema(options);
@@ -289,7 +289,7 @@ void interect_test(map<string,string>& options,
         }
         if (try_time >= 128) {
             cerr << "Fail in interect_test() " << try_time << " times, return" << endl;
-            exit(144); // ignore this kind of error
+            throw e;
         }
         try_time++;
         interect_test(options, tmp_statement_factory, rec_vec, need_affect);
@@ -332,7 +332,7 @@ void normal_test(map<string,string>& options,
         
         if (try_time >= 128) {
             cerr << "Fail in normal_test() " << try_time << " times, return" << endl;
-            exit(144); // ignore this kind of error
+            throw e;
         }
         try_time++;
         normal_test(options, schema, tmp_statement_factory, rec_vec, need_affect);
