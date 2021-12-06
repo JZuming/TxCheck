@@ -236,25 +236,6 @@ void dut_reset_to_backup(map<string,string>& options)
     dut->reset_to_backup();
 }
 
-void *dut_trans_test(void *thread_arg)
-{
-    auto data = (thread_data *)thread_arg;
-    auto dut = dut_setup(*(data->options));
-    dut->trans_test(*(data->trans_stmts), data->exec_trans_stmts, data->stmt_output, data->commit_or_not);
-
-    return NULL;
-}
-
-void normal_dut_trans_test(map<string,string>& options, 
-                           vector<string>& stmts, 
-                           vector<string>* exec_stmts,
-                           vector<vector<string>>* stmt_output,
-                           int commit_or_not)
-{
-    auto dut = dut_setup(options);
-    dut->trans_test(stmts, exec_stmts, stmt_output, commit_or_not);
-}
-
 void dut_get_content(map<string,string>& options, 
                     vector<string>& tables_name, 
                     map<string, vector<string>>& content)
@@ -340,7 +321,7 @@ void normal_test(map<string,string>& options,
     }
 }
 
-size_t BKDRHash(const char *str, size_t hash)  
+static size_t BKDRHash(const char *str, size_t hash)  
 {
     while (size_t ch = (size_t)*str++)  
     {         
@@ -358,7 +339,7 @@ size_t BKDRHash(const char *str, size_t hash)
     return hash;  
 }
 
-void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set)
+static void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set)
 {
     size_t hash = 0;
     size_t output_size = output.size();
@@ -377,7 +358,7 @@ void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set)
     return;
 }
 
-void output_diff(string item_name, vector<string>& con_result, vector<string>& seq_result)
+static void output_diff(string item_name, vector<string>& con_result, vector<string>& seq_result)
 {
     ofstream ofile("/tmp/comp_diff.txt", ios::app);
     ofile << "============================" << endl;
@@ -394,7 +375,7 @@ void output_diff(string item_name, vector<string>& con_result, vector<string>& s
     ofile.close();
 }
 
-bool is_number(const string &s) {
+static bool is_number(const string &s) {
     if (s.empty() || s.length() <= 0) 
         return false;
 
@@ -426,7 +407,7 @@ bool is_number(const string &s) {
     return true;
 }
 
-bool nomoalize_content(vector<string> &content)
+static bool nomoalize_content(vector<string> &content)
 {
     auto size = content.size();
 
@@ -445,7 +426,7 @@ bool nomoalize_content(vector<string> &content)
     return true;
 }
 
-bool compare_content(map<string, vector<string>>&con_content, 
+static bool compare_content(map<string, vector<string>>&con_content, 
                      map<string, vector<string>>&seq_content)
 {
     if (con_content.size() != seq_content.size()) {
@@ -490,7 +471,7 @@ bool compare_content(map<string, vector<string>>&con_content,
     return true;
 }
 
-bool compare_output(vector<vector<string>>& trans_output,
+static bool compare_output(vector<vector<string>>& trans_output,
                     vector<vector<string>>& seq_output)
 {
     auto size = trans_output.size();
@@ -560,59 +541,6 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
     dut_backup(options);
 
     return 0;
-}
-
-bool seq_res_comp(map<string,string>& options, vector<string> table_names,
-                map<string, vector<string>>& concurrent_content,
-                vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
-                int trans_1_commit, int trans_2_commit)
-{
-    dut_reset_to_backup(options);
-
-    vector<vector<string>> seq_1_output, seq_2_output;
-    if (trans_1_commit) {
-        cerr << "trans_1 commit" << endl;
-        normal_dut_trans_test(options, exec_trans_1_stmts, NULL, &seq_1_output, 2);
-    }
-        
-    if (trans_2_commit) {
-        cerr << "trans_2 commit" << endl;
-        normal_dut_trans_test(options, exec_trans_2_stmts, NULL, &seq_2_output, 2);
-    }
-    
-    map<string, vector<string>> sequential_content;
-    dut_get_content(options, table_names, sequential_content);
-
-    if (!compare_content(concurrent_content, sequential_content)) {
-        cerr << "trans content is not equal to seq content" << endl;
-        return false;
-    }
-    if (trans_1_commit && !compare_output(trans_1_output, seq_1_output)) {
-        cerr << "trans_1_output is not equal to seq_1_output" << endl;
-        return false;
-    }
-    if (trans_2_commit && !compare_output(trans_2_output, seq_2_output)) {
-        cerr << "trans_2_output is not equal to seq_2_output" << endl;
-        return false;
-    }
-
-    return true;
-}
-
-void gen_trans_stmts(map<string,string>& options, 
-                        file_random_machine* random_file, 
-                        shared_ptr<schema> &db_schema,
-                        int trans_stmt_num,
-                        vector<string>& trans_rec)
-{
-    dut_reset_to_backup(options);
-    for (auto i = 0; i < trans_stmt_num; i++) {
-        if (random_file != NULL && random_file->read_byte > random_file->end_pos)
-            break;
-        
-        normal_test(options, db_schema, &trans_statement_factory, trans_rec, false);
-    }
 }
 
 void gen_single_stmt(shared_ptr<schema> &db_schema,
@@ -700,7 +628,7 @@ void gen_single_stmt(shared_ptr<schema> &db_schema,
     }
 }
 
-void new_gen_trans_stmts(map<string,string>& options, 
+static void new_gen_trans_stmts(map<string,string>& options, 
                         file_random_machine* random_file, 
                         shared_ptr<schema> &db_schema,
                         int trans_stmt_num,
@@ -801,150 +729,6 @@ void new_gen_trans_stmts(map<string,string>& options,
     return;
 }
 
-void gen_current_trans(map<string,string>& options, file_random_machine* random_file, 
-                        vector<string>& trans_1_rec, vector<string>& trans_2_rec)
-{
-    auto schema = get_schema(options);
-    auto trans_1_stmt_num = d12(); // 1-12
-    auto trans_2_stmt_num = d12(); // 1-12
-    
-    gen_trans_stmts(options, random_file, schema, trans_1_stmt_num, trans_1_rec);
-    gen_trans_stmts(options, random_file, schema, trans_2_stmt_num, trans_2_rec);
-
-    return;
-}
-
-void concurrently_execute_transaction(map<string,string>& options, 
-                                    vector<string>& trans_1_rec, vector<string>& trans_2_rec,
-                                    vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
-                                    vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                                    int trans_1_commit, int trans_2_commit,
-                                    map<string, vector<string>>& concurrent_content, vector<string>& table_names)
-{
-    dut_reset_to_backup(options);
-    cerr << YELLOW << "stage 5: cocurrently execute transaction A and B"  << RESET << endl;
-    
-    thread_data data_1, data_2;
-
-    data_1.options = &options;
-    data_1.trans_stmts = &trans_1_rec;
-    data_1.exec_trans_stmts = &exec_trans_1_stmts;
-    data_1.stmt_output = &trans_1_output;
-    data_1.commit_or_not = trans_1_commit;
-
-    data_2.options = &options;
-    data_2.trans_stmts = &trans_2_rec;
-    data_2.exec_trans_stmts = &exec_trans_2_stmts;
-    data_2.stmt_output = &trans_2_output;
-    data_2.commit_or_not = trans_2_commit;
-
-    pthread_t tid_1, tid_2;
-    pthread_create(&tid_1, NULL, dut_trans_test, &data_1);
-    pthread_create(&tid_2, NULL, dut_trans_test, &data_2);
-
-    pthread_join(tid_1, NULL);
-    pthread_join(tid_2, NULL);
-
-    // collect database information
-    auto schema = get_schema(options);
-    for (auto& table:schema->tables) {
-        table_names.push_back(table.ident());
-    }
-    dut_get_content(options, table_names, concurrent_content);
-}
-
-bool sequentially_check(map<string,string>& options, vector<string> table_names,
-                        map<string, vector<string>>& concurrent_content,
-                        vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                        vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
-                        int trans_1_commit, int trans_2_commit)
-{
-    cerr << YELLOW << "stage 6.1: first comparison: A -> B" << RESET << endl;
-    if (seq_res_comp(options, table_names, concurrent_content, 
-                trans_1_output, trans_2_output, 
-                exec_trans_1_stmts, exec_trans_2_stmts,
-                trans_1_commit, trans_2_commit)) {
-        return false;
-    }
-    cerr << YELLOW << "stage 6.2: second comparison: B -> A" << RESET << endl;
-    if (seq_res_comp(options, table_names, concurrent_content, 
-                trans_2_output, trans_1_output, 
-                exec_trans_2_stmts, exec_trans_1_stmts,
-                trans_2_commit, trans_1_commit)) {
-        return false;
-    }
-    return true;
-}
-
-int old_transaction_test(map<string,string>& options, file_random_machine* random_file)
-{
-    vector<string> trans_1_rec;
-    vector<string> trans_2_rec;
-    gen_current_trans(options, random_file, trans_1_rec, trans_2_rec);
-
-    ofstream ofile;
-    ofile.open("trans_1.sql");
-    for (auto& stmt:trans_1_rec)
-        ofile << stmt << endl;
-    ofile.close();
-
-    ofile.open("trans_2.sql");
-    for (auto& stmt:trans_2_rec)
-        ofile << stmt << endl;
-    ofile.close();
-
-    vector<string> exec_trans_1_stmts, exec_trans_2_stmts;
-    vector<vector<string>> trans_1_output, trans_2_output;
-    map<string, vector<string>> concurrent_content;
-    vector<string> table_names;
-    int trans_1_commit = 1, trans_2_commit = 1;
-    // if (d20() > 14)
-    //     trans_1_commit = 0;
-    // if (d20() > 14)
-    //     trans_2_commit = 0;
-    
-    // tidb does not support serilization
-    auto choice = d9();
-    if (choice <= 4) {
-        trans_1_commit = 1;
-        trans_2_commit = 0;
-    } else if (choice <= 8) {
-        trans_1_commit = 0;
-        trans_2_commit = 1;
-    }
-    else {
-        trans_1_commit = 0;
-        trans_2_commit = 0;
-    }
-
-    concurrently_execute_transaction(options, trans_1_rec, trans_2_rec, 
-                                    exec_trans_1_stmts, exec_trans_2_stmts,
-                                    trans_1_output, trans_2_output,
-                                    trans_1_commit, trans_2_commit,
-                                    concurrent_content, table_names);
-    
-    auto res = sequentially_check(options, table_names, concurrent_content, 
-                            trans_1_output, trans_2_output, 
-                            exec_trans_1_stmts, exec_trans_2_stmts,
-                            trans_1_commit, trans_2_commit);
-    
-    if (res == false)
-        return 0;
-
-    cerr << RED << "find a bug, and record the detail" << RESET << endl;
-    ofile.open("exec_trans_1.sql");
-    for (auto& stmt:exec_trans_1_stmts)
-        ofile << stmt << endl;
-    ofile.close();
-
-    ofile.open("exec_trans_2.sql");
-    for (auto& stmt:exec_trans_2_stmts)
-        ofile << stmt << endl;
-    ofile.close();
-
-    return 1;
-}
-
 void transaction_test::arrage_trans_for_tid_queue()
 {
     for (int tid = 0; tid < trans_num; tid++)
@@ -990,14 +774,6 @@ void transaction_test::arrage_trans_for_tid_queue()
         if (tid_now >= must_commit_num)
             break;
     }
-
-    // // just debug
-    // for (int i = 0; i < stmt_num; i++) {
-    //     if (tid_queue[i] == holder_tid) {
-    //         cerr << RED << "error: tid_queue[" << i << "] is still holder_tid" << RESET << endl;
-    //         exit(-1); 
-    //     }
-    // }
 
     // each transaction at least has two statement (begin and commit/abort)
     for (int tid = 0; tid < trans_num; tid++) {

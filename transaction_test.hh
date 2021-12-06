@@ -146,12 +146,6 @@ void dut_test(map<string,string>& options, const string& stmt, bool need_affect)
 void dut_reset(map<string,string>& options);
 void dut_backup(map<string,string>& options);
 void dut_reset_to_backup(map<string,string>& options);
-void *dut_trans_test(void *thread_arg);
-void normal_dut_trans_test(map<string,string>& options, 
-                           vector<string>& stmts, 
-                           vector<string>* exec_stmts,
-                           vector<vector<string>>* stmt_output,
-                           int commit_or_not);
 void dut_get_content(map<string,string>& options, 
                     vector<string>& tables_name, 
                     map<string, vector<string>>& content);
@@ -164,41 +158,7 @@ void normal_test(map<string,string>& options,
                     shared_ptr<prod> (* tmp_statement_factory)(scope *), 
                     vector<string>& rec_vec,
                     bool need_affect);
-size_t BKDRHash(const char *str, size_t hash);
-void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set);
-void output_diff(string item_name, vector<string>& con_result, vector<string>& seq_result);
-bool is_number(const string &s);
-bool nomoalize_content(vector<string> &content);
-bool compare_content(map<string, vector<string>>&con_content, 
-                     map<string, vector<string>>&seq_content);
-bool compare_output(vector<vector<string>>& trans_output,
-                    vector<vector<string>>& seq_output);
 int generate_database(map<string,string>& options, file_random_machine* random_file);
-bool seq_res_comp(map<string,string>& options, vector<string> table_names,
-                map<string, vector<string>>& concurrent_content,
-                vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
-                int trans_1_commit, int trans_2_commit);
-void gen_trans_stmts(map<string,string>& options, 
-                        file_random_machine* random_file, 
-                        shared_ptr<schema> &db_schema,
-                        int trans_stmt_num,
-                        vector<string>& trans_rec);
-void gen_current_trans(map<string,string>& options, file_random_machine* random_file, 
-                        vector<string>& trans_1_rec, vector<string>& trans_2_rec);
-void concurrently_execute_transaction(map<string,string>& options, 
-                                    vector<string>& trans_1_rec, vector<string>& trans_2_rec,
-                                    vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
-                                    vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                                    int trans_1_commit, int trans_2_commit,
-                                    map<string, vector<string>>& concurrent_content, vector<string>& table_names);
-bool sequentially_check(map<string,string>& options, vector<string> table_names,
-                        map<string, vector<string>>& concurrent_content,
-                        vector<vector<string>>& trans_1_output, vector<vector<string>>& trans_2_output,
-                        vector<string>& exec_trans_1_stmts, vector<string>& exec_trans_2_stmts,
-                        int trans_1_commit, int trans_2_commit);
-int old_transaction_test(map<string,string>& options, file_random_machine* random_file);
-
 
 extern pthread_mutex_t mutex_timeout;  
 extern pthread_cond_t  cond_timeout;
