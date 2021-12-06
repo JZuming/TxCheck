@@ -56,7 +56,7 @@ extern "C" {
 #include "transaction_test.hh"
 
 #define NORMAL_EXIT 0
-#define RESTART_SERVER_EXIT 8
+#define FIND_BUG_EXIT 7
 #define MAX_TIMEOUT_TIME 3
 
 pthread_mutex_t mutex_timeout;  
@@ -88,20 +88,24 @@ int fork_for_transaction_test(map<string,string>& options,
 {
     static itimerval itimer;
 
+    auto just_check_server = make_shared<transaction_test>(options, random_file, false);
+    auto restart = just_check_server->fork_if_server_closed();
+    if (restart)
+        throw runtime_error(string("restart server")); // need to generate database again
+    just_check_server.reset();
+    
     child_pid = fork();
     if (child_pid == 0) { // in child process
         try {
             transaction_test tt(options, random_file, false);
-            auto restart = tt.fork_if_server_closed();
-            if (restart)
-                exit(RESTART_SERVER_EXIT); // need to generate database again
-            
             auto ret = tt.test();
-            if (ret == 1)
+            if (ret == 1) {
                 cerr << RED << "find a bug" << RESET << endl;
+                exit(FIND_BUG_EXIT);
+            }
 
         } catch(std::exception &e) { // ignore runtime error
-            cerr << e.what() << endl;
+            cerr << "in test: " << e.what() << endl;
         }
         exit(NORMAL_EXIT);
     }
@@ -127,9 +131,9 @@ int fork_for_transaction_test(map<string,string>& options,
     if (WIFEXITED(status)) {
         auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
         cerr << "exit code " << exit_code << endl;
-        if (exit_code == RESTART_SERVER_EXIT) {
-            cerr << RED << "server is restarted, should generate db again" << RESET << endl;
-            throw runtime_error(string("restart server"));
+        if (exit_code == FIND_BUG_EXIT) {
+            cerr << RED << "a bug is found in fork process" << RESET << endl;
+            transaction_test::record_bug_num++;
         }
     }
 
@@ -354,58 +358,7 @@ int main(int argc, char *argv[])
     }
     
     while (1) {
-        // child_timed_out = false;
-
-        // cerr << RED << "New Test Database --------------------------" << RESET << endl;
-        // child_pid = fork();
-        // if (child_pid == 0) {
-            random_test(options);
-        //     exit(0);
-        // }
-
-        // // timeout is ms
-        // itimer.it_value.tv_sec = DATABASE_TIMEOUT;
-        // itimer.it_value.tv_usec = 0; // us limit
-        // setitimer(ITIMER_REAL, &itimer, NULL);
-
-        // cerr << "begin waiting" << endl;
-
-        // // wait for the tests
-        // int status;
-        // auto res = waitpid(child_pid, &status, 0);
-        // if (res <= 0) {
-        //     cerr << "waitpid() fail: " <<  res << endl;
-        //     exit(-1);
-        // }
-
-        // // disable HandleTimeout
-        // if (!WIFSTOPPED(status)) 
-        //     child_pid = 0;
-        
-        // itimer.it_value.tv_sec = 0;
-        // itimer.it_value.tv_usec = 0;
-        // setitimer(ITIMER_REAL, &itimer, NULL);
-
-        // if (WIFSIGNALED(status)) {
-        //     auto killSignal = WTERMSIG(status);
-        //     if (child_timed_out && killSignal == SIGKILL) {
-        //         cerr << "just timeout" << endl;
-        //         continue;
-        //     }
-        //     else {
-        //         cerr << RED << "find memory bug" << RESET << endl;
-        //         return -1;
-        //     }
-        // }
-
-        // if (WIFEXITED(status)) {
-        //     auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
-        //     cerr << "exit code " << exit_code << endl;
-        //     if (exit_code == 166) {
-        //         cerr << RED << "find correctness bug" << RESET << endl;
-        //         return -1;
-        //     }
-        // }
+        random_test(options);
     }
 
     return 0;
