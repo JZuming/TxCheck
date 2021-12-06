@@ -6,9 +6,6 @@
 #define KILL_PROC_TIME_MS 10000
 #define WAIT_FOR_PROC_TIME_MS 20000
 
-int child_pid = 0;
-bool child_timed_out = false;
-
 int make_dir_error_exit(string folder)
 {
     if (mkdir(folder.c_str(), 0700)) {
@@ -124,23 +121,6 @@ void user_signal(int signal)
      
     cerr << "get SIGUSR1, stop the thread" << endl;
     pthread_exit(0);
-}
-
-void kill_process_signal(int signal)  
-{  
-    if(signal != SIGALRM) {  
-        printf("unexpect signal %d\n", signal);  
-        exit(1);  
-    }
-
-    if (child_pid > 0) {
-        printf("child pid timeout, kill it\n"); 
-        child_timed_out = true;
-		kill(child_pid, SIGKILL);
-	}
-
-    cerr << "get SIGALRM, stop the process" << endl;
-    return;  
 }
 
 void* test_thread(void* argv)
@@ -1151,7 +1131,7 @@ static unsigned long long get_cur_time_ms(void) {
 	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
 }
 
-static void kill_process_with_SIGTERM(pid_t process_id)
+void kill_process_with_SIGTERM(pid_t process_id)
 {
     kill(process_id, SIGTERM);
     int ret;
@@ -1175,6 +1155,8 @@ bool transaction_test::fork_if_server_closed()
     while (1) {
         try {
             auto dut = dut_setup(*options);
+            if (server_restart)
+                sleep(3);
             break; // connect successfully, so break;
         
         } catch (exception &e) { // connect fail

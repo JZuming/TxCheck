@@ -54,10 +54,100 @@ extern "C" {
 }
 
 #include "transaction_test.hh"
-// #define __DEBUG_MODE__
+
+#define NORMAL_EXIT 0
+#define RESTART_SERVER_EXIT 8
+#define MAX_TIMEOUT_TIME 3
 
 pthread_mutex_t mutex_timeout;  
 pthread_cond_t  cond_timeout;
+
+int child_pid = 0;
+bool child_timed_out = false;
+
+void kill_process_signal(int signal)  
+{  
+    if(signal != SIGALRM) {  
+        printf("unexpect signal %d\n", signal);  
+        exit(1);  
+    }
+
+    if (child_pid > 0) {
+        printf("child pid timeout, kill it\n"); 
+        child_timed_out = true;
+		kill(child_pid, SIGKILL);
+	}
+
+    cerr << "get SIGALRM, stop the process" << endl;
+    return;  
+}
+
+int fork_for_transaction_test(map<string,string>& options,
+                            file_random_machine* random_file,
+                            bool is_serilizable)
+{
+    static itimerval itimer;
+
+    child_pid = fork();
+    if (child_pid == 0) { // in child process
+        try {
+            transaction_test tt(options, random_file, false);
+            auto restart = tt.fork_if_server_closed();
+            if (restart)
+                exit(RESTART_SERVER_EXIT); // need to generate database again
+            
+            auto ret = tt.test();
+            if (ret == 1)
+                cerr << RED << "find a bug" << RESET << endl;
+
+        } catch(std::exception &e) { // ignore runtime error
+            cerr << e.what() << endl;
+        }
+        exit(NORMAL_EXIT);
+    }
+
+    itimer.it_value.tv_sec = TRANSACTION_TIMEOUT;
+    itimer.it_value.tv_usec = 0; // us limit
+    setitimer(ITIMER_REAL, &itimer, NULL);
+
+    int status;
+    auto res = waitpid(child_pid, &status, 0);
+    if (res <= 0) {
+        cerr << "waitpid() fail: " <<  res << endl;
+        throw runtime_error(string("waitpid() fail"));
+    }
+
+    if (!WIFSTOPPED(status)) 
+        child_pid = 0;
+    
+    itimer.it_value.tv_sec = 0;
+    itimer.it_value.tv_usec = 0;
+    setitimer(ITIMER_REAL, &itimer, NULL);
+    
+    if (WIFEXITED(status)) {
+        auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
+        cerr << "exit code " << exit_code << endl;
+        if (exit_code == RESTART_SERVER_EXIT) {
+            cerr << RED << "server is restarted, should generate db again" << RESET << endl;
+            throw runtime_error(string("restart server"));
+        }
+    }
+
+    if (WIFSIGNALED(status)) {
+        auto killSignal = WTERMSIG(status);
+        if (child_timed_out && killSignal == SIGKILL) {
+            cerr << "timeout in generating stmt, reset the seed" << endl;
+            smith::rng.seed(time(NULL));
+            throw runtime_error(string("transaction test timeout"));
+        }
+        else {
+            cerr << RED << "find memory bug" << RESET << endl;
+            throw runtime_error(string("memory bug"));
+        }
+    }
+
+    return 0;
+}
 
 int random_test(map<string,string>& options)
 {
@@ -90,20 +180,41 @@ int random_test(map<string,string>& options)
     } 
 
     int i = TEST_TIME_FOR_EACH_DB;
+    int timeout_time = 0;
     while (i--) {
+        // try {
+        //     transaction_test tt(options, random_file, false);
+        //     auto restart = tt.fork_if_server_closed();
+        //     if (restart)
+        //         break;
+        //     auto ret = tt.test();
+        //     //auto ret = old_transaction_test(options, random_file);
+        //     if (ret == 1) {
+        //         cerr << RED << "find a bug" << RESET << endl;
+        //     }
+        // } catch(std::exception &e) { // ignore runtime error
+        //     cerr << e.what() << endl;
+        // } 
+        
+        if (timeout_time >= MAX_TIMEOUT_TIME) {
+            kill_process_with_SIGTERM(transaction_test::server_process_id);
+            timeout_time = 0;
+        }
+        
         try {
-            transaction_test tt(options, random_file, false);
-            auto restart = tt.fork_if_server_closed();
-            if (restart)
+            fork_for_transaction_test(options, random_file, false);
+        } catch (exception &e) {
+            string err = e.what();
+            cerr << "ERROR in random_test: " << err << endl;
+            if (err == "restart server")
                 break;
-            auto ret = tt.test();
-            //auto ret = old_transaction_test(options, random_file);
-            if (ret == 1) {
-                cerr << RED << "find a bug" << RESET << endl;
+            else if (err == "transaction test timeout") 
+                timeout_time++;
+            else {
+                cerr << "the exception cannot be handled" << endl;
+                throw e;
             }
-        } catch(std::exception &e) { // ignore runtime error
-            cerr << e.what() << endl;
-        } 
+        }
     }
     
     return 0;

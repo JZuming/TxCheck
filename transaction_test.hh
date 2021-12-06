@@ -140,7 +140,6 @@ public:
 shared_ptr<schema> get_schema(map<string,string>& options);
 shared_ptr<dut_base> dut_setup(map<string,string>& options);
 void user_signal(int signal);
-void kill_process_signal(int signal);
 void* test_thread(void* argv);
 void dut_test(map<string,string>& options, const string& stmt, bool need_affect);
 void dut_reset(map<string,string>& options);
@@ -159,6 +158,7 @@ void normal_test(map<string,string>& options,
                     vector<string>& rec_vec,
                     bool need_affect);
 int generate_database(map<string,string>& options, file_random_machine* random_file);
+void kill_process_with_SIGTERM(pid_t process_id);
 
 extern pthread_mutex_t mutex_timeout;  
 extern pthread_cond_t  cond_timeout;

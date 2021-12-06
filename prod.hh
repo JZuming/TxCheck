@@ -13,8 +13,7 @@
 #define MAX_TRY_TIME 1
 #define TEST_TIME_FOR_EACH_DB 10
 #define STATEMENT_TIMEOUT 10
-#define TRANSACTION_TIMEOUT 20
-#define DATABASE_TIMEOUT 240
+#define TRANSACTION_TIMEOUT 60
 
 /// Base class for walking the AST
 struct prod_visitor {
