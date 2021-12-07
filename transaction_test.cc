@@ -51,7 +51,8 @@ shared_ptr<schema> get_schema(map<string,string>& options)
     } catch (exception &e) { // may occur occastional error
         if (try_time >= 128) {
             cerr << "Fail in get_schema() " << try_time << " times, return" << endl;
-            throw e;
+            cerr << "exception: " << e.what() << endl;
+	        throw e;
         }
         try_time++;
         schema = get_schema(options);

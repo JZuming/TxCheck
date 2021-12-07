@@ -74,7 +74,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
               TABLE_TYPE='BASE TABLE' ORDER BY 1;";
     
     if (mysql_real_query(&mysql, get_table_query.c_str(), get_table_query.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load table list)!");
     
     auto result = mysql_store_result(&mysql);
     while (auto row = mysql_fetch_row(result)) {
@@ -88,7 +88,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     string get_view_query = "select distinct table_name from information_schema.views \
         where table_schema='" + db + "' order by 1;";
     if (mysql_real_query(&mysql, get_view_query.c_str(), get_view_query.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load view list)!");
     
     result = mysql_store_result(&mysql);
     while (auto row = mysql_fetch_row(result)) {
@@ -105,7 +105,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
                     INDEX_NAME <> COLUMN_NAME AND \
                     INDEX_NAME <> 'PRIMARY' ORDER BY 1;";
     if (mysql_real_query(&mysql, get_index_query.c_str(), get_index_query.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load index list)!");
 
     result = mysql_store_result(&mysql);
     while (auto row = mysql_fetch_row(result)) {
@@ -120,7 +120,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
                 WHERE TABLE_NAME='" + t.ident() + "' AND \
                     TABLE_SCHEMA='" + db + "'  ORDER BY ORDINAL_POSITION;";
         if (mysql_real_query(&mysql, get_column_query.c_str(), get_column_query.size()))
-            throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql!");
+            throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load table " + t.ident() + ")!");
         result = mysql_store_result(&mysql);
         while (auto row = mysql_fetch_row(result)) {
             column c(row[0], sqltype::get(row[1]));

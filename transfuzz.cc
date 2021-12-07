@@ -58,6 +58,7 @@ extern "C" {
 #define NORMAL_EXIT 0
 #define FIND_BUG_EXIT 7
 #define MAX_TIMEOUT_TIME 3
+#define MAX_SETUP_TRY_TIME 3
 
 pthread_mutex_t mutex_timeout;  
 pthread_cond_t  cond_timeout;
@@ -170,7 +171,13 @@ int random_test(map<string,string>& options)
     }
     
     // reset the target DBMS to initial state
+    int setup_try_time = 0;
     while (1) {
+        if (setup_try_time > MAX_SETUP_TRY_TIME) {
+            kill_process_with_SIGTERM(transaction_test::server_process_id);
+            setup_try_time = 0;
+        }
+
         try {
             transaction_test just_setup(options, random_file, false);
             just_setup.fork_if_server_closed();
@@ -179,27 +186,14 @@ int random_test(map<string,string>& options)
             generate_database(options, random_file);
             break;
         } catch(std::exception &e) {
-            cerr << e.what() << "in setup stage" << endl;
+            cerr << e.what() << " in setup stage" << endl;
+            setup_try_time++;
         }
     } 
 
     int i = TEST_TIME_FOR_EACH_DB;
     int timeout_time = 0;
     while (i--) {
-        // try {
-        //     transaction_test tt(options, random_file, false);
-        //     auto restart = tt.fork_if_server_closed();
-        //     if (restart)
-        //         break;
-        //     auto ret = tt.test();
-        //     //auto ret = old_transaction_test(options, random_file);
-        //     if (ret == 1) {
-        //         cerr << RED << "find a bug" << RESET << endl;
-        //     }
-        // } catch(std::exception &e) { // ignore runtime error
-        //     cerr << e.what() << endl;
-        // } 
-        
         if (timeout_time >= MAX_TIMEOUT_TIME) {
             kill_process_with_SIGTERM(transaction_test::server_process_id);
             timeout_time = 0;
@@ -212,8 +206,10 @@ int random_test(map<string,string>& options)
             cerr << "ERROR in random_test: " << err << endl;
             if (err == "restart server")
                 break;
-            else if (err == "transaction test timeout") 
+            else if (err == "transaction test timeout") {
                 timeout_time++;
+                i++; // this test is not token into account
+            }
             else {
                 cerr << "the exception cannot be handled" << endl;
                 throw e;
