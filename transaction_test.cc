@@ -218,11 +218,15 @@ void dut_reset_to_backup(map<string,string>& options)
 }
 
 void dut_get_content(map<string,string>& options, 
-                    vector<string>& tables_name, 
                     map<string, vector<string>>& content)
 {
+    vector<string> table_names;
+    auto schema = get_schema(options);
+    for (auto& table:schema->tables)
+        table_names.push_back(table.ident());
+    
     auto dut = dut_setup(options);
-    dut->get_content(tables_name, content);
+    dut->get_content(table_names, content);
 }
 
 void interect_test(map<string,string>& options, 
@@ -411,7 +415,7 @@ static bool compare_content(map<string, vector<string>>&con_content,
                      map<string, vector<string>>&seq_content)
 {
     if (con_content.size() != seq_content.size()) {
-        cerr << "con_content is not seq_content" << endl;
+        cerr << "size not equal: " << con_content.size() << " " << seq_content.size() << endl;
         return false;
     }
     
@@ -707,14 +711,18 @@ void transaction_test::trans_test()
             trans_arr[tid].dut->test(stmt, &output);
             if (!output.empty())
                 trans_arr[tid].stmt_outputs.push_back(output);
+            
+            if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+                dut_get_content(*options, trans_arr[tid].committed_content); // get the content after commit
+            }
 
             stmt_index++;
             cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
         } catch(exception &e) {
             string err = e.what();
             cerr << RED 
-            << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
-            << err << RESET << endl;
+                << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+                << err << RESET << endl;
 
             if (err.find("ost connection") != string::npos)
                 throw e;
@@ -746,11 +754,7 @@ void transaction_test::trans_test()
     }
 
     // collect database information
-    vector<string> table_names;
-    auto schema = get_schema(*options);
-    for (auto& table:schema->tables)
-        table_names.push_back(table.ident());
-    dut_get_content(*options, table_names, trans_content);
+    dut_get_content(*options, trans_content);
 }
 
 void transaction_test::normal_test()
@@ -807,12 +811,17 @@ void transaction_test::normal_test()
                 normal_dut->test(stmt, &output);
                 if (!output.empty())
                     trans_arr[tid].normal_test_stmt_outputs.push_back(output);
+                
+                if (trans_arr[tid].status == 1 && i == normal_stmt_num - 1) { // last statement
+                    dut_get_content(*options, trans_arr[tid].executed_content);
+                }
+
                 cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
             } catch(exception &e) {
                 string err = e.what();
                 cerr << RED 
-                << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
-                << err << RESET << endl;
+                    << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+                    << err << RESET << endl;
                 trans_arr[tid].normal_test_stmt_err_info.push_back(err);
             }
         }
@@ -820,16 +829,12 @@ void transaction_test::normal_test()
     normal_dut.reset();
 
     // collect database information
-    vector<string> table_names;
-    auto schema = get_schema(*options);
-    for (auto& table:schema->tables)
-        table_names.push_back(table.ident());
-    dut_get_content(*options, table_names, normal_content);
+    dut_get_content(*options, normal_content);
 }
 
 bool transaction_test::check_result()
 {
-    cerr << "check the content " << endl;
+    cerr << "check the final content " << endl;
     if (!compare_content(trans_content, normal_content)) {
         cerr << "trans_content is not equal to normal_content" << endl;
         return false;
@@ -845,21 +850,27 @@ bool transaction_test::check_result()
             return false;
         }
 
-        // cerr << "check the error inf of " << i << endl;
-        // auto err_size = trans_arr[i].stmt_err_info.size();
-        // if (err_size != trans_arr[i].normal_test_stmt_err_info.size()) {
-        //     cerr << "error info size is different to normal one "<< err_size 
-        //         << trans_arr[i].normal_test_stmt_err_info.size() << endl;
-        //     return false;
-        // }
-        // for (int j = 0; j < err_size; j++) {
-        //     if (trans_arr[i].stmt_err_info[j] != trans_arr[i].normal_test_stmt_err_info[j]) {
-        //         cerr << "error info is different to normal one" << endl;
-        //         cerr << "trans one: " << trans_arr[i].stmt_err_info[j] << endl;
-        //         cerr << "normal one: " << trans_arr[i].normal_test_stmt_err_info[j] << endl;
-        //         return false;
-        //     }
-        // }
+        cerr << "check the content after executing " << i << endl;
+        if (!compare_content(trans_arr[i].committed_content, trans_arr[i].executed_content)) {
+            cerr << "committed content of " << i << " is not equal to normal one" << endl;
+            return false;
+        }
+
+        cerr << "check the error info of " << i << endl;
+        auto err_size = trans_arr[i].stmt_err_info.size();
+        if (err_size != trans_arr[i].normal_test_stmt_err_info.size()) {
+            cerr << "error info size is different to normal one "<< err_size 
+                << trans_arr[i].normal_test_stmt_err_info.size() << endl;
+            return false;
+        }
+        for (int j = 0; j < err_size; j++) {
+            if (trans_arr[i].stmt_err_info[j] != trans_arr[i].normal_test_stmt_err_info[j]) {
+                cerr << "error info is different to normal one" << endl;
+                cerr << "trans one: " << trans_arr[i].stmt_err_info[j] << endl;
+                cerr << "normal one: " << trans_arr[i].normal_test_stmt_err_info[j] << endl;
+                return false;
+            }
+        }
     }
 
     return true;

@@ -85,13 +85,16 @@ struct test_thread_arg {
 
 struct transaction {
     shared_ptr<dut_base> dut;
+    
     vector<string> stmts;
     vector<vector<string>> stmt_outputs;
     vector<string> stmt_err_info;
+    map<string, vector<string>> committed_content; // database content after commit
 
     vector<string> normal_test_stmts;
     vector<vector<string>> normal_test_stmt_outputs;
     vector<string> normal_test_stmt_err_info;
+    map<string, vector<string>> executed_content; // database content after execution
 
     int stmt_num;
     int status;
@@ -146,7 +149,6 @@ void dut_reset(map<string,string>& options);
 void dut_backup(map<string,string>& options);
 void dut_reset_to_backup(map<string,string>& options);
 void dut_get_content(map<string,string>& options, 
-                    vector<string>& tables_name, 
                     map<string, vector<string>>& content);
 void interect_test(map<string,string>& options, 
                     shared_ptr<prod> (* tmp_statement_factory)(scope *), 
