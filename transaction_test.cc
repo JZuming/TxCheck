@@ -711,13 +711,15 @@ void transaction_test::trans_test()
             trans_arr[tid].dut->test(stmt, &output);
             if (!output.empty())
                 trans_arr[tid].stmt_outputs.push_back(output);
-            
-            if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
-                dut_get_content(*options, trans_arr[tid].committed_content); // get the content after commit
-            }
 
             stmt_index++;
             cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+
+            // it is commit, it must succeed
+            if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+                cerr << "getting content of trans " << tid << " (transaction one) " << endl;
+                dut_get_content(*options, trans_arr[tid].committed_content); // get the content after commit
+            }
         } catch(exception &e) {
             string err = e.what();
             cerr << RED 
@@ -811,10 +813,6 @@ void transaction_test::normal_test()
                 normal_dut->test(stmt, &output);
                 if (!output.empty())
                     trans_arr[tid].normal_test_stmt_outputs.push_back(output);
-                
-                if (trans_arr[tid].status == 1 && i == normal_stmt_num - 1) { // last statement
-                    dut_get_content(*options, trans_arr[tid].executed_content);
-                }
 
                 cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
             } catch(exception &e) {
@@ -823,6 +821,11 @@ void transaction_test::normal_test()
                     << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
                     << err << RESET << endl;
                 trans_arr[tid].normal_test_stmt_err_info.push_back(err);
+            }
+
+            if (trans_arr[tid].status == 1 && i == normal_stmt_num - 1) { // last statement
+                cerr << "getting content of trans " << tid << " (normal one) " << endl;
+                dut_get_content(*options, trans_arr[tid].executed_content);
             }
         }
     }
