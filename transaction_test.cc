@@ -859,21 +859,21 @@ bool transaction_test::check_result()
             return false;
         }
 
-        cerr << "check the error info of " << i << endl;
-        auto err_size = trans_arr[i].stmt_err_info.size();
-        if (err_size != trans_arr[i].normal_test_stmt_err_info.size()) {
-            cerr << "error info size is different to normal one "<< err_size 
-                << trans_arr[i].normal_test_stmt_err_info.size() << endl;
-            return false;
-        }
-        for (int j = 0; j < err_size; j++) {
-            if (trans_arr[i].stmt_err_info[j] != trans_arr[i].normal_test_stmt_err_info[j]) {
-                cerr << "error info is different to normal one" << endl;
-                cerr << "trans one: " << trans_arr[i].stmt_err_info[j] << endl;
-                cerr << "normal one: " << trans_arr[i].normal_test_stmt_err_info[j] << endl;
-                return false;
-            }
-        }
+        // cerr << "check the error info of " << i << endl;
+        // auto err_size = trans_arr[i].stmt_err_info.size();
+        // if (err_size != trans_arr[i].normal_test_stmt_err_info.size()) {
+        //     cerr << "error info size is different to normal one "<< err_size 
+        //         << trans_arr[i].normal_test_stmt_err_info.size() << endl;
+        //     return false;
+        // }
+        // for (int j = 0; j < err_size; j++) {
+        //     if (trans_arr[i].stmt_err_info[j] != trans_arr[i].normal_test_stmt_err_info[j]) {
+        //         cerr << "error info is different to normal one" << endl;
+        //         cerr << "trans one: " << trans_arr[i].stmt_err_info[j] << endl;
+        //         cerr << "normal one: " << trans_arr[i].normal_test_stmt_err_info[j] << endl;
+        //         return false;
+        //     }
+        // }
     }
 
     return true;
