@@ -6,11 +6,14 @@
 
 extern "C"  {
 #include <libpq-fe.h>
+#include <unistd.h>
 }
 
 #include "schema.hh"
 #include "relmodel.hh"
 #include "dut.hh"
+
+#include <set>
 
 struct cockroachdb_connection {
     PGconn *conn;

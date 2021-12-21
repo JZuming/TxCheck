@@ -1,28 +1,4 @@
-#include <stdexcept>
-#include <cassert>
-#include <cstring>
 #include "cockroachdb.hh"
-#include <iostream>
-#include <set>
-
-#ifndef HAVE_BOOST_REGEX
-#include <regex>
-#else
-#include <boost/regex.hpp>
-using boost::regex;
-using boost::smatch;
-using boost::regex_match;
-#endif
-
-using namespace std;
-
-static regex e_unknown_database(".*Unknown database.*");
-static regex e_crash(".*Lost connection.*");
-  
-extern "C"  {
-#include <mysql/mysql.h>
-#include <unistd.h>
-}
 
 cockroachdb_connection::cockroachdb_connection(string db, unsigned int port)
 {
@@ -591,19 +567,21 @@ pid_t dut_cockroachdb::fork_db_server()
 {
     pid_t child = fork();
     if (child < 0) {
-        throw std::runtime_error(string("Fork db server fail") + " in dut_mysql::fork_db_server!");
+        throw std::runtime_error(string("Fork db server fail") + " in dut_cockroachdb::fork_db_server!");
     }
 
     if (child == 0) {
         char *server_argv[128];
         int i = 0;
-        server_argv[i++] = (char *)"cockroach"; // path of tiup
-        server_argv[i++] = (char *)"--insecure";
-        server_argv[i++] = (char *)"--listen-addr=localhost:26257";
-        server_argv[i++] = (char *)"--http-addr=localhost:8080";
+        server_argv[i++] = "/usr/local/bin/cockroach";
+        server_argv[i++] = "start-single-node";
+        server_argv[i++] = "--insecure";
+        server_argv[i++] = "--listen-addr=localhost:26257";
+        server_argv[i++] = "--http-addr=localhost:8080";
         server_argv[i++] = NULL;
         execv(server_argv[0], server_argv);
-        cerr << "fork tidb server fail in dut_mysql::fork_db_server" << endl; 
+        cerr << "fork cockroachdb server fail in dut_cockroachdb::fork_db_server" << endl;
+        exit(-1);
     }
 
     cout << "server pid: " << child << endl;

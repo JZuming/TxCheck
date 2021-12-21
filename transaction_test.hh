@@ -38,6 +38,7 @@ using boost::regex_match;
 #include "monetdb.hh"
 #endif
 
+#include "cockroachdb.hh"
 #include "postgres.hh"
 
 #include <sys/time.h>

@@ -224,7 +224,11 @@ int main(int argc, char *argv[])
 {
     // analyze the options
     map<string,string> options;
-    regex optregex("--(help|postgres|sqlite|monetdb|random-seed|mysql-db|mysql-port|reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
+    regex optregex("--\
+(help|postgres|sqlite|monetdb|random-seed|\
+mysql-db|mysql-port|\
+cockroach-db|cockroach-port|\
+reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
         smatch match;
@@ -250,6 +254,8 @@ int main(int argc, char *argv[])
             "    --mysql-db=constr    mysql database name to send queries to (should used with" << endl << 
             "    --mysql-port=int     mysql server port number" << endl << 
             #endif
+            "    --cockroach-db=constr  cockroach database name to send queries to (should used with" << endl << 
+            "    --cockroach-port=int   cockroach server port number" << endl << 
             "    --random-seed=filename    random file for dynamic query interaction" << endl <<
             "    --reproduce-sql=filename    sql file to reproduce the problem" << endl <<
             "    --reproduce-tid=filename    tid file to reproduce the problem" << endl <<

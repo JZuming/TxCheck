@@ -35,6 +35,9 @@ shared_ptr<schema> get_schema(map<string,string>& options)
             cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
             throw runtime_error("Does not support MySQL");
             #endif
+        } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
+            schema = make_shared<schema_cockroachdb>(options["cockroach-db"], stoi(options["cockroach-port"]));
+
         } else if (options.count("monetdb")) {
             #ifdef HAVE_MONETDB
             schema = make_shared<schema_monetdb>(options["monetdb"]);
@@ -79,6 +82,9 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
         cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
         throw runtime_error("Does not support MySQL");
         #endif
+    } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
+        dut = make_shared<dut_cockroachdb>(options["cockroach-db"], stoi(options["cockroach-port"]));
+
     } else if(options.count("monetdb")) {
         #ifdef HAVE_MONETDB	   
         dut = make_shared<dut_monetdb>(options["monetdb"]);
@@ -110,6 +116,9 @@ pid_t fork_db_server(map<string,string>& options)
         fork_pid = dut_mysql::fork_db_server();
     }
 #endif
+    else if (options.count("cockroach-db") && options.count("cockroach-port")) {
+        fork_pid = dut_cockroachdb::fork_db_server();
+    }
     else {
         cerr << "Sorry,  you should specify a dbms or your dbms not support" << endl;
         throw runtime_error("Does not define target dbms and db");
