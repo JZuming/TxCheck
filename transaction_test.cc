@@ -99,12 +99,17 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
 pid_t fork_db_server(map<string,string>& options)
 {
     pid_t fork_pid;
-    if (options.count("sqlite")) {
+    if (false) {}
+#ifdef HAVE_LIBSQLITE3
+    else if (options.count("sqlite")) {
         fork_pid = 0;
     }
+#endif
+#ifdef HAVE_LIBMYSQLCLIENT
     else if (options.count("mysql-db") && options.count("mysql-port")) {
         fork_pid = dut_mysql::fork_db_server();
     }
+#endif
     else {
         cerr << "Sorry,  you should specify a dbms or your dbms not support" << endl;
         throw runtime_error("Does not define target dbms and db");
