@@ -417,7 +417,7 @@ void dut_cockroachdb::backup(void)
     string delete_backup = "cockroach userfile delete test.backup --insecure";
     system(delete_backup.c_str());
     
-    string backup_sql = "BACKUP DATABASE " + test_db + "TO 'userfile:///test.backup'";
+    string backup_sql = "BACKUP DATABASE " + test_db + " TO 'userfile:///test.backup';";
     auto res = PQexec(conn, backup_sql.c_str());
     auto status = PQresultStatus(res);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
@@ -497,7 +497,7 @@ void dut_cockroachdb::trans_test(const std::vector<std::string> &stmt_vec
 void dut_cockroachdb::reset_to_backup(void)
 {
     reset();
-    string restore_sql = "RESTORE " + test_db + ".* FROM 'userfile:///backuptest';";
+    string restore_sql = "RESTORE " + test_db + ".* FROM 'userfile:///test.backup';";
     auto res = PQexec(conn, restore_sql.c_str());
     auto status = PQresultStatus(res);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
