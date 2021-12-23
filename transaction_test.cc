@@ -534,8 +534,13 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
 
 static void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
                         int trans_stmt_num,
-                        vector<string>& trans_rec)
+                        vector<string>& trans_rec,
+                        map<std::string, std::string> *options = NULL,
+                        bool can_trigger_err = true)
 {
+    if (can_trigger_err == false)
+        dut_reset_to_backup(*options);
+    
     scope scope;
     db_schema->fill_scope(scope);
     for (int i = 0; i < trans_stmt_num; i++) {
@@ -544,6 +549,17 @@ static void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
         ostringstream stmt_stream;
         gen->out(stmt_stream);
         auto stmt = stmt_stream.str() + ";";
+
+        if (can_trigger_err == false) {
+            try {
+                auto dut = dut_setup(*options);
+                dut->test(stmt);
+            } catch (exception &e) {
+                i = i - 1; // generate a stmt again
+                continue;
+            }
+        }
+
         trans_rec.push_back(stmt);
     }
 }

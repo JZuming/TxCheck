@@ -329,6 +329,15 @@ static int check_bugs(PGconn *conn, PGresult *res)
 
 void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
+    string local_stmt = stmt;
+    if (stmt == "COMMIT;") {
+        auto status = PQtransactionStatus(conn);
+        if (status == PQTRANS_INERROR) {
+            cerr << "Transaction state error, cannot commit" << endl;
+            throw std::runtime_error("PQTRANS_INERROR in cockroachdb::test"); 
+        }
+    }
+    
     auto res = PQexec(conn, stmt.c_str());
     auto status = PQresultStatus(res);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
@@ -366,6 +375,7 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
             output->push_back("\n");
         }
     }
+    
     PQclear(res);
 }
 
