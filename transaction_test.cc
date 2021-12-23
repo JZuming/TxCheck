@@ -102,6 +102,60 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
     return dut;
 }
 
+bool get_serializability(map<string,string>& options)
+{
+    if (options.count("sqlite")) {
+        #ifdef HAVE_LIBSQLITE3
+        return true;
+        #else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
+        throw runtime_error("Does not support SQLite");
+        #endif
+    } else if (options.count("mysql-db") && options.count("mysql-port")) {
+        #ifdef HAVE_LIBMYSQLCLIENT
+        return false;
+        #else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
+        throw runtime_error("Does not support MySQL");
+        #endif
+    } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
+        return true;
+    } 
+    else {
+        cerr << "Sorry,  you should specify a dbms and its database, or your dbms is not supported" << endl;
+        throw runtime_error("Does not define target dbms and db");
+    }
+
+    return false;
+}
+
+bool can_trigger_error_in_transaction(map<string,string>& options)
+{
+    if (options.count("sqlite")) {
+        #ifdef HAVE_LIBSQLITE3
+        return true;
+        #else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
+        throw runtime_error("Does not support SQLite");
+        #endif
+    } else if (options.count("mysql-db") && options.count("mysql-port")) {
+        #ifdef HAVE_LIBMYSQLCLIENT
+        return true;
+        #else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
+        throw runtime_error("Does not support MySQL");
+        #endif
+    } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
+        return false;
+    } 
+    else {
+        cerr << "Sorry,  you should specify a dbms and its database, or your dbms is not supported" << endl;
+        throw runtime_error("Does not define target dbms and db");
+    }
+
+    return false;
+}
+
 pid_t fork_db_server(map<string,string>& options)
 {
     pid_t fork_pid;
@@ -535,8 +589,8 @@ int generate_database(map<string,string>& options, file_random_machine* random_f
 static void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
                         int trans_stmt_num,
                         vector<string>& trans_rec,
-                        map<std::string, std::string> *options = NULL,
-                        bool can_trigger_err = true)
+                        map<std::string, std::string> *options,
+                        bool can_trigger_err)
 {
     if (can_trigger_err == false)
         dut_reset_to_backup(*options);
@@ -704,7 +758,7 @@ void transaction_test::gen_stmt_for_each_trans()
         
         // save 2 stmts for begin and commit/abort
         smith::rng.seed(time(NULL));
-        new_gen_trans_stmts(schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts);
+        new_gen_trans_stmts(schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts, options, can_trigger_error);
         trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == 1);
     }
 
@@ -1040,30 +1094,25 @@ bool transaction_test::fork_if_server_closed()
 
 transaction_test::transaction_test(map<string,string>& options_arg, 
                         file_random_machine* random_file_arg, 
-                        bool is_seri)
+                        bool is_seri,
+                        bool can_trigger_err)
 {
     options = &options_arg;
     random_file = random_file_arg;
     
     trans_num = d6() + 4; // 5 - 11
     stmt_num = trans_num * (3 + d12()); // average statement number of each transaction is 4 - 15
+    
     is_serializable = is_seri;
+    can_trigger_error = can_trigger_err;
 
     must_commit_num = dx(trans_num);
 
     trans_arr = new transaction[trans_num];
 
-    // if (d6() <= 3)
-        need_affect = false;
-    // else
-    //     need_affect = true;
-
     output_path_dir = "found_bugs/";
     struct stat buffer;
-    if (stat(output_path_dir.c_str(), &buffer) == 0) {
-        cout << "output folder is exist" << endl;
-    }
-    else {
+    if (stat(output_path_dir.c_str(), &buffer) != 0) {
         make_dir_error_exit(output_path_dir);
     }
 }

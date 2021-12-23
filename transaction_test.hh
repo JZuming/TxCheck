@@ -113,9 +113,10 @@ public:
     string output_path_dir;
 
     int must_commit_num;
-    bool need_affect;
 
     bool is_serializable;
+    bool can_trigger_error;
+
     int trans_num;
     int stmt_num;
 
@@ -135,7 +136,10 @@ public:
 
     bool fork_if_server_closed();
 
-    transaction_test(map<string,string>& options, file_random_machine* random_file, bool is_serializable);
+    transaction_test(map<string,string>& options, 
+                     file_random_machine* random_file, 
+                     bool is_seri, 
+                     bool can_trigger_err);
     ~transaction_test();
     int test();
 };
@@ -143,6 +147,9 @@ public:
 
 shared_ptr<schema> get_schema(map<string,string>& options);
 shared_ptr<dut_base> dut_setup(map<string,string>& options);
+bool get_serializability(map<string,string>& options);
+bool can_trigger_error_in_transaction(map<string,string>& options);
+
 void user_signal(int signal);
 void* test_thread(void* argv);
 void dut_test(map<string,string>& options, const string& stmt, bool need_affect);

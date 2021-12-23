@@ -85,11 +85,12 @@ void kill_process_signal(int signal)
 
 int fork_for_transaction_test(map<string,string>& options,
                             file_random_machine* random_file,
-                            bool is_serilizable)
+                            bool is_serilizable,
+                            bool can_trigger_error)
 {
     static itimerval itimer;
 
-    auto just_check_server = make_shared<transaction_test>(options, random_file, false);
+    auto just_check_server = make_shared<transaction_test>(options, random_file, is_serilizable, can_trigger_error);
     auto restart = just_check_server->fork_if_server_closed();
     if (restart)
         throw runtime_error(string("restart server")); // need to generate database again
@@ -98,7 +99,7 @@ int fork_for_transaction_test(map<string,string>& options,
     child_pid = fork();
     if (child_pid == 0) { // in child process
         try {
-            transaction_test tt(options, random_file, false);
+            transaction_test tt(options, random_file, is_serilizable, can_trigger_error);
             auto ret = tt.test();
             if (ret == 1) {
                 cerr << RED << "find a bug" << RESET << endl;
@@ -154,8 +155,10 @@ int fork_for_transaction_test(map<string,string>& options,
     return 0;
 }
 
-int random_test(map<string,string>& options)
-{
+int random_test(map<string,string>& options,
+                bool is_serializable,
+                bool can_trigger_error)
+{   
     struct file_random_machine* random_file;
     if (options.count("random-seed")) {
         cerr << "random seed is " << options["random-seed"] << endl;
@@ -179,7 +182,7 @@ int random_test(map<string,string>& options)
         }
 
         try {
-            transaction_test just_setup(options, random_file, false);
+            transaction_test just_setup(options, random_file, is_serializable, can_trigger_error);
             just_setup.fork_if_server_closed();
             
             dut_reset(options);
@@ -200,7 +203,7 @@ int random_test(map<string,string>& options)
         }
         
         try {
-            fork_for_transaction_test(options, random_file, false);
+            fork_for_transaction_test(options, random_file, is_serializable, can_trigger_error);
         } catch (exception &e) {
             string err = e.what();
             cerr << "ERROR in random_test: " << err << endl;
@@ -291,15 +294,19 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
     pthread_mutex_init(&mutex_timeout, NULL);  
     pthread_cond_init(&cond_timeout, NULL);
 
-    // static itimerval itimer;
-    // random_test(options);
+    bool is_serializable = get_serializability(options);
+    bool can_trigger_error = can_trigger_error_in_transaction(options);
+
+    cerr << "Test DBMS: " << endl;
+    cerr << "Serializablility: " << is_serializable << endl;
+    cerr << "Can trigger error in transaction: " << can_trigger_error << endl;
 
     if (options.count("reproduce-sql")) {
         cerr << "enter reproduce mode" << endl;
         if (!options.count("reproduce-tid"))
             cerr << "should also provide tid file" << endl;
 
-        transaction_test re_test(options, NULL, false);
+        transaction_test re_test(options, NULL, is_serializable, can_trigger_error);
 
         // get stmt queue
         ifstream stmt_file(options["reproduce-sql"]);
@@ -360,7 +367,7 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
     }
     
     while (1) {
-        random_test(options);
+        random_test(options, is_serializable, can_trigger_error);
     }
 
     return 0;
