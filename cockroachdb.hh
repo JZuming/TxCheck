@@ -13,6 +13,7 @@ extern "C"  {
 #include "relmodel.hh"
 #include "dut.hh"
 
+#include <sys/time.h>
 #include <set>
 
 struct cockroachdb_connection {

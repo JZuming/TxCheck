@@ -14,6 +14,7 @@
 #define TEST_TIME_FOR_EACH_DB 10
 #define STATEMENT_TIMEOUT 10
 #define TRANSACTION_TIMEOUT 120
+#define STMT_BLOCK_MS 3000
 
 /// Base class for walking the AST
 struct prod_visitor {
