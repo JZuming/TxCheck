@@ -86,6 +86,7 @@ struct test_thread_arg {
 
 struct transaction {
     shared_ptr<dut_base> dut;
+    bool is_blocked;
     
     vector<string> stmts;
     vector<vector<string>> stmt_outputs;
@@ -96,6 +97,8 @@ struct transaction {
     vector<vector<string>> normal_test_stmt_outputs;
     vector<string> normal_test_stmt_err_info;
     map<string, vector<string>> executed_content; // database content after execution
+
+    transaction() {is_blocked = false; stmt_num = 0; status = 0;}
 
     int stmt_num;
     int status;
@@ -123,6 +126,9 @@ public:
     vector<int> tid_queue;
     vector<string> stmt_queue;
 
+    vector<int> real_tid_queue;
+    vector<string> real_stmt_queue;
+
     map<string, vector<string>> trans_content;
     map<string, vector<string>> normal_content;
 
@@ -141,7 +147,9 @@ public:
                      bool is_seri, 
                      bool can_trigger_err);
     ~transaction_test();
+    
     int test();
+    void retry_block_stmt(int cur_stmt_num);
 };
 
 
