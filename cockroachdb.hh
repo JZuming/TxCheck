@@ -48,6 +48,9 @@ struct dut_cockroachdb : dut_base, cockroachdb_connection {
     virtual void reset_to_backup(void);
     virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content);
     dut_cockroachdb(string db, unsigned int port);
+
+    bool has_sent_sql;
+    string sent_sql;
 };
 
 #endif

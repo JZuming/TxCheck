@@ -279,6 +279,8 @@ schema_cockroachdb::schema_cockroachdb(string db, unsigned int port)
 dut_cockroachdb::dut_cockroachdb(string db, unsigned int port)
   : cockroachdb_connection(db, port)
 {
+    sent_sql = "";
+    has_sent_sql = false;
 }
 
 static int check_bugs(PGconn *conn, PGresult *res)
@@ -336,56 +338,48 @@ static unsigned long long get_cur_time_ms(void) {
 	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
 }
 
-void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+static bool check_blocked(PGconn *conn)
 {
-    string local_stmt = stmt;
-    if (stmt == "COMMIT;") {
-        auto status = PQtransactionStatus(conn);
-        if (status == PQTRANS_INERROR) {
-            cerr << "Transaction state error, cannot commit" << endl;
-            throw std::runtime_error("PQTRANS_INERROR in cockroachdb::test"); 
-        }
-    }
-    
-    // auto res = PQexec(conn, stmt.c_str());
-    if (!PQsendQuery(conn, stmt.c_str())) {
+    if (!PQconsumeInput(conn)) {
         string err = PQerrorMessage(conn);
         throw runtime_error(err + " in cockroachdb::test");
     }
+    return PQisBusy(conn);
+}
+
+void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+{    
+    if (has_sent_sql == false) {
+        if (stmt == "COMMIT;") {
+            auto status = PQtransactionStatus(conn);
+            if (status == PQTRANS_INERROR) {
+                cerr << "Transaction state error, cannot commit" << endl;
+                throw std::runtime_error("PQTRANS_INERROR in cockroachdb::test"); 
+            }
+        }
+    
+        if (!PQsendQuery(conn, stmt.c_str())) {
+            string err = PQerrorMessage(conn);
+            throw runtime_error(err + " in cockroachdb::test");
+        }
+
+        has_sent_sql = true;
+        sent_sql = stmt;
+    }
     
     while (1) {
+        if (sent_sql != stmt) {
+            cerr << "sent sql stmt is not equal to current sql stmt, something error" << endl;
+            throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
+        }
+
         auto begin_time = get_cur_time_ms();
-        while (1) {
-            PQconsumeInput(conn);
-            if (!PQisBusy(conn))
-                break;
-            
+        while (check_blocked(conn)) {
             auto cur_time = get_cur_time_ms();
             if (cur_time - begin_time < STMT_BLOCK_MS)
                 continue;
             
-            begin_time = get_cur_time_ms();
-
-            auto cancel = PQgetCancel(conn);
-            char errbuf[256];
-
-            cerr << "try txn cancelled" << endl;
-            if (PQcancel(cancel, errbuf, 256)) {
-                PQfreeCancel(cancel);
-                cerr << "cancel request sent, and wait for transaction" << endl;
-                while (1) {
-                    auto txn_status = PQtransactionStatus(conn);
-                    if (txn_status != PQTRANS_ACTIVE)
-                        break;
-                }
-                auto txn_status = PQtransactionStatus(conn);
-                cerr << "txn_status: " << txn_status << endl;
-                throw runtime_error("Blocked, so cancel the sql in cockroachdb::test");
-            }
-            cerr << "txn cancel fail" << endl;
-            PQfreeCancel(cancel);
-
-            // cerr << "txn is busy, PQgetResult will block" << endl;
+            throw std::runtime_error("blocked in cockroachdb::test"); 
         }
         
         auto res = PQgetResult(conn);
@@ -430,48 +424,9 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
         }
         PQclear(res);
     }
-    
 
-
-
-    // // auto status = PQresultStatus(res);
-    // if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
-    //     string err = PQerrorMessage(conn);
-    //     if (check_bugs(conn, res)) {
-    //         PQclear(res);
-    //         throw std::runtime_error("BUG!!! " + err + " in cockroachdb::test"); 
-    //     }
-    //     PQclear(res);
-    //     throw runtime_error(err + " in cockroachdb::test");
-    // }
-
-    // if (affected_row_num) {
-    //     auto char_num = PQcmdTuples(res);
-    //     if (char_num == NULL) {
-    //         *affected_row_num = 0;
-    //     } else {
-    //         *affected_row_num = atoi(char_num);
-    //     }
-    // }
-
-    // if (output) {
-    //     auto field_num = PQnfields(res);
-    //     auto row_num = PQntuples(res);
-    //     for (int i = 0; i < row_num; i++) {
-    //         for (int j = 0; j < field_num; j++) {
-    //             auto res_unit = PQgetvalue(res, i, j);
-    //             string str;
-    //             if (res_unit == NULL)
-    //                 str = "NULL";
-    //             else
-    //                 str = res_unit;
-    //             output->push_back(str);
-    //         }
-    //         output->push_back("\n");
-    //     }
-    // }
-    
-    // PQclear(res);
+    has_sent_sql = false;
+    sent_sql = "";
 }
 
 void dut_cockroachdb::reset(void)
