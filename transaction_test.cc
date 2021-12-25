@@ -770,98 +770,225 @@ void transaction_test::gen_stmt_for_each_trans()
     }
 }
 
-void transaction_test::retry_block_stmt(int cur_stmt_num)
+// 1: executed
+// 0: blocked, not executed
+int transaction_test::trans_test_unit(int stmt_pos)
 {
+    auto tid = tid_queue[stmt_pos];
+    auto &stmt = stmt_queue[stmt_pos];
+    vector<string> output;
+
+    try {
+        trans_arr[tid].dut->test(stmt, &output);
+        if (!output.empty())
+            trans_arr[tid].stmt_outputs.push_back(output);
+        
+        cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+
+        if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+            cerr << "getting content of trans " << tid << " (transaction one) " << endl;
+            dut_get_content(*options, trans_arr[tid].committed_content); // get the content after commit
+        }
+
+        return 1;
     
+    } catch(exception &e) {
+        string err = e.what();
+        cerr << RED 
+            << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+            << err << RESET << endl;
+
+        if (err.find("ost connection") != string::npos)
+            throw e;
+        
+        if (err.find("block") != string::npos)
+            return 0;
+        
+        // store the error info of non-commit statement
+        if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+            trans_arr[tid].stmt_err_info.push_back(err);
+            return 1;
+        }
+        
+        // abort fail, just do nothing, return executed (i.e. 1)
+        if (trans_arr[tid].status == 2)
+            return 1;
+        
+        // if commit fail, just abort
+        trans_arr[tid].status = 2;
+        trans_arr[tid].stmts.erase(trans_arr[tid].stmts.begin());
+        trans_arr[tid].stmts.pop_back();
+        trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
+        stmt_queue[stmt_pos] = trans_arr[tid].stmts.back();
+
+        try {
+            stmt = stmt_queue[stmt_pos];
+            trans_arr[tid].dut->test(stmt);
+            cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+            return 1;
+            
+        } catch(exception &e2) {
+        }
+    }
+
+    return 0;
+}
+
+
+void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue)
+{
+    int stmt_pos = 0;
+    while (stmt_pos < cur_stmt_num) {
+        // skip the executed stmt
+        if (status_queue[stmt_pos] == 1) {
+            stmt_pos++;
+            continue;
+        }
+
+        auto is_executed = trans_test_unit(stmt_pos);
+        // successfully execute the stmt, so label as not blocked
+        if (is_executed == 1) {
+            auto tid = tid_queue[stmt_pos];
+            trans_arr[tid].is_blocked = false;
+            status_queue[stmt_pos] = 1;
+            stmt_pos++;
+            continue;
+        }
+
+        // still blocked
+        stmt_pos++;
+    }
 }
 
 void transaction_test::trans_test()
 {
     dut_reset_to_backup(*options);
-
     cerr << YELLOW << "transaction test" << RESET << endl;
-
     shared_ptr<int[]> status_queue(new int[stmt_num]);
-    for (int i = 0; i < stmt_num; i++) {
-        status_queue[i] = 0; // not executed
-    }
-
+    
+    for (int i = 0; i < stmt_num; i++) 
+        status_queue[i] = 0;
+    
     int stmt_index = 0;
-    while(stmt_index < stmt_num) {
+    while (stmt_index < stmt_num) {
         auto tid = tid_queue[stmt_index];
-        auto &stmt = stmt_queue[stmt_index];
-        vector<string> output;
-        
-        try {
-            trans_arr[tid].dut->test(stmt, &output);
-            if (!output.empty())
-                trans_arr[tid].stmt_outputs.push_back(output);
-
-            cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
-
-            // it is commit, it must succeed
-            if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
-                cerr << "getting content of trans " << tid << " (transaction one) " << endl;
-                dut_get_content(*options, trans_arr[tid].committed_content); // get the content after commit
-            }
-
-            status_queue[stmt_index] = 1; // executed
-            real_tid_queue.push_back(tid);
-            real_stmt_queue.push_back(stmt);
+        if (trans_arr[tid].is_blocked) {
             stmt_index++;
-        } catch(exception &e) {
-            string err = e.what();
-            cerr << RED 
-                << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
-                << err << RESET << endl;
-
-            if (err.find("ost connection") != string::npos)
-                throw e;
-            
-            if (err.find("block") != string::npos) {
-                trans_arr[tid].is_blocked = true;
-                stmt_index++;
-                continue;
-            }
-            
-            // store the error info of non-commit statement
-            if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
-                trans_arr[tid].stmt_err_info.push_back(err);
-                
-                status_queue[stmt_index] = 1; // executed
-                real_tid_queue.push_back(tid);
-                real_stmt_queue.push_back(stmt);
-                stmt_index++; // just skip the stmt
-                continue;
-            }
-
-            // if commit fail, just abort
-            if (trans_arr[tid].status == 1) {
-                trans_arr[tid].status = 2;
-                trans_arr[tid].stmts.erase(trans_arr[tid].stmts.begin());
-                trans_arr[tid].stmts.pop_back();
-                trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
-                stmt_queue[stmt_index] = trans_arr[tid].stmts.back();
-
-                try {
-                    stmt = stmt_queue[stmt_index];
-                    trans_arr[tid].dut->test(stmt);
-                    cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
-                    
-                    status_queue[stmt_index] = 1; // executed
-                    real_tid_queue.push_back(tid);
-                    real_stmt_queue.push_back(stmt);
-                    
-                    stmt_index++;
-                } catch(exception &e2) {
-                }
-            }
+            continue;
         }
+        
+        auto is_executed = trans_test_unit(stmt_index);
+        
+        if (is_executed == 0) {
+            trans_arr[tid].is_blocked = true;
+            stmt_index++;
+            continue;
+        }
+
+        status_queue[stmt_index] = 1;
+        real_tid_queue.push_back(tid_queue[stmt_index]);
+        real_stmt_queue.push_back(stmt_queue[stmt_index]);
+        retry_block_stmt(stmt_index, status_queue);
+        stmt_index++;
     }
 
-    // collect database information
-    dut_get_content(*options, trans_content);
+    retry_block_stmt(stmt_index, status_queue);
+    for (int i = 0; i < stmt_num; i++) {
+        if (status_queue[i] == 1)
+            continue;
+        
+        cerr << "something error, some stmt is still not executed" << endl;
+        exit(-1);
+    }
 }
+
+
+// void transaction_test::trans_test()
+// {
+//     dut_reset_to_backup(*options);
+
+//     cerr << YELLOW << "transaction test" << RESET << endl;
+
+//     shared_ptr<int[]> status_queue(new int[stmt_num]);
+//     for (int i = 0; i < stmt_num; i++)
+//         status_queue[i] = 0; // not executed
+
+//     int stmt_index = 0;
+//     while(stmt_index < stmt_num) {
+//         auto tid = tid_queue[stmt_index];
+//         auto &stmt = stmt_queue[stmt_index];
+//         vector<string> output;
+        
+//         try {
+//             trans_arr[tid].dut->test(stmt, &output);
+//             if (!output.empty())
+//                 trans_arr[tid].stmt_outputs.push_back(output);
+
+//             cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+
+//             // it is commit, it must succeed
+//             if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+//                 cerr << "getting content of trans " << tid << " (transaction one) " << endl;
+//                 dut_get_content(*options, trans_arr[tid].committed_content); // get the content after commit
+//             }
+
+//             status_queue[stmt_index] = 1; // executed
+//             real_tid_queue.push_back(tid);
+//             real_stmt_queue.push_back(stmt);
+//             stmt_index++;
+//         } catch(exception &e) {
+//             string err = e.what();
+//             cerr << RED 
+//                 << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+//                 << err << RESET << endl;
+
+//             if (err.find("ost connection") != string::npos)
+//                 throw e;
+            
+//             if (err.find("block") != string::npos) {
+//                 trans_arr[tid].is_blocked = true;
+//                 stmt_index++;
+//                 continue;
+//             }
+            
+//             // store the error info of non-commit statement
+//             if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+//                 trans_arr[tid].stmt_err_info.push_back(err);
+                
+//                 status_queue[stmt_index] = 1; // executed
+//                 real_tid_queue.push_back(tid);
+//                 real_stmt_queue.push_back(stmt);
+//                 stmt_index++; // just skip the stmt
+//                 continue;
+//             }
+
+//             // if commit fail, just abort
+//             if (trans_arr[tid].status == 1) {
+//                 trans_arr[tid].status = 2;
+//                 trans_arr[tid].stmts.erase(trans_arr[tid].stmts.begin());
+//                 trans_arr[tid].stmts.pop_back();
+//                 trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
+//                 stmt_queue[stmt_index] = trans_arr[tid].stmts.back();
+
+//                 try {
+//                     stmt = stmt_queue[stmt_index];
+//                     trans_arr[tid].dut->test(stmt);
+//                     cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+                    
+//                     status_queue[stmt_index] = 1; // executed
+//                     real_tid_queue.push_back(tid);
+//                     real_stmt_queue.push_back(stmt);
+                    
+//                     stmt_index++;
+//                 } catch(exception &e2) {
+//                 }
+//             }
+//         }
+//     }
+
+//     // collect database information
+//     dut_get_content(*options, trans_content);
+// }
 
 void transaction_test::normal_test()
 {

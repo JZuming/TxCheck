@@ -137,6 +137,9 @@ public:
     void gen_stmt_for_each_trans();
     
     void trans_test();
+    void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue);
+    int trans_test_unit(int stmt_pos);
+
     void normal_test();
     bool check_result();
 
@@ -149,7 +152,6 @@ public:
     ~transaction_test();
     
     int test();
-    void retry_block_stmt(int cur_stmt_num);
 };
 
 
