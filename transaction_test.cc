@@ -837,8 +837,20 @@ int transaction_test::trans_test_unit(int stmt_pos)
 
 void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue)
 {
+    cerr << "retrying process begin..." << endl;
+    shared_ptr<int[]> tried_but_blocked_tid(new int[trans_num]);
+    for (int i = 0; i < trans_num; i++) 
+        tried_but_blocked_tid[i] = 0;
+
     int stmt_pos = 0;
     while (stmt_pos < cur_stmt_num) {
+        auto tid = tid_queue[stmt_pos];
+        // skip the tried but still blocked transaction
+        if (tried_but_blocked_tid[tid] == 1) {
+            stmt_pos++;
+            continue;
+        }
+        
         // skip the executed stmt
         if (status_queue[stmt_pos] == 1) {
             stmt_pos++;
@@ -848,16 +860,19 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         auto is_executed = trans_test_unit(stmt_pos);
         // successfully execute the stmt, so label as not blocked
         if (is_executed == 1) {
-            auto tid = tid_queue[stmt_pos];
             trans_arr[tid].is_blocked = false;
             status_queue[stmt_pos] = 1;
-            stmt_pos++;
-            continue;
+            
+            real_tid_queue.push_back(tid);
+            real_stmt_queue.push_back(stmt_queue[stmt_pos]);
+        }
+        else { // still blocked
+            tried_but_blocked_tid[tid] = 1;
         }
 
-        // still blocked
         stmt_pos++;
     }
+    cerr << "retrying process end..." << endl;
 }
 
 void transaction_test::trans_test()
@@ -872,6 +887,8 @@ void transaction_test::trans_test()
     int stmt_index = 0;
     while (stmt_index < stmt_num) {
         auto tid = tid_queue[stmt_index];
+        auto& stmt = stmt_queue[stmt_index];
+        
         if (trans_arr[tid].is_blocked) {
             stmt_index++;
             continue;
@@ -886,9 +903,13 @@ void transaction_test::trans_test()
         }
 
         status_queue[stmt_index] = 1;
-        real_tid_queue.push_back(tid_queue[stmt_index]);
-        real_stmt_queue.push_back(stmt_queue[stmt_index]);
-        retry_block_stmt(stmt_index, status_queue);
+        real_tid_queue.push_back(tid);
+        real_stmt_queue.push_back(stmt);
+        
+        // after a commit or abort, retry the statement
+        if (trans_arr[tid].dut->is_commit_abort_stmt(stmt))
+            retry_block_stmt(stmt_index, status_queue);
+        
         stmt_index++;
     }
 
