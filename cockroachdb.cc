@@ -370,7 +370,8 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
     while (1) {
         if (sent_sql != stmt) {
             cerr << "sent sql stmt is not equal to current sql stmt, something error" << endl;
-            throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
+            exit(-1);
+            // throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
         }
 
         auto begin_time = get_cur_time_ms();
@@ -389,12 +390,15 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
         auto status = PQresultStatus(res);
         if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
             string err = PQerrorMessage(conn);
-            if (check_bugs(conn, res)) {
-                PQclear(res);
-                throw std::runtime_error("BUG!!! " + err + " in cockroachdb::test"); 
-            }
+            auto has_bug = check_bugs(conn, res);
             PQclear(res);
-            throw runtime_error(err + " in cockroachdb::test");
+            has_sent_sql = false;
+            sent_sql = "";
+            
+            if (has_bug)
+                throw std::runtime_error("BUG!!! " + err + " in cockroachdb::test"); 
+            else
+                throw runtime_error(err + " in cockroachdb::test");
         }
 
         if (affected_row_num) {
