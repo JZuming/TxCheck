@@ -132,11 +132,13 @@ int fork_for_transaction_test(map<string,string>& options,
     
     if (WIFEXITED(status)) {
         auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
-        cerr << "exit code " << exit_code << endl;
+        cerr << "exit code: " << exit_code << endl;
         if (exit_code == FIND_BUG_EXIT) {
             cerr << RED << "a bug is found in fork process" << RESET << endl;
             transaction_test::record_bug_num++;
         }
+        if (exit_code == 255)
+            exit(-1);
     }
 
     if (WIFSIGNALED(status)) {

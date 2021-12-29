@@ -367,13 +367,13 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
         sent_sql = stmt;
     }
     
+    if (sent_sql != stmt) {
+        cerr << "sent sql stmt is not equal to current sql stmt, something error" << endl;
+        exit(-1);
+        // throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
+    }
+    
     while (1) {
-        if (sent_sql != stmt) {
-            cerr << "sent sql stmt is not equal to current sql stmt, something error" << endl;
-            exit(-1);
-            // throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
-        }
-
         auto begin_time = get_cur_time_ms();
         while (check_blocked(conn)) {
             auto cur_time = get_cur_time_ms();
@@ -392,6 +392,13 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
             string err = PQerrorMessage(conn);
             auto has_bug = check_bugs(conn, res);
             PQclear(res);
+            
+            // clear the current result
+            while (res != NULL) {
+                res = PQgetResult(conn);
+                PQclear(res);
+            }
+
             has_sent_sql = false;
             sent_sql = "";
             
