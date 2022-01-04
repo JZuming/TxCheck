@@ -963,24 +963,15 @@ void transaction_test::normal_test()
     int real_stmt_num = real_tid_queue.size();
     for (int i = 0; i < real_stmt_num; i++) {
         auto tid = real_tid_queue[i];
+
+        if (trans_arr[tid].status != 1) // do not consider abort transaction
+            continue;
         
-        if (trans_arr[tid].status == 1) { // commit;
-            if (!trans_arr[tid].dut->is_commit_abort_stmt(real_stmt_queue[i]))
-                continue;
+        // confirm their based on their commit order
+        if (!trans_arr[tid].dut->is_commit_abort_stmt(real_stmt_queue[i]))
+            continue;
             
-            trans_order.push_back(tid);
-        } else { // abort;
-            bool is_contained = false;
-            for (auto tmp_tid:trans_order) {
-                if (tmp_tid != tid)
-                    continue;
-                is_contained = true;
-                break;
-            }
-            if (is_contained)
-                continue;
-            trans_order.push_back(tid);
-        }
+        trans_order.push_back(tid);
     }
 
     // normal execute order
@@ -1046,6 +1037,9 @@ bool transaction_test::check_result()
 
     for (auto i = 0; i < trans_num; i++) {
         if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
+            continue;
+        
+        if (trans_arr[i].status != 1) // donot check abort transaction
             continue;
         
         cerr << "check the output of " << i << endl;

@@ -101,7 +101,7 @@ struct transaction {
     transaction() {is_blocked = false; stmt_num = 0; status = 0;}
 
     int stmt_num;
-    int status;
+    int status; // 0: not decided, 1: commit, 2: abort
 };
 
 class transaction_test {
