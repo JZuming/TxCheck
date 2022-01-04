@@ -24,13 +24,13 @@ extern "C"  {
 #include <unistd.h>
 }
 
-mysql_connection::mysql_connection(string db, unsigned int port)
+tidb_connection::tidb_connection(string db, unsigned int port)
 {
     test_db = db;
     test_port = port;
     
     if (!mysql_init(&mysql))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in tidb_connection!");
 
     // password null: blank (empty) password field
     if (mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
@@ -38,35 +38,35 @@ mysql_connection::mysql_connection(string db, unsigned int port)
     
     string err = mysql_error(&mysql);
     if (!regex_match(err, e_unknown_database))
-        throw std::runtime_error("BUG!!!" + string(mysql_error(&mysql)) + " in mysql_connection!");
+        throw std::runtime_error("BUG!!!" + string(mysql_error(&mysql)) + " in tidb_connection!");
 
     // error caused by unknown database, so create one
     cerr << test_db + " does not exist, use default db" << endl;
     if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, NULL, port, NULL, 0))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in tidb_connection!");
     
     cerr << "create database " + test_db << endl;
     string create_sql = "create database " + test_db + "; ";
     if (mysql_real_query(&mysql, create_sql.c_str(), create_sql.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in tidb_connection!");
     auto res = mysql_store_result(&mysql);
     mysql_free_result(res);
 
     cerr << "use database" + test_db << endl;
     string use_sql = "use " + test_db + "; ";
     if (mysql_real_query(&mysql, use_sql.c_str(), use_sql.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in tidb_connection!");
     res = mysql_store_result(&mysql);
     mysql_free_result(res);
 }
 
-mysql_connection::~mysql_connection()
+tidb_connection::~tidb_connection()
 {
     mysql_close(&mysql);
 }
 
-schema_mysql::schema_mysql(string db, unsigned int port)
-  : mysql_connection(db, port)
+schema_tidb::schema_tidb(string db, unsigned int port)
+  : tidb_connection(db, port)
 {
     // cerr << "Loading tables...";
     string get_table_query = "SELECT DISTINCT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES \
@@ -74,7 +74,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
               TABLE_TYPE='BASE TABLE' ORDER BY 1;";
     
     if (mysql_real_query(&mysql, get_table_query.c_str(), get_table_query.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load table list)!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_tidb (load table list)!");
     
     auto result = mysql_store_result(&mysql);
     while (auto row = mysql_fetch_row(result)) {
@@ -88,7 +88,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     string get_view_query = "select distinct table_name from information_schema.views \
         where table_schema='" + db + "' order by 1;";
     if (mysql_real_query(&mysql, get_view_query.c_str(), get_view_query.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load view list)!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_tidb (load view list)!");
     
     result = mysql_store_result(&mysql);
     while (auto row = mysql_fetch_row(result)) {
@@ -105,7 +105,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
                     INDEX_NAME <> COLUMN_NAME AND \
                     INDEX_NAME <> 'PRIMARY' ORDER BY 1;";
     if (mysql_real_query(&mysql, get_index_query.c_str(), get_index_query.size()))
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load index list)!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_tidb (load index list)!");
 
     result = mysql_store_result(&mysql);
     while (auto row = mysql_fetch_row(result)) {
@@ -120,7 +120,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
                 WHERE TABLE_NAME='" + t.ident() + "' AND \
                     TABLE_SCHEMA='" + db + "'  ORDER BY ORDINAL_POSITION;";
         if (mysql_real_query(&mysql, get_column_query.c_str(), get_column_query.size()))
-            throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_mysql (load table " + t.ident() + ")!");
+            throw std::runtime_error(string(mysql_error(&mysql)) + " in schema_tidb (load table " + t.ident() + ")!");
         result = mysql_store_result(&mysql);
         while (auto row = mysql_fetch_row(result)) {
             column c(row[0], sqltype::get(row[1]));
@@ -333,12 +333,12 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     }
 }
 
-dut_mysql::dut_mysql(string db, unsigned int port)
-  : mysql_connection(db, port)
+dut_tidb::dut_tidb(string db, unsigned int port)
+  : tidb_connection(db, port)
 {
 }
 
-void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+void dut_tidb::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
@@ -375,7 +375,7 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
     mysql_free_result(result);
 }
 
-void dut_mysql::reset(void)
+void dut_tidb::reset(void)
 {
     string drop_sql = "drop database if exists " + test_db + "; ";
     if (mysql_real_query(&mysql, drop_sql.c_str(), drop_sql.size())) {
@@ -402,17 +402,17 @@ void dut_mysql::reset(void)
     mysql_free_result(res_sql);
 }
 
-void dut_mysql::backup(void)
+void dut_tidb::backup(void)
 {
     string mysql_dump = "mysqldump -h 127.0.0.1 -P " + to_string(test_port) + " -u root " + test_db + " > /tmp/mysql_bk.sql";
     int ret = system(mysql_dump.c_str());
     if (ret != 0) {
-        cerr << "backup fail in dut_mysql::backup!!" << endl;
-        throw std::runtime_error("backup fail in dut_mysql::backup"); 
+        cerr << "backup fail in dut_tidb::backup!!" << endl;
+        throw std::runtime_error("backup fail in dut_tidb::backup"); 
     }
 }
 
-void dut_mysql::reset_to_backup(void)
+void dut_tidb::reset_to_backup(void)
 {
     reset();
     string bk_file = "/tmp/mysql_bk.sql";
@@ -425,16 +425,16 @@ void dut_mysql::reset_to_backup(void)
     system(mysql_source.c_str());
 
     if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in tidb_connection!");
 }
 
-int dut_mysql::save_backup_file(string path)
+int dut_tidb::save_backup_file(string path)
 {
     string cp_cmd = "cp /tmp/mysql_bk.sql " + path;
     return system(cp_cmd.c_str());
 }
 
-void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
+void dut_tidb::trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output
                           , int commit_or_not)
@@ -500,7 +500,7 @@ void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
     return;
 }
 
-void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
+void dut_tidb::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
 {
     for (auto& table:tables_name) {
         vector<string> table_content;
@@ -535,7 +535,7 @@ void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<stri
     }
 }
 
-bool dut_mysql::is_commit_abort_stmt(string& stmt)
+bool dut_tidb::is_commit_abort_stmt(string& stmt)
 {
     if (stmt == "COMMIT;")
         return true;
@@ -544,7 +544,7 @@ bool dut_mysql::is_commit_abort_stmt(string& stmt)
     return false;
 }
 
-void dut_mysql::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
+void dut_tidb::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
 {
     stmt_vec.insert(stmt_vec.begin(), "BEGIN OPTIMISTIC;");
     string last_sql;
@@ -555,11 +555,11 @@ void dut_mysql::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commi
     stmt_vec.push_back(last_sql);
 }
 
-pid_t dut_mysql::fork_db_server()
+pid_t dut_tidb::fork_db_server()
 {
     pid_t child = fork();
     if (child < 0) {
-        throw std::runtime_error(string("Fork db server fail") + " in dut_mysql::fork_db_server!");
+        throw std::runtime_error(string("Fork db server fail") + " in dut_tidb::fork_db_server!");
     }
 
     if (child == 0) {
@@ -569,7 +569,7 @@ pid_t dut_mysql::fork_db_server()
         server_argv[i++] = "playground";
         server_argv[i++] = NULL;
         execv(server_argv[0], server_argv);
-        cerr << "fork tidb server fail in dut_mysql::fork_db_server" << endl; 
+        cerr << "fork tidb server fail in dut_tidb::fork_db_server" << endl; 
     }
 
     cout << "server pid: " << child << endl;

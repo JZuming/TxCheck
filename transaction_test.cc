@@ -30,7 +30,7 @@ shared_ptr<schema> get_schema(map<string,string>& options)
             #endif
         } else if (options.count("mysql-db") && options.count("mysql-port")) {
             #ifdef HAVE_LIBMYSQLCLIENT
-            schema = make_shared<schema_mysql>(options["mysql-db"], stoi(options["mysql-port"]));
+            schema = make_shared<schema_tidb>(options["mysql-db"], stoi(options["mysql-port"]));
             #else
             cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
             throw runtime_error("Does not support MySQL");
@@ -77,7 +77,7 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
         #endif
     } else if (options.count("mysql-db") && options.count("mysql-port")) {
         #ifdef HAVE_LIBMYSQLCLIENT
-        dut = make_shared<dut_mysql>(options["mysql-db"], stoi(options["mysql-port"]));
+        dut = make_shared<dut_tidb>(options["mysql-db"], stoi(options["mysql-port"]));
         #else
         cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
         throw runtime_error("Does not support MySQL");
@@ -167,7 +167,7 @@ pid_t fork_db_server(map<string,string>& options)
 #endif
 #ifdef HAVE_LIBMYSQLCLIENT
     else if (options.count("mysql-db") && options.count("mysql-port")) {
-        fork_pid = dut_mysql::fork_db_server();
+        fork_pid = dut_tidb::fork_db_server();
     }
 #endif
     else if (options.count("cockroach-db") && options.count("cockroach-port")) {
