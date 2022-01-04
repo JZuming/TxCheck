@@ -49,8 +49,10 @@ struct dut_base {
   std::string version;
   virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL) = 0;
   virtual void reset(void) = 0;
+
   virtual void backup(void) = 0;
   virtual void reset_to_backup(void) = 0;
+  virtual int save_backup_file(string path) = 0;
 
   virtual void wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit) = 0;
   virtual bool is_commit_abort_stmt(string& stmt) = 0;

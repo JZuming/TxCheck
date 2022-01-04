@@ -32,7 +32,10 @@ struct schema_sqlite : schema, sqlite_connection {
 struct dut_sqlite : dut_base, sqlite_connection {
     virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
     virtual void reset(void);
+    
     virtual void backup(void);
+    virtual void reset_to_backup(void);
+    virtual int save_backup_file(string path);
 
     virtual bool is_commit_abort_stmt(string& stmt);
     virtual void wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit);
@@ -41,7 +44,7 @@ struct dut_sqlite : dut_base, sqlite_connection {
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output = NULL
                           , int commit_or_not = 1);
-    virtual void reset_to_backup(void);
+    
     virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content);
     dut_sqlite(std::string &conninfo);
 };

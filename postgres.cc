@@ -382,6 +382,12 @@ void dut_libpq::reset_to_backup(void)
 {
 }
 
+int dut_libpq::save_backup_file(string path)
+{
+  (void)path;
+  return 0;
+}
+
 void dut_libpq::trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output

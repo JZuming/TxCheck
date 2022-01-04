@@ -412,6 +412,28 @@ void dut_mysql::backup(void)
     }
 }
 
+void dut_mysql::reset_to_backup(void)
+{
+    reset();
+    string bk_file = "/tmp/mysql_bk.sql";
+    if (access(bk_file.c_str(), F_OK ) == -1) 
+        return;
+    
+    mysql_close(&mysql);
+    
+    string mysql_source = "mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
+    system(mysql_source.c_str());
+
+    if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
+}
+
+int dut_mysql::save_backup_file(string path)
+{
+    string cp_cmd = "cp /tmp/mysql_bk.sql " + path;
+    return system(cp_cmd.c_str());
+}
+
 void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output
@@ -476,22 +498,6 @@ void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
     }
     cerr << pthread_self() << ": " << last_sql << " done" << endl;
     return;
-}
-
-void dut_mysql::reset_to_backup(void)
-{
-    reset();
-    string bk_file = "/tmp/mysql_bk.sql";
-    if (access(bk_file.c_str(), F_OK ) == -1) 
-        return;
-    
-    mysql_close(&mysql);
-    
-    string mysql_source = "mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
-    system(mysql_source.c_str());
-
-    if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in mysql_connection!");
 }
 
 void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<string>>& content)

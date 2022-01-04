@@ -500,6 +500,26 @@ void dut_cockroachdb::backup(void)
     PQclear(res);
 }
 
+void dut_cockroachdb::reset_to_backup(void)
+{
+    reset();
+    string restore_sql = "RESTORE " + test_db + ".* FROM 'userfile:///test.backup';";
+    auto res = PQexec(conn, restore_sql.c_str());
+    auto status = PQresultStatus(res);
+    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+        string err = PQerrorMessage(conn);
+        PQclear(res);
+        throw runtime_error(err + " in cockroachdb::backup");
+    }
+    PQclear(res);
+}
+
+int dut_cockroachdb::save_backup_file(string path)
+{
+    string save_backup = "cockroach userfile get test.backup " + path + " --insecure";
+    return system(save_backup.c_str());
+}
+
 void dut_cockroachdb::trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec
                           , vector<vector<string>>* output
@@ -564,20 +584,6 @@ void dut_cockroachdb::trans_test(const std::vector<std::string> &stmt_vec
     }
     cerr << pthread_self() << ": " << last_sql << " done" << endl;
     return;
-}
-
-void dut_cockroachdb::reset_to_backup(void)
-{
-    reset();
-    string restore_sql = "RESTORE " + test_db + ".* FROM 'userfile:///test.backup';";
-    auto res = PQexec(conn, restore_sql.c_str());
-    auto status = PQresultStatus(res);
-    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
-        string err = PQerrorMessage(conn);
-        PQclear(res);
-        throw runtime_error(err + " in cockroachdb::backup");
-    }
-    PQclear(res);
 }
 
 void dut_cockroachdb::get_content(vector<string>& tables_name, map<string, vector<string>>& content)

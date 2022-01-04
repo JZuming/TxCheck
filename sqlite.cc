@@ -525,6 +525,19 @@ void dut_sqlite::reset_to_backup(void)
     return;
 }
 
+int dut_sqlite::save_backup_file(string path)
+{
+    auto bk_db = db_file;
+    auto pos = bk_db.find(".db");
+    if (pos != string::npos) {
+        bk_db.erase(pos, 3);
+    }
+    bk_db += "_bk.db";
+
+    string cp_cmd = "cp " + bk_db + " " + path;
+    return system(cp_cmd.c_str());
+}
+
 // 0: abort or rollback
 // 1: commit
 // 2: do not use transaction (do not use begin and commit)
