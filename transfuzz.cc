@@ -31,7 +31,7 @@ using boost::regex_match;
 #endif
 
 #ifdef HAVE_LIBMYSQLCLIENT
-#include "mysql.hh"
+#include "tidb.hh"
 #endif
 
 #ifdef HAVE_MONETDB
