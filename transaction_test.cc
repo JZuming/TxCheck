@@ -928,6 +928,7 @@ void transaction_test::trans_test()
 
         if (is_executed == 2) {
             status_queue[stmt_index] = 1;
+            continue;
         }
 
         status_queue[stmt_index] = 1;
@@ -959,11 +960,12 @@ void transaction_test::normal_test()
     cerr << YELLOW << "normal test" << RESET << endl;
     
     vector<int> trans_order;
-    for (int i = 0; i < stmt_num; i++) {
-        auto tid = tid_queue[i];
+    int real_stmt_num = real_tid_queue.size();
+    for (int i = 0; i < real_stmt_num; i++) {
+        auto tid = real_tid_queue[i];
         
         if (trans_arr[tid].status == 1) { // commit;
-            if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt_queue[i]))
+            if (!trans_arr[tid].dut->is_commit_abort_stmt(real_stmt_queue[i]))
                 continue;
             
             trans_order.push_back(tid);
@@ -988,10 +990,16 @@ void transaction_test::normal_test()
     }
     cerr << endl;
 
+    // get normal execute statement
+    for (int i = 0; i < real_stmt_num; i++) {
+        auto real_tid = real_tid_queue[i];
+        auto real_stmt = real_stmt_queue[i];
+
+        trans_arr[real_tid].normal_test_stmts.push_back(real_stmt);
+    }
+
     auto normal_dut = dut_setup(*options);
     for (auto tid:trans_order) {
-        trans_arr[tid].normal_test_stmts = trans_arr[tid].stmts;
-
         if (trans_arr[tid].status == 1) { // if it is commit, erase "begin" and "commit"
             trans_arr[tid].normal_test_stmts.erase(trans_arr[tid].normal_test_stmts.begin());
             trans_arr[tid].normal_test_stmts.pop_back();
