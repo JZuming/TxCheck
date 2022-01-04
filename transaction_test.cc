@@ -827,13 +827,17 @@ int transaction_test::trans_test_unit(int stmt_pos)
         trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
         stmt_queue[stmt_pos] = trans_arr[tid].stmts.back();
 
+        stmt = stmt_queue[stmt_pos];
         try {
-            stmt = stmt_queue[stmt_pos];
             trans_arr[tid].dut->test(stmt);
             cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
             return 1;
             
         } catch(exception &e2) {
+            err = e2.what();
+            cerr << RED 
+            << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+            << err << RESET << endl;
         }
     }
 
@@ -868,8 +872,10 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         } else if (is_executed == 2) { // skipped
             trans_arr[tid].is_blocked = false;
             status_queue[i] = 1;
-        } else // blocked
+        } else {// blocked
+            trans_arr[tid].is_blocked = true;
             tried_but_blocked_tid[tid] = 1;
+        }
     }
     
     for (int stmt_pos = 0; stmt_pos < cur_stmt_num; stmt_pos++) {
@@ -897,6 +903,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             status_queue[stmt_pos] = 1;
         }
         else { // still blocked
+            trans_arr[tid].is_blocked = true;
             tried_but_blocked_tid[tid] = 1;
         }
     }
@@ -940,7 +947,25 @@ void transaction_test::trans_test()
             retry_block_stmt(stmt_index, status_queue);
     }
 
-    retry_block_stmt(stmt_num, status_queue);
+    while (1) {
+        int old_executed = 0;
+        for (int i = 0; i < stmt_num; i++) {
+            if (status_queue[i] == 1)
+                old_executed++;
+        }
+
+        retry_block_stmt(stmt_num, status_queue);
+        
+        int new_executed = 0;
+        for (int i = 0; i < stmt_num; i++) {
+            if (status_queue[i] == 1)
+                new_executed++;
+        }
+
+        if (old_executed == new_executed)
+            break;
+    }
+    
     for (int i = 0; i < stmt_num; i++) {
         if (status_queue[i] == 1)
             continue;

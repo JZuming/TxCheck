@@ -367,10 +367,8 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
         sent_sql = stmt;
     }
     
-    if (sent_sql != stmt) {
-        cerr << "sent sql stmt is not equal to current sql stmt, something error" << endl;
+    if (sent_sql != stmt)
         throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
-    }
     
     while (1) {
         auto begin_time = get_cur_time_ms();
@@ -403,12 +401,11 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
             
             if (has_bug)
                 throw std::runtime_error("BUG!!! " + err + " in cockroachdb::test -> PQresultStatus"); 
-            else {
-                if (err.find("commands ignored until end of transaction block") != string::npos) 
-                    throw runtime_error("skipped in cockroachdb::test");
 
-                throw runtime_error(err + " in cockroachdb::test -> PQresultStatus");
-            }
+            if (err.find("commands ignored until end of transaction block") != string::npos) 
+                throw runtime_error("skipped in cockroachdb::test");
+
+            throw runtime_error(err + " in cockroachdb::test -> PQresultStatus");
                 
         }
 
