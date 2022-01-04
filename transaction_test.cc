@@ -770,6 +770,7 @@ void transaction_test::gen_stmt_for_each_trans()
     }
 }
 
+// 2: fatal error (e.g. restart transaction, current transaction is aborted), skip the stmt
 // 1: executed
 // 0: blocked, not executed
 int transaction_test::trans_test_unit(int stmt_pos)
@@ -801,8 +802,13 @@ int transaction_test::trans_test_unit(int stmt_pos)
         if (err.find("ost connection") != string::npos)
             throw e;
         
-        if (err.find("blocked") != string::npos)
+        if (err.find("blocked") != string::npos) {
             return 0;
+        }
+
+        if (err.find("skipped") != string::npos) {
+            return 2;
+        }
         
         // store the error info of non-commit statement
         if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
@@ -854,14 +860,16 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         
         first_tried_tid.insert(tid);
         auto is_executed = trans_test_unit(i);
-        if (is_executed == 1) {
+        if (is_executed == 1) { // executed
             trans_arr[tid].is_blocked = false;
             status_queue[i] = 1;
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(stmt_queue[i]);
-        } else {
+        } else if (is_executed == 2) { // skipped
+            trans_arr[tid].is_blocked = false;
+            status_queue[i] = 1;
+        } else // blocked
             tried_but_blocked_tid[tid] = 1;
-        }
     }
     
     for (int stmt_pos = 0; stmt_pos < cur_stmt_num; stmt_pos++) {
@@ -884,6 +892,9 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
 
             if (trans_arr[tid].dut->is_commit_abort_stmt(stmt_queue[stmt_pos]))
                 retry_block_stmt(stmt_pos, status_queue);
+        } else if (is_executed == 2) { // skipped
+            trans_arr[tid].is_blocked = false;
+            status_queue[stmt_pos] = 1;
         }
         else { // still blocked
             tried_but_blocked_tid[tid] = 1;
@@ -913,6 +924,10 @@ void transaction_test::trans_test()
         if (is_executed == 0) {
             trans_arr[tid].is_blocked = true;
             continue;
+        }
+
+        if (is_executed == 2) {
+            status_queue[stmt_index] = 1;
         }
 
         status_queue[stmt_index] = 1;

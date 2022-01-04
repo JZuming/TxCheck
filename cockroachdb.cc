@@ -354,13 +354,13 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
             auto status = PQtransactionStatus(conn);
             if (status == PQTRANS_INERROR) {
                 cerr << "Transaction state error, cannot commit" << endl;
-                throw std::runtime_error("PQTRANS_INERROR in cockroachdb::test"); 
+                throw std::runtime_error("PQTRANS_INERROR in cockroachdb::test -> PQtransactionStatus"); 
             }
         }
     
         if (!PQsendQuery(conn, stmt.c_str())) {
             string err = PQerrorMessage(conn);
-            throw runtime_error(err + " in cockroachdb::test");
+            throw runtime_error(err + " in cockroachdb::test -> PQsendQuery");
         }
 
         has_sent_sql = true;
@@ -369,8 +369,7 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
     
     if (sent_sql != stmt) {
         cerr << "sent sql stmt is not equal to current sql stmt, something error" << endl;
-        exit(-1);
-        // throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
+        throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
     }
     
     while (1) {
@@ -403,9 +402,14 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
             sent_sql = "";
             
             if (has_bug)
-                throw std::runtime_error("BUG!!! " + err + " in cockroachdb::test"); 
-            else
-                throw runtime_error(err + " in cockroachdb::test");
+                throw std::runtime_error("BUG!!! " + err + " in cockroachdb::test -> PQresultStatus"); 
+            else {
+                if (err.find("commands ignored until end of transaction block") != string::npos) 
+                    throw runtime_error("skipped in cockroachdb::test");
+
+                throw runtime_error(err + " in cockroachdb::test -> PQresultStatus");
+            }
+                
         }
 
         if (affected_row_num) {
