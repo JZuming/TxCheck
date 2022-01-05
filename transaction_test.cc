@@ -1052,6 +1052,8 @@ void transaction_test::normal_test()
     dut_get_content(*options, normal_content);
 }
 
+// true; no bug
+// false: trigger a logic bug
 bool transaction_test::check_result()
 {
     cerr << "check the final content " << endl;

@@ -305,8 +305,10 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
 
     if (options.count("reproduce-sql")) {
         cerr << "enter reproduce mode" << endl;
-        if (!options.count("reproduce-tid"))
+        if (!options.count("reproduce-tid")) {
             cerr << "should also provide tid file" << endl;
+            return 0;
+        }
 
         transaction_test re_test(options, NULL, is_serializable, can_trigger_error);
 
@@ -330,21 +332,27 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         }
 	    
         // get tid queue
-        set<int> tid_set;
         ifstream tid_file(options["reproduce-tid"]);
         int tid;
+        int max_tid = -1;
         while (tid_file >> tid) {
             re_test.tid_queue.push_back(tid);
-            tid_set.insert(tid);
+            if (tid > max_tid)
+                max_tid = tid;
         }
         tid_file.close();
 
         re_test.stmt_num = re_test.tid_queue.size();
-        re_test.trans_num = tid_set.size();
+        re_test.trans_num = max_tid + 1;
         delete[] re_test.trans_arr;
         re_test.trans_arr = new transaction[re_test.trans_num];
 	
-        cerr << re_test.trans_num << " " << re_test.stmt_num<< " " << re_test.stmt_queue.size() << endl;
+        cerr << re_test.trans_num << " " << re_test.tid_queue.size() << " " << re_test.stmt_queue.size() << endl;
+        if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
+            cerr << "tid queue size should equal to stmt queue size" << endl;
+            return 0;
+        }
+
         for (int i = 0; i < re_test.stmt_num; i++) {
             auto tid = re_test.tid_queue[i];
             re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
@@ -353,6 +361,11 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         for (int tid = 0; tid < re_test.trans_num; tid++) {
             re_test.trans_arr[tid].dut = dut_setup(options);
             re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
+            if (re_test.trans_arr[tid].stmts.empty()) {
+                re_test.trans_arr[tid].status = 2;
+                continue;
+            }
+
             if (re_test.trans_arr[tid].stmts.back().find("COMMIT") != string::npos)
                 re_test.trans_arr[tid].status = 1;
             else
