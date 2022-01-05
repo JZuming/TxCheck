@@ -1115,8 +1115,10 @@ int transaction_test::test()
         make_dir_error_exit(dir_name);
         string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
         system(cmd.c_str());
-        cmd = "cp /tmp/mysql_bk.sql " + dir_name;
-        system(cmd.c_str());
+        
+        // save database
+        auto dut = dut_setup(*options);
+        dut->save_backup_file(dir_name);
 
         exit(-1);
         // return 1; // not need to do other transaction thing
@@ -1130,15 +1132,14 @@ int transaction_test::test()
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }
-    exit(-1);
 
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;
     make_dir_error_exit(dir_name);
 
     cerr << RED << "Saving database..." << RESET << endl;
-    string cmd = "cp /tmp/mysql_bk.sql " + dir_name;
-    system(cmd.c_str());
+    auto dut = dut_setup(*options);
+    dut->save_backup_file(dir_name);
     
     cerr << RED << "Saving test cases..." << RESET;
     for (int i = 0; i < trans_num; i++) {
@@ -1151,22 +1152,24 @@ int transaction_test::test()
         ofile.close();
     }
 
-    string total_file_name = dir_name + "trans_total.sql";
-    ofstream totalfile(total_file_name);
+    string total_stmts_file = dir_name + "stmts.sql";
+    ofstream total_stmt_output(total_stmts_file);
     for (int i = 0; i < stmt_num; i++) {
-        totalfile << stmt_queue[i] << endl;
-        totalfile << endl;
+        total_stmt_output << stmt_queue[i] << endl;
+        total_stmt_output << endl;
     }
-    totalfile.close();
+    total_stmt_output.close();
 
-    string total_tid_file = dir_name + "trans_queue.txt";
-    ofstream outfile(total_tid_file);
+    string total_tid_file = dir_name + "tid.txt";
+    ofstream total_tid_output(total_tid_file);
     for (int i = 0; i < stmt_num; i++) {
-        outfile << tid_queue[i] << endl;
+        total_tid_output << tid_queue[i] << endl;
     }
-    outfile.close();
+    total_tid_output.close();
+
     cerr << RED << "done" << RESET << endl;
     
+    exit(-1);
     return 1;
 }
 
