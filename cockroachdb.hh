@@ -16,6 +16,8 @@ extern "C"  {
 #include <sys/time.h>
 #include <set>
 
+#define COCKROACH_STMT_BLOCK_MS 1500
+
 struct cockroachdb_connection {
     PGconn *conn;
     string test_db;

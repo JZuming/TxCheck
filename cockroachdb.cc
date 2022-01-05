@@ -374,7 +374,7 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
         auto begin_time = get_cur_time_ms();
         while (check_blocked(conn)) {
             auto cur_time = get_cur_time_ms();
-            if (cur_time - begin_time < STMT_BLOCK_MS)
+            if (cur_time - begin_time < COCKROACH_STMT_BLOCK_MS)
                 continue;
             
             throw std::runtime_error("blocked in cockroachdb::test"); 
