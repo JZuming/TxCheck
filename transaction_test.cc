@@ -119,7 +119,7 @@ bool get_serializability(map<string,string>& options)
         throw runtime_error("Does not support MySQL");
         #endif
     } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
-        return true;
+        return false;
     } 
     else {
         cerr << "Sorry,  you should specify a dbms and its database, or your dbms is not supported" << endl;
@@ -1272,4 +1272,61 @@ transaction_test::transaction_test(map<string,string>& options_arg,
 transaction_test::~transaction_test()
 {
     delete[] trans_arr;
+}
+
+bool reproduce_routine(map<string, string>& options,
+                        bool is_serializable,
+                        bool can_trigger_error,
+                        vector<string>& stmt_queue, 
+                        vector<int>& tid_queue)
+{
+    transaction_test re_test(options, NULL, is_serializable, can_trigger_error);
+    re_test.stmt_queue = stmt_queue;
+    re_test.tid_queue = tid_queue;
+    re_test.stmt_num = re_test.tid_queue.size();
+
+    int max_tid = -1;
+    for (auto tid:tid_queue) {
+        if (tid > max_tid)
+            max_tid = tid;
+    }
+
+    re_test.trans_num = max_tid + 1;
+    delete[] re_test.trans_arr;
+    re_test.trans_arr = new transaction[re_test.trans_num];
+
+    cerr << re_test.trans_num << " " << re_test.tid_queue.size() << " " << re_test.stmt_queue.size() << endl;
+    if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
+        cerr << "tid queue size should equal to stmt queue size" << endl;
+        return 0;
+    }
+
+    // init each transaction stmt
+    for (int i = 0; i < re_test.stmt_num; i++) {
+        auto tid = re_test.tid_queue[i];
+        re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
+    }
+
+    for (int tid = 0; tid < re_test.trans_num; tid++) {
+        re_test.trans_arr[tid].dut = dut_setup(options);
+        re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
+        if (re_test.trans_arr[tid].stmts.empty()) {
+            re_test.trans_arr[tid].status = 2;
+            continue;
+        }
+
+        if (re_test.trans_arr[tid].stmts.back().find("COMMIT") != string::npos)
+            re_test.trans_arr[tid].status = 1;
+        else
+            re_test.trans_arr[tid].status = 2;
+    }
+
+    re_test.trans_test();
+    re_test.normal_test();
+    if (!re_test.check_result()) {
+        cerr << "reproduce successfully" << endl;
+        return true;
+    }
+
+    return false;
 }

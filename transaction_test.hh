@@ -180,5 +180,11 @@ void normal_test(map<string,string>& options,
 int generate_database(map<string,string>& options, file_random_machine* random_file);
 void kill_process_with_SIGTERM(pid_t process_id);
 
+bool reproduce_routine(map<string, string>& options,
+                        bool is_serializable,
+                        bool can_trigger_error,
+                        vector<string>& stmt_queue, 
+                        vector<int>& tid_queue);
+
 extern pthread_mutex_t mutex_timeout;  
 extern pthread_cond_t  cond_timeout;
