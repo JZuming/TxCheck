@@ -136,6 +136,7 @@ public:
     void assign_trans_status();
     void gen_stmt_for_each_trans();
     
+    bool check_commit_trans_blocked();
     void trans_test();
     void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue);
     int trans_test_unit(int stmt_pos);

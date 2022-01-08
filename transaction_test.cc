@@ -809,6 +809,10 @@ int transaction_test::trans_test_unit(int stmt_pos)
         if (err.find("skipped") != string::npos) {
             return 2;
         }
+
+        if (err.find("sent sql stmt changed") != string::npos) {
+            exit(-1);
+        }
         
         // store the error info of non-commit statement
         if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
@@ -844,13 +848,22 @@ int transaction_test::trans_test_unit(int stmt_pos)
     return 0;
 }
 
+bool transaction_test::check_commit_trans_blocked()
+{
+    bool has_other_commit_blocked = false;
+    for (int tmp_tid = 0; tmp_tid < trans_num; tmp_tid++) {
+        if (trans_arr[tmp_tid].status == 1 && trans_arr[tmp_tid].is_blocked) {
+            has_other_commit_blocked = true;
+            break;
+        }
+    }
+    return has_other_commit_blocked;
+}
+
 
 void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue)
 {
     cerr << YELLOW << "retrying process begin..." << RESET << endl;
-    shared_ptr<int[]> tried_but_blocked_tid(new int[trans_num]);
-    for (int i = 0; i < trans_num; i++) 
-        tried_but_blocked_tid[i] = 0;
 
     // firstly try the first stmt of each blocked transaction
     set<int> first_tried_tid;
@@ -859,6 +872,9 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             continue;
         
         auto tid = tid_queue[i];
+        if (trans_arr[tid].is_blocked == false)
+            continue;
+
         if (first_tried_tid.count(tid) != 0) // have tried
             continue;
         
@@ -874,19 +890,23 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             status_queue[i] = 1;
         } else {// blocked
             trans_arr[tid].is_blocked = true;
-            tried_but_blocked_tid[tid] = 1;
         }
     }
     
     for (int stmt_pos = 0; stmt_pos < cur_stmt_num; stmt_pos++) {
         auto tid = tid_queue[stmt_pos];
         // skip the tried but still blocked transaction
-        if (tried_but_blocked_tid[tid] == 1)
+        if (trans_arr[tid].is_blocked)
             continue;
         
         // skip the executed stmt
         if (status_queue[stmt_pos] == 1)
             continue;
+        
+        if (is_serializable == false && trans_arr[tid].status == 1) {
+            if (check_commit_trans_blocked())
+                continue;
+        }
 
         auto is_executed = trans_test_unit(stmt_pos);
         // successfully execute the stmt, so label as not blocked
@@ -904,7 +924,6 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         }
         else { // still blocked
             trans_arr[tid].is_blocked = true;
-            tried_but_blocked_tid[tid] = 1;
         }
     }
     cerr << YELLOW << "retrying process end..." << RESET << endl;
@@ -925,6 +944,13 @@ void transaction_test::trans_test()
         
         if (trans_arr[tid].is_blocked)
             continue;
+        
+        // if there is some committed transaction blocked
+        // this committed transaction cannot execute (not serialiazability)
+        if (is_serializable == false && trans_arr[tid].status == 1) {
+            if (check_commit_trans_blocked())
+                continue;
+        }
         
         auto is_executed = trans_test_unit(stmt_index);
         

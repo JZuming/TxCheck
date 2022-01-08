@@ -368,8 +368,6 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
     }
     
     if (sent_sql != stmt) {
-        cerr << "sent sql stmt changed in cockroachdb::test" << endl;
-        exit(-1);
         throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
     }
         
