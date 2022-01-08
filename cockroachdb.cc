@@ -367,9 +367,12 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
         sent_sql = stmt;
     }
     
-    if (sent_sql != stmt)
+    if (sent_sql != stmt) {
+        cerr << "sent sql stmt changed in cockroachdb::test" << endl;
+        exit(-1);
         throw std::runtime_error("sent sql stmt changed in cockroachdb::test"); 
-    
+    }
+        
     while (1) {
         auto begin_time = get_cur_time_ms();
         while (check_blocked(conn)) {

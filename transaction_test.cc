@@ -784,7 +784,7 @@ int transaction_test::trans_test_unit(int stmt_pos)
         if (!output.empty())
             trans_arr[tid].stmt_outputs.push_back(output);
         
-        cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+        cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
 
         // if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
         //     cerr << "getting content of trans " << tid << " (transaction one) " << endl;
@@ -796,7 +796,7 @@ int transaction_test::trans_test_unit(int stmt_pos)
     } catch(exception &e) {
         string err = e.what();
         cerr << RED 
-            << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+            << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
             << err << RESET << endl;
 
         if (err.find("ost connection") != string::npos)
@@ -830,13 +830,13 @@ int transaction_test::trans_test_unit(int stmt_pos)
         stmt = stmt_queue[stmt_pos];
         try {
             trans_arr[tid].dut->test(stmt);
-            cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+            cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
             return 1;
             
         } catch(exception &e2) {
             err = e2.what();
             cerr << RED 
-            << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+            << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
             << err << RESET << endl;
         }
     }
