@@ -598,7 +598,9 @@ static void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
     scope scope;
     db_schema->fill_scope(scope);
     for (int i = 0; i < trans_stmt_num; i++) {
+        cerr << "generating statement ...";
         shared_ptr<prod> gen = trans_statement_factory(&scope);
+        cerr << "done" << endl;
 
         ostringstream stmt_stream;
         gen->out(stmt_stream);
@@ -606,8 +608,10 @@ static void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
 
         if (can_trigger_err == false) {
             try {
+                cerr << "checking (executing) statement ...";
                 auto dut = dut_setup(*options);
                 dut->test(stmt);
+                cerr << "done" << endl;
             } catch (exception &e) {
                 i = i - 1; // generate a stmt again
                 continue;
