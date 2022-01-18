@@ -627,125 +627,66 @@ void transaction_test::arrage_trans_for_tid_queue()
     for (int tid = 0; tid < trans_num; tid++)
         trans_arr[tid].stmt_num = 0;
     
-    int holder_tid = -7;
     for (int i = 0; i < stmt_num; i++) {
-        int tid = dx(trans_num) - 1; // [0, trans_num - 1]
-        
-        if (tid < must_commit_num) {
-            tid_queue.push_back(holder_tid); // space holder
-            trans_arr[tid].stmt_num++;
-            continue;
-        }
-
+        int tid = dx(trans_num) - 1;
         tid_queue.push_back(tid);
         trans_arr[tid].stmt_num++;
-    }
-
-    // must have more than 2 in each must_commit tid
-    for (int tid = 0; tid < must_commit_num; tid++) {
-        while (trans_arr[tid].stmt_num < 2) {
-            tid_queue.push_back(holder_tid);
-            stmt_num++;
-            trans_arr[tid].stmt_num++;
-        }
-    }
-
-    int tid_now = 0;
-    int tid_now_arranged = 0;
-    for (int i = 0; i < stmt_num; i++) {
-        if (tid_queue[i] != holder_tid)
-            continue;
-        
-        tid_queue[i] = tid_now;
-        tid_now_arranged++;
-        if (tid_now_arranged < trans_arr[tid_now].stmt_num)
-            continue;
-        
-        tid_now++;
-        tid_now_arranged = 0;
-
-        if (tid_now >= must_commit_num)
-            break;
     }
 
     // each transaction at least has two statement (begin and commit/abort)
     for (int tid = 0; tid < trans_num; tid++) {
         while (trans_arr[tid].stmt_num < 2) {
-            tid_queue.push_back(tid);
+            int pos = dx(stmt_num) - 1;
+            tid_queue.insert(tid_queue.begin() + pos, tid);
             stmt_num++;
             trans_arr[tid].stmt_num++;
         }
     }
+
+    if (is_serializable)
+        return;
+    
+    // for non-serializable, make the commit trans executing without interleaving
+    int holder_tid = -7;
+    for (int i = 0; i < stmt_num; i++) { // replace the tid with holder tid
+        auto tid = tid_queue[i];
+        if (tid < commit_num) 
+            tid_queue[i] = holder_tid;
+    }
+
+    int tid_now = 0;
+    int arranged_stmt_num = 0;
+    for (int i = 0; i < stmt_num; i++) {
+        if (tid_queue[i] != holder_tid)
+            continue;
+        
+        tid_queue[i] = tid_now;
+        arranged_stmt_num++;
+
+        if (arranged_stmt_num < trans_arr[tid_now].stmt_num)
+            continue;
+        
+        tid_now++;
+        arranged_stmt_num = 0;
+
+        if (tid_now >= commit_num)
+            break;
+    }
+
     return;
 }
 
 void transaction_test::assign_trans_status()
 {   
-    if (is_serializable) {
-        // interleaved transaction can be both committed
-        for (int i = 0; i < trans_num; i ++) {
-            trans_arr[i].status = d12() <=6 ? 1 : 2;
-        }
-        return;
-    }
+    for (int i = 0; i < commit_num; i++) 
+        trans_arr[i].status = 1;
+
+    for (int i = commit_num; i < trans_num; i++) 
+        trans_arr[i].status = 2;
     
-    // it is not serializable, so only one of the interleaved transactions can be commit
-
-    // initialize transaction_status
-    for (int tid = 0; tid < trans_num; tid++) {
-        if (tid < must_commit_num)
-            trans_arr[tid].status = 1;
-        else
-            trans_arr[tid].status = 0;
-    }
-
-    // set transaction_status is zero
-    shared_ptr<int[]> transaction_start(new int[trans_num]);
-    shared_ptr<int[]> transaction_end(new int[trans_num]);
-    for (int i = 0; i < trans_num; i++) {
-        transaction_start[i] = -1;
-        transaction_end[i] = -1;
-    }
-
-    auto stmt_num = tid_queue.size();
-    for (int i = 0; i < stmt_num; i ++) {
-        auto tid = tid_queue[i];
-        
-        if (transaction_start[tid] == -1) {
-            transaction_start[tid] = i;
-            continue;
-        }
-
-        transaction_end[tid] = i;
-    }
-
-    for (int i = 0; i < trans_num; i++) {        
-        if (trans_arr[i].status == 0)
-            trans_arr[i].status = d12() <=6 ? 1 : 2; // assign
-        
-        if (trans_arr[i].status == 2) // abort, do not affect other transaction
-            continue;
-        
-        // it is commit, so the interleaved one should be abort
-        for (int j = i + 1; j < trans_num; j++) { // the transations before i have been assigned
-            if (transaction_start[j] < transaction_start[i] 
-                    && transaction_start[i] < transaction_end[j])
-                trans_arr[j].status = 2;
-            else if (transaction_start[j] < transaction_end[i]
-                    && transaction_end[i] < transaction_end[j])
-                trans_arr[j].status = 2;
-            else if (transaction_start[i] < transaction_end[j]
-                    && transaction_end[j] < transaction_end[i])
-                trans_arr[j].status = 2;
-            else if (transaction_start[i] < transaction_start[j]
-                    && transaction_start[j] < transaction_end[i])
-                trans_arr[j].status = 2;
-        }
-    }
-
     cerr << YELLOW << "show status" << RESET << endl;
     for (int i = 0; i < trans_num; i++) {
-        cerr << i << " " << transaction_start[i] << " " << transaction_end[i] << " " << trans_arr[i].status << endl;
+        cerr << i << " " << trans_arr[i].status << endl;
     }
 
     return;
@@ -1005,16 +946,12 @@ void transaction_test::trans_test()
     }
 
     // collect database information
-    dut_get_content(*options, trans_content);
+    dut_get_content(*options, trans_db_content);
 }
 
-void transaction_test::normal_test()
+void transaction_test::get_possible_order()
 {
-    dut_reset_to_backup(*options);
-
-    cerr << YELLOW << "normal test" << RESET << endl;
-    
-    vector<int> trans_order;
+    vector<int> most_possible_trans_order;
     int real_stmt_num = real_tid_queue.size();
     for (int i = 0; i < real_stmt_num; i++) {
         auto tid = real_tid_queue[i];
@@ -1026,109 +963,124 @@ void transaction_test::normal_test()
         if (!trans_arr[tid].dut->is_commit_abort_stmt(real_stmt_queue[i]))
             continue;
             
-        trans_order.push_back(tid);
+        most_possible_trans_order.push_back(tid);
     }
+    possible_normal_trans_order.push_back(most_possible_trans_order);
 
-    // normal execute order
-    cerr << "normal execute order: " << endl;
-    for (auto tmp_tid:trans_order) {
-        cerr << tmp_tid << " ";
-    }
-    cerr << endl;
+    // for non-serilizable, the commit transaction does not interleave, so only one possible result
+    if (!is_serializable)
+        return;
 
+    // in serilized case, if commit num is not 2, it must be less than 2
+    // in trans_test, committed_trans may change to aborted trans, so cannot use commit_num
+    if (most_possible_trans_order.size() != 2)
+        return;
+    
+    vector<int> another_possible_trans_order;
+    another_possible_trans_order.push_back(most_possible_trans_order[1]);
+    another_possible_trans_order.push_back(most_possible_trans_order[0]);
+    possible_normal_trans_order.push_back(another_possible_trans_order);
+    return;
+}
+
+void transaction_test::execute_possible_order()
+{
     // get normal execute statement
+    int real_stmt_num = real_tid_queue.size();
     for (int i = 0; i < real_stmt_num; i++) {
         auto real_tid = real_tid_queue[i];
         auto real_stmt = real_stmt_queue[i];
-
-        trans_arr[real_tid].normal_test_stmts.push_back(real_stmt);
+        trans_arr[real_tid].normal_stmts.push_back(real_stmt);
     }
-
-    auto normal_dut = dut_setup(*options);
-    for (auto tid:trans_order) {
-        if (trans_arr[tid].status == 1) { // if it is commit, erase "begin" and "commit"
-            trans_arr[tid].normal_test_stmts.erase(trans_arr[tid].normal_test_stmts.begin());
-            trans_arr[tid].normal_test_stmts.pop_back();
-        }
-
-        auto normal_stmt_num = trans_arr[tid].normal_test_stmts.size();
-        for (int i = 0; i < normal_stmt_num; i++) {
-            auto& stmt = trans_arr[tid].normal_test_stmts[i];
-            vector<string> output;
-
-            try {
-                normal_dut->test(stmt, &output);
-                if (!output.empty())
-                    trans_arr[tid].normal_test_stmt_outputs.push_back(output);
-
-                cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
-            } catch(exception &e) {
-                string err = e.what();
-                cerr << RED 
-                    << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
-                    << err << RESET << endl;
-                trans_arr[tid].normal_test_stmt_err_info.push_back(err);
+    
+    auto possible_order_num = possible_normal_trans_order.size();
+    for (int i = 0; i < possible_order_num; i++) {
+        auto trans_order = possible_normal_trans_order[i];   
+        dut_reset_to_backup(*options);
+        auto normal_dut = dut_setup(*options);
+        
+        for (auto tid : trans_order) {
+            // if it is commit, erase "begin" and "commit"
+            if (trans_arr[tid].status == 1) {
+                trans_arr[tid].normal_stmts.erase(trans_arr[tid].normal_stmts.begin());
+                trans_arr[tid].normal_stmts.pop_back();
             }
 
-            // if (trans_arr[tid].status == 1 && i == normal_stmt_num - 1) { // last statement
-            //     cerr << "getting content of trans " << tid << " (normal one) " << endl;
-            //     dut_get_content(*options, trans_arr[tid].executed_content);
-            // }
-        }
-    }
-    normal_dut.reset();
+            vector<vector<string>> normal_output;
+            vector<string> normal_err_info;
 
-    // collect database information
-    dut_get_content(*options, normal_content);
+            auto normal_stmt_num = trans_arr[tid].normal_stmts.size();
+            for (int i = 0; i < normal_stmt_num; i++) {
+                auto& stmt = trans_arr[tid].normal_stmts[i];
+                vector<string> output;
+                try {
+                    normal_dut->test(stmt, &output);
+                    if (!output.empty())
+                        normal_output.push_back(output);
+                    
+                    cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+                } catch (exception &e) {
+                    string err = e.what();
+                    cerr << RED 
+                        << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+                        << err << RESET << endl;
+                    normal_err_info.push_back(err);
+                }
+            }
+
+            trans_arr[tid].possible_normal_outputs.push_back(normal_output);
+            trans_arr[tid].possible_normal_err_info.push_back(normal_err_info);
+        }
+        normal_dut.reset();
+        map<string, vector<string>> normal_db_content;
+        dut_get_content(*options, normal_db_content);
+        possible_normal_db_content.push_back(normal_db_content);
+    }
+
+    return;
 }
 
-// true; no bug
-// false: trigger a logic bug
-bool transaction_test::check_result()
+void transaction_test::normal_test()
 {
-    cerr << "check the final content " << endl;
-    if (!compare_content(trans_content, normal_content)) {
-        cerr << "trans_content is not equal to normal_content" << endl;
+    cerr << YELLOW << "normal test" << RESET << endl;
+    get_possible_order();
+    execute_possible_order();
+    return;
+}
+
+bool transaction_test::check_one_order_result(int order_index)
+{
+    cerr << "check order: " << order_index << endl;
+    if (!compare_content(trans_db_content, possible_normal_db_content[order_index])) {
+        cerr << "trans_db_content is not equal to possible_normal_db_content[" << order_index << "]" << endl;
         return false;
     }
 
     for (auto i = 0; i < trans_num; i++) {
         if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
             continue;
-        
         if (trans_arr[i].status != 1) // donot check abort transaction
             continue;
         
-        cerr << "check the output of " << i << endl;
-        if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].normal_test_stmt_outputs)) {
-            cerr << "trans "<< i << " is not equal to normal one" << endl;
+        if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].possible_normal_outputs[order_index])) {
+            cerr << "trans "<< i << " output is not equal to possible_normal " << order_index << endl;
             return false;
         }
-
-        cerr << "check the content after executing " << i << endl;
-        if (!compare_content(trans_arr[i].committed_content, trans_arr[i].executed_content)) {
-            cerr << "committed content of " << i << " is not equal to normal one" << endl;
-            return false;
-        }
-
-        // cerr << "check the error info of " << i << endl;
-        // auto err_size = trans_arr[i].stmt_err_info.size();
-        // if (err_size != trans_arr[i].normal_test_stmt_err_info.size()) {
-        //     cerr << "error info size is different to normal one "<< err_size 
-        //         << trans_arr[i].normal_test_stmt_err_info.size() << endl;
-        //     return false;
-        // }
-        // for (int j = 0; j < err_size; j++) {
-        //     if (trans_arr[i].stmt_err_info[j] != trans_arr[i].normal_test_stmt_err_info[j]) {
-        //         cerr << "error info is different to normal one" << endl;
-        //         cerr << "trans one: " << trans_arr[i].stmt_err_info[j] << endl;
-        //         cerr << "normal one: " << trans_arr[i].normal_test_stmt_err_info[j] << endl;
-        //         return false;
-        //     }
-        // }
     }
 
     return true;
+}
+
+// true; no bug
+// false: trigger a logic bug
+bool transaction_test::check_result()
+{
+    auto order_num = possible_normal_trans_order.size();
+    for (int index = 0; index < order_num; index++) {
+        if (check_one_order_result(index))
+            return true;
+    }
+    return false;
 }
 
 int transaction_test::test()
@@ -1288,7 +1240,11 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     is_serializable = is_seri;
     can_trigger_error = can_trigger_err;
 
-    must_commit_num = dx(trans_num);
+    // commit_num = dx(trans_num);
+    if (trans_num >= 2)
+        commit_num = 2;
+    else
+        commit_num = trans_num;
 
     trans_arr = new transaction[trans_num];
 

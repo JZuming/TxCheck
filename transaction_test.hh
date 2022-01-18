@@ -93,9 +93,9 @@ struct transaction {
     vector<string> stmt_err_info;
     map<string, vector<string>> committed_content; // database content after commit
 
-    vector<string> normal_test_stmts;
-    vector<vector<string>> normal_test_stmt_outputs;
-    vector<string> normal_test_stmt_err_info;
+    vector<string> normal_stmts;
+    vector<vector<vector<string>>> possible_normal_outputs;
+    vector<vector<string>> possible_normal_err_info;
     map<string, vector<string>> executed_content; // database content after execution
 
     transaction() {is_blocked = false; stmt_num = 0; status = 0;}
@@ -115,7 +115,7 @@ public:
     file_random_machine* random_file;
     string output_path_dir;
 
-    int must_commit_num;
+    int commit_num;
 
     bool is_serializable;
     bool can_trigger_error;
@@ -128,9 +128,10 @@ public:
 
     vector<int> real_tid_queue;
     vector<string> real_stmt_queue;
+    map<string, vector<string>> trans_db_content;
 
-    map<string, vector<string>> trans_content;
-    map<string, vector<string>> normal_content;
+    vector<vector<int>> possible_normal_trans_order;
+    vector<map<string, vector<string>>> possible_normal_db_content;
 
     void arrage_trans_for_tid_queue();
     void assign_trans_status();
@@ -153,6 +154,11 @@ public:
     ~transaction_test();
     
     int test();
+
+private:
+    void get_possible_order();
+    void execute_possible_order();
+    bool check_one_order_result(int order_index);
 };
 
 
