@@ -91,12 +91,10 @@ struct transaction {
     vector<string> stmts;
     vector<vector<string>> stmt_outputs;
     vector<string> stmt_err_info;
-    map<string, vector<string>> committed_content; // database content after commit
 
     vector<string> normal_stmts;
     vector<vector<vector<string>>> possible_normal_outputs;
     vector<vector<string>> possible_normal_err_info;
-    map<string, vector<string>> executed_content; // database content after execution
 
     transaction() {is_blocked = false; stmt_num = 0; status = 0;}
 

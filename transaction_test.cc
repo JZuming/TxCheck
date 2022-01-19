@@ -119,7 +119,7 @@ bool get_serializability(map<string,string>& options)
         throw runtime_error("Does not support MySQL");
         #endif
     } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
-        return false;
+        return true;
     } 
     else {
         cerr << "Sorry,  you should specify a dbms and its database, or your dbms is not supported" << endl;
@@ -614,6 +614,7 @@ static void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
                 cerr << "done" << endl;
             } catch (exception &e) {
                 i = i - 1; // generate a stmt again
+                cerr << "err: " << e.what() << ", try again" << endl;
                 continue;
             }
         }
