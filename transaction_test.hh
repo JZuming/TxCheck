@@ -157,6 +157,7 @@ private:
     void get_possible_order();
     void execute_possible_order();
     bool check_one_order_result(int order_index);
+    void save_test_case(string dir_name);
 };
 
 
