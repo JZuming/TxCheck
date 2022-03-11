@@ -1089,6 +1089,28 @@ bool transaction_test::check_result()
     return false;
 }
 
+void transaction_test::save_test_case(string dir_name)
+{
+    cerr << RED << "Saving test cases..." << RESET;
+    // save stmt queue
+    string total_stmts_file = dir_name + "stmts.sql";
+    ofstream total_stmt_output(total_stmts_file);
+    for (int i = 0; i < stmt_num; i++) {
+        total_stmt_output << stmt_queue[i] << endl;
+        total_stmt_output << endl;
+    }
+    total_stmt_output.close();
+
+    // save tid queue
+    string total_tid_file = dir_name + "tid.txt";
+    ofstream total_tid_output(total_tid_file);
+    for (int i = 0; i < stmt_num; i++) {
+        total_tid_output << tid_queue[i] << endl;
+    }
+    total_tid_output.close();
+    cerr << RED << "done" << RESET << endl;
+}
+
 int transaction_test::test()
 {
     try {
@@ -1131,33 +1153,7 @@ int transaction_test::test()
     auto dut = dut_setup(*options);
     dut->save_backup_file(dir_name);
     
-    cerr << RED << "Saving test cases..." << RESET;
-    for (int i = 0; i < trans_num; i++) {
-        string file_name = dir_name + "trans_" + to_string(i) + ".sql";
-        ofstream ofile(file_name);
-        for (auto& stmt : trans_arr[i].stmts) {
-            ofile << stmt << endl;
-            ofile << endl;
-        }
-        ofile.close();
-    }
-
-    string total_stmts_file = dir_name + "stmts.sql";
-    ofstream total_stmt_output(total_stmts_file);
-    for (int i = 0; i < stmt_num; i++) {
-        total_stmt_output << stmt_queue[i] << endl;
-        total_stmt_output << endl;
-    }
-    total_stmt_output.close();
-
-    string total_tid_file = dir_name + "tid.txt";
-    ofstream total_tid_output(total_tid_file);
-    for (int i = 0; i < stmt_num; i++) {
-        total_tid_output << tid_queue[i] << endl;
-    }
-    total_tid_output.close();
-
-    cerr << RED << "done" << RESET << endl;
+    save_test_case(dir_name);
     
     exit(-1);
     return 1;
