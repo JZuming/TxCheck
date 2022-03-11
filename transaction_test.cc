@@ -614,6 +614,11 @@ static void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
                 cerr << "done" << endl;
             } catch (exception &e) {
                 i = i - 1; // generate a stmt again
+                string err = e.what();
+                if (err.find("CONNECTION FAIL") != string::npos)
+                    throw e;
+                if (err.find("BUG") != string::npos)
+                    throw e;
                 cerr << "err: " << e.what() << ", try again" << endl;
                 continue;
             }
@@ -1235,7 +1240,7 @@ transaction_test::transaction_test(map<string,string>& options_arg,
     options = &options_arg;
     random_file = random_file_arg;
     
-    trans_num = d6() + 4; // 5 - 11
+    trans_num = d6(); // 1 - 6
     stmt_num = trans_num * (3 + d12()); // average statement number of each transaction is 4 - 15
     
     is_serializable = is_seri;

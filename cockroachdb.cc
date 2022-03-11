@@ -8,7 +8,7 @@ cockroachdb_connection::cockroachdb_connection(string db, unsigned int port)
     conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, test_db.c_str(), "root", NULL);
     if (PQstatus(conn) != CONNECTION_OK) {
         string err = PQerrorMessage(conn);
-        throw runtime_error(err + " in cockroachdb_connection");
+        throw runtime_error("[CONNECTION FAIL] " + err + " in cockroachdb_connection");
     }
 }
 
@@ -401,7 +401,10 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
             sent_sql = "";
             
             if (has_bug)
-                throw std::runtime_error("BUG!!! " + err + " in cockroachdb::test -> PQresultStatus"); 
+                throw std::runtime_error("[FIND BUG] " + err + " [in cockroachdb::test -> PQresultStatus]"); 
+            
+            if (err.find("internal error") != string::npos) 
+                throw std::runtime_error("[FIND BUG] " + err + " [in cockroachdb::test -> PQresultStatus]"); 
 
             if (err.find("commands ignored until end of transaction block") != string::npos) 
                 throw runtime_error("skipped in cockroachdb::test");

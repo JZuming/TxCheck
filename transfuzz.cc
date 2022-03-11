@@ -150,6 +150,7 @@ int fork_for_transaction_test(map<string,string>& options,
         }
         else {
             cerr << RED << "find memory bug" << RESET << endl;
+            cerr << "killSignal: " << killSignal << endl;
             throw runtime_error(string("memory bug"));
         }
     }
