@@ -32,6 +32,7 @@ using boost::regex_match;
 
 #ifdef HAVE_LIBMYSQLCLIENT
 #include "tidb.hh"
+#include "mysql.hh"
 #endif
 
 #ifdef HAVE_MONETDB
@@ -40,6 +41,7 @@ using boost::regex_match;
 
 #include "cockroachdb.hh"
 #include "postgres.hh"
+#include "dbms_info.hh"
 
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -163,8 +165,6 @@ private:
 
 shared_ptr<schema> get_schema(map<string,string>& options);
 shared_ptr<dut_base> dut_setup(map<string,string>& options);
-bool get_serializability(map<string,string>& options);
-bool can_trigger_error_in_transaction(map<string,string>& options);
 
 void user_signal(int signal);
 void* test_thread(void* argv);

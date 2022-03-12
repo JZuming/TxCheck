@@ -232,6 +232,7 @@ int main(int argc, char *argv[])
     map<string,string> options;
     regex optregex("--\
 (help|postgres|sqlite|monetdb|random-seed|\
+tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 cockroach-db|cockroach-port|\
 reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
@@ -257,8 +258,10 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
             "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
             #endif
             #ifdef HAVE_LIBMYSQLCLIENT
-            "    --mysql-db=constr    mysql database name to send queries to (should used with" << endl << 
-            "    --mysql-port=int     mysql server port number" << endl << 
+            "    --tidb-db=constr   tidb database name to send queries to (should used with" << endl << 
+            "    --tidb-port=int    tidb server port number" << endl << 
+            "    --mysql-db=constr  mysql database name to send queries to (should used with" << endl << 
+            "    --mysql-port=int   mysql server port number" << endl << 
             #endif
             "    --cockroach-db=constr  cockroach database name to send queries to (should used with" << endl << 
             "    --cockroach-port=int   cockroach server port number" << endl << 
@@ -297,12 +300,11 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
     pthread_mutex_init(&mutex_timeout, NULL);  
     pthread_cond_init(&cond_timeout, NULL);
 
-    bool is_serializable = get_serializability(options);
-    bool can_trigger_error = can_trigger_error_in_transaction(options);
+    dbms_info d_info(options);
 
-    cerr << "Test DBMS: " << endl;
-    cerr << "Serializablility: " << is_serializable << endl;
-    cerr << "Can trigger error in transaction: " << can_trigger_error << endl;
+    cerr << "Test DBMS: " << d_info.dbms_name << endl;
+    cerr << "Serializablility: " << d_info.serializable << endl;
+    cerr << "Can trigger error in transaction: " << d_info.can_trigger_error_in_txn << endl;
 
     if (options.count("reproduce-sql")) {
         cerr << "enter reproduce mode" << endl;
@@ -343,13 +345,13 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         }
         tid_file.close();
 
-        reproduce_routine(options, is_serializable, can_trigger_error, stmt_queue, tid_queue);
+        reproduce_routine(options, d_info.serializable, d_info.can_trigger_error_in_txn, stmt_queue, tid_queue);
 
         return 0;
     }
     
     while (1) {
-        random_test(options, is_serializable, can_trigger_error);
+        random_test(options, d_info.serializable, d_info.can_trigger_error_in_txn);
     }
 
     return 0;

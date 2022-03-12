@@ -102,60 +102,6 @@ shared_ptr<dut_base> dut_setup(map<string,string>& options)
     return dut;
 }
 
-bool get_serializability(map<string,string>& options)
-{
-    if (options.count("sqlite")) {
-        #ifdef HAVE_LIBSQLITE3
-        return true;
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
-        throw runtime_error("Does not support SQLite");
-        #endif
-    } else if (options.count("mysql-db") && options.count("mysql-port")) {
-        #ifdef HAVE_LIBMYSQLCLIENT
-        return false;
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
-        throw runtime_error("Does not support MySQL");
-        #endif
-    } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
-        return true;
-    } 
-    else {
-        cerr << "Sorry,  you should specify a dbms and its database, or your dbms is not supported" << endl;
-        throw runtime_error("Does not define target dbms and db");
-    }
-
-    return false;
-}
-
-bool can_trigger_error_in_transaction(map<string,string>& options)
-{
-    if (options.count("sqlite")) {
-        #ifdef HAVE_LIBSQLITE3
-        return true;
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
-        throw runtime_error("Does not support SQLite");
-        #endif
-    } else if (options.count("mysql-db") && options.count("mysql-port")) {
-        #ifdef HAVE_LIBMYSQLCLIENT
-        return true;
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
-        throw runtime_error("Does not support MySQL");
-        #endif
-    } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
-        return false;
-    } 
-    else {
-        cerr << "Sorry,  you should specify a dbms and its database, or your dbms is not supported" << endl;
-        throw runtime_error("Does not define target dbms and db");
-    }
-
-    return false;
-}
-
 pid_t fork_db_server(map<string,string>& options)
 {
     pid_t fork_pid;
