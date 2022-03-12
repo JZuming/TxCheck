@@ -1,3 +1,6 @@
+#ifndef DBMS_INFO_HH
+#define DBMS_INFO_HH
+
 #include "config.h"
 #include <string>
 #include <map>
@@ -15,3 +18,4 @@ struct dbms_info {
     dbms_info(map<string,string>& options);
 };
 
+#endif

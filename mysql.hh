@@ -1,6 +1,3 @@
-/// @file
-/// @brief schema and dut classes for SQLite 3
-
 #ifndef MYSQL_HH
 #define MYSQL_HH
 

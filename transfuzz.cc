@@ -158,23 +158,10 @@ int fork_for_transaction_test(map<string,string>& options,
     return 0;
 }
 
-int random_test(map<string,string>& options,
-                bool is_serializable,
-                bool can_trigger_error)
+int random_test(dbms_info& d_info)
 {   
-    struct file_random_machine* random_file;
-    if (options.count("random-seed")) {
-        cerr << "random seed is " << options["random-seed"] << endl;
-        random_file = file_random_machine::get(options["random-seed"]);
-        file_random_machine::use_file(options["random-seed"]);
-    }
-    else 
-        random_file = NULL;
-    
-    if (random_file == NULL) {
-        cerr << YELLOW << "initial seed as time(NULL)" << RESET << endl;
-        smith::rng.seed(time(NULL));
-    }
+    cerr << YELLOW << "initial seed as time(NULL)" << RESET << endl;
+    smith::rng.seed(time(NULL));
     
     // reset the target DBMS to initial state
     int setup_try_time = 0;
