@@ -83,14 +83,72 @@ void kill_process_signal(int signal)
     return;  
 }
 
-int fork_for_transaction_test(map<string,string>& options,
-                            file_random_machine* random_file,
-                            bool is_serilizable,
-                            bool can_trigger_error)
+int fork_for_generating_database(dbms_info& d_info)
+{
+    static itimerval itimer;
+    auto just_check_server = make_shared<transaction_test>(d_info);
+    auto restart = just_check_server->fork_if_server_closed();
+    if (restart)
+        throw runtime_error(string("restart server")); // need to generate database again
+    just_check_server.reset();
+
+    child_pid = fork();
+    if (child_pid == 0) { // in child process
+        generate_database(d_info);
+        exit(NORMAL_EXIT);
+    }
+
+    itimer.it_value.tv_sec = TRANSACTION_TIMEOUT;
+    itimer.it_value.tv_usec = 0; // us limit
+    setitimer(ITIMER_REAL, &itimer, NULL);
+
+    int status;
+    auto res = waitpid(child_pid, &status, 0);
+    if (res <= 0) {
+        cerr << "waitpid() fail: " <<  res << endl;
+        throw runtime_error(string("waitpid() fail"));
+    }
+
+    if (!WIFSTOPPED(status)) 
+        child_pid = 0;
+    
+    itimer.it_value.tv_sec = 0;
+    itimer.it_value.tv_usec = 0;
+    setitimer(ITIMER_REAL, &itimer, NULL);
+    
+    if (WIFEXITED(status)) {
+        auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
+        cerr << "exit code: " << exit_code << endl;
+        if (exit_code == FIND_BUG_EXIT) {
+            cerr << RED << "a bug is found in fork process" << RESET << endl;
+            transaction_test::record_bug_num++;
+        }
+        if (exit_code == 255)
+            exit(-1);
+    }
+
+    if (WIFSIGNALED(status)) {
+        auto killSignal = WTERMSIG(status);
+        if (child_timed_out && killSignal == SIGKILL) {
+            cerr << "timeout in generating stmt, reset the seed" << endl;
+            smith::rng.seed(time(NULL));
+            throw runtime_error(string("transaction test timeout"));
+        }
+        else {
+            cerr << RED << "find memory bug" << RESET << endl;
+            cerr << "killSignal: " << killSignal << endl;
+            throw runtime_error(string("memory bug"));
+        }
+    }
+
+    return 0;
+}
+
+int fork_for_transaction_test(dbms_info& d_info)
 {
     static itimerval itimer;
 
-    auto just_check_server = make_shared<transaction_test>(options, random_file, is_serilizable, can_trigger_error);
+    auto just_check_server = make_shared<transaction_test>(d_info);
     auto restart = just_check_server->fork_if_server_closed();
     if (restart)
         throw runtime_error(string("restart server")); // need to generate database again
@@ -99,7 +157,7 @@ int fork_for_transaction_test(map<string,string>& options,
     child_pid = fork();
     if (child_pid == 0) { // in child process
         try {
-            transaction_test tt(options, random_file, is_serilizable, can_trigger_error);
+            transaction_test tt(d_info);
             auto ret = tt.test();
             if (ret == 1) {
                 cerr << RED << "find a bug" << RESET << endl;
@@ -172,11 +230,7 @@ int random_test(dbms_info& d_info)
         }
 
         try {
-            transaction_test just_setup(options, random_file, is_serializable, can_trigger_error);
-            just_setup.fork_if_server_closed();
-            
-            dut_reset(options);
-            generate_database(options, random_file);
+            fork_for_generating_database(d_info);
             break;
         } catch(std::exception &e) {
             cerr << e.what() << " in setup stage" << endl;
@@ -193,7 +247,7 @@ int random_test(dbms_info& d_info)
         }
         
         try {
-            fork_for_transaction_test(options, random_file, is_serializable, can_trigger_error);
+            fork_for_transaction_test(d_info);
         } catch (exception &e) {
             string err = e.what();
             cerr << "ERROR in random_test: " << err << endl;
@@ -332,13 +386,13 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         }
         tid_file.close();
 
-        reproduce_routine(options, d_info.serializable, d_info.can_trigger_error_in_txn, stmt_queue, tid_queue);
+        reproduce_routine(d_info, stmt_queue, tid_queue);
 
         return 0;
     }
     
     while (1) {
-        random_test(options, d_info.serializable, d_info.can_trigger_error_in_txn);
+        random_test(d_info);
     }
 
     return 0;

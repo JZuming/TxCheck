@@ -16,6 +16,14 @@ struct dbms_info {
     bool can_trigger_error_in_txn;
 
     dbms_info(map<string,string>& options);
+    dbms_info() {};
+    void operator=(dbms_info& target) {
+        dbms_name = target.dbms_name;
+        test_db = target.test_db;
+        test_port = target.test_port;
+        serializable = target.serializable;
+        can_trigger_error_in_txn = target.can_trigger_error_in_txn;
+    }
 };
 
 #endif

@@ -109,11 +109,6 @@ int transaction_test::trans_test_unit(int stmt_pos)
         
         cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
 
-        // if (trans_arr[tid].status == 1 && trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
-        //     cerr << "getting content of trans " << tid << " (transaction one) " << endl;
-        //     dut_get_content(*options, trans_arr[tid].committed_content); // get the content after commit
-        // }
-
         return 1;
     
     } catch(exception &e) {
@@ -216,7 +211,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         }
     }
     
-    auto is_serializable = test_dbms_info;
+    auto is_serializable = test_dbms_info.serializable;
     for (int stmt_pos = 0; stmt_pos < cur_stmt_num; stmt_pos++) {
         auto tid = tid_queue[stmt_pos];
         // skip the tried but still blocked transaction
@@ -255,7 +250,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
 
 void transaction_test::trans_test()
 {
-    dut_reset_to_backup(*options);
+    dut_reset_to_backup(test_dbms_info);
     cerr << YELLOW << "transaction test" << RESET << endl;
     shared_ptr<int[]> status_queue(new int[stmt_num]);
     
@@ -271,7 +266,7 @@ void transaction_test::trans_test()
         
         // if there is some committed transaction blocked
         // this committed transaction cannot execute (not serialiazability)
-        if (is_serializable == false && trans_arr[tid].status == 1) {
+        if (test_dbms_info.serializable == false && trans_arr[tid].status == 1) {
             if (check_commit_trans_blocked())
                 continue;
         }
@@ -325,7 +320,7 @@ void transaction_test::trans_test()
     }
 
     // collect database information
-    dut_get_content(*options, trans_db_content);
+    dut_get_content(test_dbms_info, trans_db_content);
 }
 
 void transaction_test::get_possible_order()
@@ -347,7 +342,7 @@ void transaction_test::get_possible_order()
     possible_normal_trans_order.push_back(most_possible_trans_order);
 
     // for non-serilizable, the commit transaction does not interleave, so only one possible result
-    if (!is_serializable)
+    if (!test_dbms_info.serializable)
         return;
 
     // in serilized case, if commit num is not 2, it must be less than 2
@@ -375,8 +370,8 @@ void transaction_test::execute_possible_order()
     auto possible_order_num = possible_normal_trans_order.size();
     for (int i = 0; i < possible_order_num; i++) {
         auto trans_order = possible_normal_trans_order[i];   
-        dut_reset_to_backup(*options);
-        auto normal_dut = dut_setup(*options);
+        dut_reset_to_backup(test_dbms_info);
+        auto normal_dut = dut_setup(test_dbms_info);
         
         for (auto tid : trans_order) {
             // if it is commit, erase "begin" and "commit"
@@ -412,7 +407,7 @@ void transaction_test::execute_possible_order()
         }
         normal_dut.reset();
         map<string, vector<string>> normal_db_content;
-        dut_get_content(*options, normal_db_content);
+        dut_get_content(test_dbms_info, normal_db_content);
         possible_normal_db_content.push_back(normal_db_content);
     }
 
@@ -502,7 +497,7 @@ int transaction_test::test()
         system(cmd.c_str());
         
         // save database
-        auto dut = dut_setup(*options);
+        auto dut = dut_setup(test_dbms_info);
         dut->save_backup_file(dir_name);
 
         exit(-1);
@@ -523,7 +518,7 @@ int transaction_test::test()
     make_dir_error_exit(dir_name);
 
     cerr << RED << "Saving database..." << RESET << endl;
-    auto dut = dut_setup(*options);
+    auto dut = dut_setup(test_dbms_info);
     dut->save_backup_file(dir_name);
     
     save_test_case(dir_name);
@@ -567,7 +562,7 @@ bool transaction_test::fork_if_server_closed()
 
     while (1) {
         try {
-            auto dut = dut_setup(*options);
+            auto dut = dut_setup(test_dbms_info);
             if (server_restart)
                 sleep(3);
             break; // connect successfully, so break;
@@ -578,7 +573,7 @@ bool transaction_test::fork_if_server_closed()
                 cerr << "testing server die, restart it" << endl;
 
                 kill_process_with_SIGTERM(server_process_id); // just for safe
-                server_process_id = fork_db_server(*options);
+                server_process_id = fork_db_server(test_dbms_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;
                 continue;
@@ -589,7 +584,7 @@ bool transaction_test::fork_if_server_closed()
                 cerr << "testing server hang, kill it and restart" << endl;
                 
                 kill_process_with_SIGTERM(server_process_id);
-                server_process_id = fork_db_server(*options);
+                server_process_id = fork_db_server(test_dbms_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;
                 continue;
@@ -626,61 +621,4 @@ transaction_test::transaction_test(dbms_info& d_info)
 transaction_test::~transaction_test()
 {
     delete[] trans_arr;
-}
-
-bool reproduce_routine(map<string, string>& options,
-                        bool is_serializable,
-                        bool can_trigger_error,
-                        vector<string>& stmt_queue, 
-                        vector<int>& tid_queue)
-{
-    transaction_test re_test(options, NULL, is_serializable, can_trigger_error);
-    re_test.stmt_queue = stmt_queue;
-    re_test.tid_queue = tid_queue;
-    re_test.stmt_num = re_test.tid_queue.size();
-
-    int max_tid = -1;
-    for (auto tid:tid_queue) {
-        if (tid > max_tid)
-            max_tid = tid;
-    }
-
-    re_test.trans_num = max_tid + 1;
-    delete[] re_test.trans_arr;
-    re_test.trans_arr = new transaction[re_test.trans_num];
-
-    cerr << re_test.trans_num << " " << re_test.tid_queue.size() << " " << re_test.stmt_queue.size() << endl;
-    if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
-        cerr << "tid queue size should equal to stmt queue size" << endl;
-        return 0;
-    }
-
-    // init each transaction stmt
-    for (int i = 0; i < re_test.stmt_num; i++) {
-        auto tid = re_test.tid_queue[i];
-        re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
-    }
-
-    for (int tid = 0; tid < re_test.trans_num; tid++) {
-        re_test.trans_arr[tid].dut = dut_setup(options);
-        re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
-        if (re_test.trans_arr[tid].stmts.empty()) {
-            re_test.trans_arr[tid].status = 2;
-            continue;
-        }
-
-        if (re_test.trans_arr[tid].stmts.back().find("COMMIT") != string::npos)
-            re_test.trans_arr[tid].status = 1;
-        else
-            re_test.trans_arr[tid].status = 2;
-    }
-
-    re_test.trans_test();
-    re_test.normal_test();
-    if (!re_test.check_result()) {
-        cerr << "reproduce successfully" << endl;
-        return true;
-    }
-
-    return false;
 }

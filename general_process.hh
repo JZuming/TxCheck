@@ -31,6 +31,7 @@
 
 #include "grammar.hh" // for statement gen
 #include "dbms_info.hh" // for dbms_info
+#include "transaction_test.hh" // for transaction
 
 extern "C" { //for sigusr1
 #include <stdlib.h>
@@ -80,33 +81,33 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
                         vector<string>& trans_rec,
                         dbms_info& d_info);
 
+bool compare_output(vector<vector<string>>& trans_output,
+                    vector<vector<string>>& seq_output);
+
+bool compare_content(map<string, vector<string>>&con_content, 
+                     map<string, vector<string>>&seq_content);
+
+pid_t fork_db_server(dbms_info& d_info);
+
 shared_ptr<schema> get_schema(dbms_info& d_info);
 shared_ptr<dut_base> dut_setup(dbms_info& d_info);
 
 void user_signal(int signal);
-void* test_thread(void* argv);
 
-void dut_test(dbms_info& d_info, const string& stmt, bool need_affect);
 void dut_reset(dbms_info& d_info);
 void dut_backup(dbms_info& d_info);
 void dut_reset_to_backup(dbms_info& d_info);
 void dut_get_content(dbms_info& d_info, 
                     map<string, vector<string>>& content);
-void interect_test(dbms_info& d_info, 
-                    shared_ptr<prod> (* tmp_statement_factory)(scope *), 
-                    vector<string>& rec_vec,
-                    bool need_affect);
-void normal_test(dbms_info& d_info, 
-                    shared_ptr<schema>& schema, 
-                    shared_ptr<prod> (* tmp_statement_factory)(scope *), 
-                    vector<string>& rec_vec,
-                    bool need_affect);
+
 int generate_database(dbms_info& d_info);
 void kill_process_with_SIGTERM(pid_t process_id);
 
 bool reproduce_routine(dbms_info& d_info,
                         vector<string>& stmt_queue, 
                         vector<int>& tid_queue);
+
+int make_dir_error_exit(string folder);
 
 extern pthread_mutex_t mutex_timeout;  
 extern pthread_cond_t  cond_timeout;

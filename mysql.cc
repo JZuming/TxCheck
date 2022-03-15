@@ -54,7 +54,7 @@ mysql_connection::mysql_connection(string db, unsigned int port)
     auto res = mysql_store_result(&mysql);
     mysql_free_result(res);
 
-    std::cerr << "use database" + test_db << endl;
+    std::cerr << "use database " + test_db << endl;
     string use_sql = "use " + test_db + "; ";
     if (mysql_real_query(&mysql, use_sql.c_str(), use_sql.size()))
         throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
@@ -334,6 +334,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
 dut_mysql::dut_mysql(string db, unsigned int port)
   : mysql_connection(db, port)
 {
+    test("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
 }
 
 void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
@@ -402,7 +403,7 @@ void dut_mysql::reset(void)
 
 void dut_mysql::backup(void)
 {
-    string mysql_dump = "mysqldump -h 127.0.0.1 -P " + to_string(test_port) + " -u root " + test_db + " > /tmp/mysql_bk.sql";
+    string mysql_dump = "/usr/local/mysql/bin/mysqldump -h 127.0.0.1 -P " + to_string(test_port) + " -u root " + test_db + " > /tmp/mysql_bk.sql";
     int ret = system(mysql_dump.c_str());
     if (ret != 0) {
         std::cerr << "backup fail \nLocation: " + debug_info << endl;
@@ -419,7 +420,7 @@ void dut_mysql::reset_to_backup(void)
     
     mysql_close(&mysql);
     
-    string mysql_source = "mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
+    string mysql_source = "/usr/local/mysql/bin/mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
     system(mysql_source.c_str());
 
     if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
@@ -438,8 +439,8 @@ void dut_mysql::trans_test(const std::vector<std::string> &stmt_vec
                           , int commit_or_not)
 {
     if (commit_or_not != 2) {
-        cerr << pthread_self() << ": BEGIN OPTIMISTIC;" << endl;
-        test("BEGIN OPTIMISTIC;");
+        cerr << pthread_self() << ": START TRANSACTION;" << endl;
+        test("START TRANSACTION;");
     }
 
     auto size = stmt_vec.size();
@@ -543,7 +544,7 @@ bool dut_mysql::is_commit_abort_stmt(string& stmt)
 
 void dut_mysql::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
 {
-    stmt_vec.insert(stmt_vec.begin(), "BEGIN OPTIMISTIC;");
+    stmt_vec.insert(stmt_vec.begin(), "START TRANSACTION;");
     string last_sql;
     if (is_commit) 
         last_sql = "COMMIT;";

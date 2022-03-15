@@ -111,80 +111,6 @@ void user_signal(int signal)
     pthread_exit(0);
 }
 
-void* test_thread(void* argv)
-{
-    auto data = (test_thread_arg *)argv;
-    try {
-        auto dut = dut_setup(*(data->d_info));
-        dut->test(*(data->stmt), data->stmt_output, data->affected_row_num);
-    } catch (std::exception &e) {
-        // cerr << "In test thread: " << e.what() << endl;
-        // cerr << *(data->stmt) << endl;
-        // exit(166);
-        string err = e.what();
-        if (err.find("BUG") != string::npos) {
-            cerr << "BUG trigger in test_thread: " << err << endl;
-        }
-        data->e = e;
-        data->has_exception = true;
-    }
-    
-    pthread_mutex_lock(&mutex_timeout);  
-    pthread_cond_signal(&cond_timeout);  
-    pthread_mutex_unlock(&mutex_timeout);
-
-    return NULL;
-}
-
-void dut_test(dbms_info& d_info, const string& stmt, bool need_affect)
-{   
-    // set timeout limit
-    struct timespec m_time;
-    m_time.tv_sec = time(NULL) + STATEMENT_TIMEOUT;  
-    m_time.tv_nsec = 0; 
-
-    // set pthread parameter 
-    vector<string> stmt_output;
-    int affected_row_num = 0;
-
-    pthread_t thread;
-    test_thread_arg data;
-    data.d_info = &d_info;
-    auto str = stmt;
-    data.stmt = &str;
-    data.has_exception = false;
-    data.affected_row_num = &affected_row_num;
-    data.stmt_output = &stmt_output;
-
-    // record the test case firstly
-    ofstream ofile("cur_test_smt.sql");
-    ofile << stmt << endl;
-    ofile.close();
-
-    pthread_create(&thread, NULL, test_thread, &data);
-
-    pthread_mutex_lock(&mutex_timeout);  
-    int res = pthread_cond_timedwait(&cond_timeout, &mutex_timeout, (const struct timespec *)&m_time);  
-    pthread_mutex_unlock(&mutex_timeout);
-
-    if (res == ETIMEDOUT) {
-        cerr << "thread timeout!" << endl;
-        pthread_kill(thread, SIGUSR1);
-        pthread_join(thread, NULL);
-
-        throw runtime_error(string("timeout in this stmt"));
-    }
-
-    pthread_join(thread, NULL);
-
-    if (data.has_exception)
-        throw data.e;
-    
-    if (need_affect && affected_row_num <= 0 && stmt_output.empty()) {
-        throw runtime_error(string("affect result empty"));
-    }
-}
-
 void dut_reset(dbms_info& d_info)
 {
     auto dut = dut_setup(d_info);
@@ -231,9 +157,16 @@ void interect_test(dbms_info& d_info,
 
     static int try_time = 0;
     try {
-        dut_test(d_info, s.str(), need_affect);
+        auto dut = dut_setup(d_info);
         auto sql = s.str() + ";";
+        int affect_num = 0;
+        dut->test(sql, NULL, &affect_num);
+        
+        if (need_affect && affect_num <= 0)
+            throw runtime_error(string("affect result empty"));
+        
         rec_vec.push_back(sql);
+
     } catch(std::exception &e) { // ignore runtime error
         string err = e.what();
         if (err.find("syntax") != string::npos) {
@@ -265,8 +198,14 @@ void normal_test(dbms_info& d_info,
 
     static int try_time = 0;
     try {
-        dut_test(d_info, s.str(), need_affect);
+        auto dut = dut_setup(d_info);
         auto sql = s.str() + ";";
+        int affect_num = 0;
+        dut->test(sql, NULL, &affect_num);
+        
+        if (need_affect && affect_num <= 0)
+            throw runtime_error(string("affect result empty"));
+        
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
         string err = e.what();
@@ -388,7 +327,7 @@ static bool nomoalize_content(vector<string> &content)
     return true;
 }
 
-static bool compare_content(map<string, vector<string>>&con_content, 
+bool compare_content(map<string, vector<string>>&con_content, 
                      map<string, vector<string>>&seq_content)
 {
     if (con_content.size() != seq_content.size()) {
@@ -433,7 +372,7 @@ static bool compare_content(map<string, vector<string>>&con_content,
     return true;
 }
 
-static bool compare_output(vector<vector<string>>& trans_output,
+bool compare_output(vector<vector<string>>& trans_output,
                     vector<vector<string>>& seq_output)
 {
     auto size = trans_output.size();
@@ -538,4 +477,59 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
 
         trans_rec.push_back(stmt);
     }
+}
+
+bool reproduce_routine(dbms_info& d_info,
+                        vector<string>& stmt_queue, 
+                        vector<int>& tid_queue)
+{
+    transaction_test re_test(d_info);
+    re_test.stmt_queue = stmt_queue;
+    re_test.tid_queue = tid_queue;
+    re_test.stmt_num = re_test.tid_queue.size();
+
+    int max_tid = -1;
+    for (auto tid:tid_queue) {
+        if (tid > max_tid)
+            max_tid = tid;
+    }
+
+    re_test.trans_num = max_tid + 1;
+    delete[] re_test.trans_arr;
+    re_test.trans_arr = new transaction[re_test.trans_num];
+
+    cerr << re_test.trans_num << " " << re_test.tid_queue.size() << " " << re_test.stmt_queue.size() << endl;
+    if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
+        cerr << "tid queue size should equal to stmt queue size" << endl;
+        return 0;
+    }
+
+    // init each transaction stmt
+    for (int i = 0; i < re_test.stmt_num; i++) {
+        auto tid = re_test.tid_queue[i];
+        re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
+    }
+
+    for (int tid = 0; tid < re_test.trans_num; tid++) {
+        re_test.trans_arr[tid].dut = dut_setup(d_info);
+        re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
+        if (re_test.trans_arr[tid].stmts.empty()) {
+            re_test.trans_arr[tid].status = 2;
+            continue;
+        }
+
+        if (re_test.trans_arr[tid].stmts.back().find("COMMIT") != string::npos)
+            re_test.trans_arr[tid].status = 1;
+        else
+            re_test.trans_arr[tid].status = 2;
+    }
+
+    re_test.trans_test();
+    re_test.normal_test();
+    if (!re_test.check_result()) {
+        cerr << "reproduce successfully" << endl;
+        return true;
+    }
+
+    return false;
 }
