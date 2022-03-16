@@ -334,17 +334,61 @@ schema_mysql::schema_mysql(string db, unsigned int port)
 dut_mysql::dut_mysql(string db, unsigned int port)
   : mysql_connection(db, port)
 {
+    sent_sql = "";
+    has_sent_sql = false;
+    txn_abort = false;
     test("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
+}
+
+static unsigned long long get_cur_time_ms(void) {
+	struct timeval tv;
+	struct timezone tz;
+
+	gettimeofday(&tv, &tz);
+
+	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
 }
 
 void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
-    if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
+    net_async_status status;
+    if (txn_abort == true) {
+        auto tmp_stmt = stmt;
+        if (stmt == "COMMIT;") 
+            throw std::runtime_error("txn aborted, can only rollback \nLocation: " + debug_info);
+        if (stmt == "ROLLBACK;")
+            return;
+        throw std::runtime_error("txn aborted, stmt skipped \nLocation: " + debug_info);
+    }
+
+    if (has_sent_sql == false) {
+        status = mysql_real_query_nonblocking(&mysql, stmt.c_str(), stmt.size());
+        sent_sql = stmt;
+        has_sent_sql = true;
+    }
+
+    if (sent_sql != stmt) 
+        throw std::runtime_error("sent sql stmt changed in " + debug_info + 
+            "\nsent_sql: " + sent_sql.substr(0, sent_sql.size() > 20 ? 20 : sent_sql.size()) +
+            "\nstmt: " + stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size())); 
+
+    auto begin_time = get_cur_time_ms();
+    while (1) {
+        status = mysql_real_query_nonblocking(&mysql, stmt.c_str(), stmt.size());
+        if (status != NET_ASYNC_NOT_READY)
+            break;
+        auto cur_time = get_cur_time_ms();
+        if (cur_time - begin_time >= MYSQL_STMT_BLOCK_MS)
+            throw std::runtime_error("blocked in " + debug_info); 
+    }
+
+    if (status == NET_ASYNC_ERROR) {
         string err = mysql_error(&mysql);
-        if (regex_match(err, e_crash)) {
-            throw std::runtime_error("BUG!!! " + err + "\nLocation: " + debug_info); 
-        }
-        throw std::runtime_error(err + "\nLocation: " + debug_info); 
+        has_sent_sql = false;
+        sent_sql = "";
+        if (err.find("Deadlock found") != string::npos) 
+            txn_abort = true;
+        throw std::runtime_error("NET_ASYNC_ERROR(skipped): " + err + "\nLocation: " + debug_info); 
     }
 
     if (affected_row_num)
@@ -355,6 +399,8 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
         auto row_num = mysql_num_rows(result);
         if (row_num == 0) {
             mysql_free_result(result);
+            has_sent_sql = false;
+            sent_sql = "";
             return;
         }
 
@@ -372,6 +418,10 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
         }
     }
     mysql_free_result(result);
+
+    has_sent_sql = false;
+    sent_sql = "";
+    return;
 }
 
 void dut_mysql::reset(void)
@@ -569,7 +619,7 @@ pid_t dut_mysql::fork_db_server()
         cerr << "fork mysql server fail \nLocation: " + debug_info << endl; 
     }
     
-    sleep(10);
+    sleep(5);
     cout << "server pid: " << child << endl;
     return child;
 }

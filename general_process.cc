@@ -205,7 +205,7 @@ void normal_test(dbms_info& d_info,
         
         if (need_affect && affect_num <= 0)
             throw runtime_error(string("affect result empty"));
-        
+        cerr << sql.substr(0, sql.size() > 10 ? 10 : sql.size()) << " affect: " << affect_num << endl;
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
         string err = e.what();

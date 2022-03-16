@@ -120,17 +120,14 @@ int transaction_test::trans_test_unit(int stmt_pos)
         if (err.find("ost connection") != string::npos)
             throw e;
         
-        if (err.find("blocked") != string::npos) {
+        if (err.find("blocked") != string::npos)
             return 0;
-        }
 
-        if (err.find("skipped") != string::npos) {
+        if (err.find("skipped") != string::npos)
             return 2;
-        }
 
-        if (err.find("sent sql stmt changed") != string::npos) {
+        if (err.find("sent sql stmt changed") != string::npos) 
             exit(-1);
-        }
         
         // store the error info of non-commit statement
         if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
@@ -327,6 +324,12 @@ void transaction_test::get_possible_order()
 {
     vector<int> most_possible_trans_order;
     int real_stmt_num = real_tid_queue.size();
+    cout << "real_tid_queue: " << endl;
+    for (int i = 0; i < real_stmt_num; i++) {
+        cout << real_tid_queue[i] << " ";
+    }
+    cout << endl;
+    
     for (int i = 0; i < real_stmt_num; i++) {
         auto tid = real_tid_queue[i];
 
@@ -366,7 +369,15 @@ void transaction_test::execute_possible_order()
         auto real_stmt = real_stmt_queue[i];
         trans_arr[real_tid].normal_stmts.push_back(real_stmt);
     }
-    
+
+    for (int tid = 0; tid < commit_num; tid++) {
+        // if it is commit, erase "begin" and "commit"
+        if (trans_arr[tid].status == 1) {
+            trans_arr[tid].normal_stmts.erase(trans_arr[tid].normal_stmts.begin());
+            trans_arr[tid].normal_stmts.pop_back();
+        }
+    }
+
     auto possible_order_num = possible_normal_trans_order.size();
     for (int i = 0; i < possible_order_num; i++) {
         auto trans_order = possible_normal_trans_order[i];   
@@ -374,12 +385,6 @@ void transaction_test::execute_possible_order()
         auto normal_dut = dut_setup(test_dbms_info);
         
         for (auto tid : trans_order) {
-            // if it is commit, erase "begin" and "commit"
-            if (trans_arr[tid].status == 1) {
-                trans_arr[tid].normal_stmts.erase(trans_arr[tid].normal_stmts.begin());
-                trans_arr[tid].normal_stmts.pop_back();
-            }
-
             vector<vector<string>> normal_output;
             vector<string> normal_err_info;
 

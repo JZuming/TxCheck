@@ -9,6 +9,10 @@ extern "C"  {
 #include "relmodel.hh"
 #include "dut.hh"
 
+#include <sys/time.h> // for gettimeofday
+
+#define MYSQL_STMT_BLOCK_MS 3000
+
 struct mysql_connection {
     MYSQL mysql;
     string test_db;
@@ -44,6 +48,10 @@ struct dut_mysql : dut_base, mysql_connection {
     
     virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content);
     dut_mysql(string db, unsigned int port);
+
+    bool has_sent_sql;
+    string sent_sql;
+    bool txn_abort;
 };
 
 #endif
