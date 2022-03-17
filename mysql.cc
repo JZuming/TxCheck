@@ -583,6 +583,13 @@ void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<stri
     }
 }
 
+bool dut_mysql::is_begin_stmt(string& stmt)
+{
+    if (stmt == "START TRANSACTION;")
+        return true;
+    return false;
+}
+
 bool dut_mysql::is_commit_abort_stmt(string& stmt)
 {
     if (stmt == "COMMIT;")

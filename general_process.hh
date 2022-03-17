@@ -107,6 +107,10 @@ bool reproduce_routine(dbms_info& d_info,
                         vector<string>& stmt_queue, 
                         vector<int>& tid_queue);
 
+bool minimize_testcase(dbms_info& d_info,
+                        vector<string>& stmt_queue, 
+                        vector<int>& tid_queue);
+
 int make_dir_error_exit(string folder);
 
 extern pthread_mutex_t mutex_timeout;  

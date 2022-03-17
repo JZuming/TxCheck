@@ -386,7 +386,7 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         }
         tid_file.close();
 
-        reproduce_routine(d_info, stmt_queue, tid_queue);
+        minimize_testcase(d_info, stmt_queue, tid_queue);
 
         return 0;
     }

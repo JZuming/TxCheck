@@ -56,6 +56,7 @@ struct dut_base {
 
   virtual void wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit) = 0;
   virtual bool is_commit_abort_stmt(string& stmt) = 0;
+  virtual bool is_begin_stmt(string& stmt) = 0;
   
   virtual void trans_test(const std::vector<std::string> &stmt_vec
                           , std::vector<std::string>* exec_stmt_vec

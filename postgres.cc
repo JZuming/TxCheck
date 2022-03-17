@@ -411,6 +411,12 @@ bool dut_libpq::is_commit_abort_stmt(string& stmt)
   return false;
 }
 
+bool dut_libpq::is_begin_stmt(string& stmt)
+{
+    (void)stmt;
+    return false;
+}
+
 void dut_libpq::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
 {
   (void)stmt_vec;

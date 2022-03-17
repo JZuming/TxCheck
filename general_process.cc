@@ -479,6 +479,123 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
     }
 }
 
+bool minimize_testcase(dbms_info& d_info,
+                        vector<string>& stmt_queue, 
+                        vector<int>& tid_queue)
+{
+    cerr << "Check reproduce..." << endl;
+    auto r_check = reproduce_routine(d_info, stmt_queue, tid_queue);
+    if (!r_check) {
+        cerr << "No" << endl;
+        return false;
+    }
+    cerr << "Yes" << endl;
+    
+    int max_tid = -1;
+    for (auto tid:tid_queue) {
+        if (tid > max_tid)
+            max_tid = tid;
+    }
+    int txn_num = max_tid + 1;
+    
+    vector<string> final_stmt_queue = stmt_queue;
+    vector<int> final_tid_queue = tid_queue;
+    
+    // txn level minimize
+    for (int tid = 0; tid < txn_num; tid++) {
+        cerr << "Try to delete txn " << tid << "..." << endl;
+
+        vector<string> tmp_stmt_queue = final_stmt_queue;
+        vector<int> tmp_tid_queue = final_tid_queue;
+
+        // delete current tid
+        for (int i = 0; i < tmp_tid_queue.size(); i++) {
+            if (tmp_tid_queue[i] != tid)
+                continue;
+            
+            tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
+            tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
+            i--;
+        }
+
+        // adjust tid queue
+        for (int i = 0; i < tmp_tid_queue.size(); i++) {
+            if (tmp_tid_queue[i] < tid)
+                continue;
+            
+            tmp_tid_queue[i]--;
+        }
+
+        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue);
+        if (ret == false)
+            continue;
+
+        // reduction succeed
+        cerr << "Succeed to delete txn " << tid << "\n\n\n" << endl;
+        final_stmt_queue = tmp_stmt_queue;
+        final_tid_queue = tmp_tid_queue;
+        tid--;
+        txn_num--;
+    }
+
+    // stmt level minimize
+    auto stmt_num = final_tid_queue.size();
+    auto dut = dut_setup(d_info);
+    for (int i = 0; i < stmt_num; i++) {
+        cerr << "Try to delete stmt " << i << "..." << endl;
+
+        vector<string> tmp_stmt_queue = final_stmt_queue;
+        vector<int> tmp_tid_queue = final_tid_queue;
+
+        // do not delete commit or abort
+        if (dut->is_begin_stmt(tmp_stmt_queue[i]))
+            continue;
+        
+        if (dut->is_commit_abort_stmt(tmp_stmt_queue[i]))
+            continue;
+        
+        tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
+        tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
+
+        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue);
+        if (ret == false)
+            continue;
+        
+        // reduction succeed
+        cerr << "Succeed to delete stmt " << "\n\n\n" << endl;
+        final_stmt_queue = tmp_stmt_queue;
+        final_tid_queue = tmp_tid_queue;
+        i--;
+        stmt_num--;
+    }
+
+    if (final_stmt_queue.size() == stmt_queue.size())
+        return false;
+
+    stmt_queue = final_stmt_queue;
+    tid_queue = final_tid_queue;
+
+    string mimimized_stmt_file = "min_stmts.sql";
+    // save stmt queue
+    ofstream mimimized_stmt_output(mimimized_stmt_file);
+    for (int i = 0; i < stmt_queue.size(); i++) {
+        mimimized_stmt_output << stmt_queue[i] << endl;
+        mimimized_stmt_output << endl;
+    }
+    mimimized_stmt_output.close();
+
+    // save tid queue
+    string minimized_tid_file = "min_tid.txt";
+    ofstream minimized_tid_output(minimized_tid_file);
+    for (int i = 0; i < tid_queue.size(); i++) {
+        minimized_tid_output << tid_queue[i] << endl;
+    }
+    minimized_tid_output.close();
+
+    return true;
+}
+
+
 bool reproduce_routine(dbms_info& d_info,
                         vector<string>& stmt_queue, 
                         vector<int>& tid_queue)

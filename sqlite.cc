@@ -633,6 +633,13 @@ bool dut_sqlite::is_commit_abort_stmt(string& stmt)
     return false;
 }
 
+bool dut_sqlite::is_begin_stmt(string& stmt)
+{
+    if (stmt == "BEGIN TRANSACTION;")
+        return true;
+    return false;
+}
+
 void dut_sqlite::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
 {
     stmt_vec.insert(stmt_vec.begin(), "BEGIN TRANSACTION;");

@@ -38,6 +38,7 @@ struct dut_sqlite : dut_base, sqlite_connection {
     virtual int save_backup_file(string path);
 
     virtual bool is_commit_abort_stmt(string& stmt);
+    virtual bool is_begin_stmt(string& stmt);
     virtual void wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit);
 
     virtual void trans_test(const std::vector<std::string> &stmt_vec
