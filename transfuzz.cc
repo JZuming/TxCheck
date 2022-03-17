@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
     // analyze the options
     map<string,string> options;
     regex optregex("--\
-(help|postgres|sqlite|monetdb|random-seed|\
+(help|min|postgres|sqlite|monetdb|random-seed|\
 tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 cockroach-db|cockroach-port|\
@@ -309,7 +309,8 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
             "    --random-seed=filename    random file for dynamic query interaction" << endl <<
             "    --reproduce-sql=filename    sql file to reproduce the problem" << endl <<
             "    --reproduce-tid=filename    tid file to reproduce the problem" << endl <<
-            "    --help               print available command line options and exit" << endl;
+            "    --min                  minimize the reproduce test case (should be used with --reproduce-sql and --reproduce-tid)" << endl <<
+            "    --help                 print available command line options and exit" << endl;
         return 0;
     } else if (options.count("version")) {
         return 0;
@@ -386,7 +387,10 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         }
         tid_file.close();
 
-        minimize_testcase(d_info, stmt_queue, tid_queue);
+        if (options.count("min"))
+            minimize_testcase(d_info, stmt_queue, tid_queue);
+        else
+            reproduce_routine(d_info, stmt_queue, tid_queue);
 
         return 0;
     }
