@@ -395,6 +395,15 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
         *affected_row_num = mysql_affected_rows(&mysql);
 
     auto result = mysql_store_result(&mysql);
+    if (mysql_errno(&mysql) != 0) {
+        string err = mysql_error(&mysql);
+        has_sent_sql = false;
+        sent_sql = "";
+        if (err.find("Deadlock found") != string::npos) 
+            txn_abort = true;
+        throw std::runtime_error("mysql_store_result fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
+    }
+
     if (output && result) {
         auto row_num = mysql_num_rows(result);
         if (row_num == 0) {
