@@ -337,7 +337,8 @@ dut_mysql::dut_mysql(string db, unsigned int port)
     sent_sql = "";
     has_sent_sql = false;
     txn_abort = false;
-    test("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
+    thread_id = mysql_thread_id(&mysql);
+    block_test("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
 }
 
 static unsigned long long get_cur_time_ms(void) {
@@ -347,6 +348,68 @@ static unsigned long long get_cur_time_ms(void) {
 	gettimeofday(&tv, &tz);
 
 	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
+}
+
+bool dut_mysql::check_whether_block()
+{
+    dut_mysql another_dut(test_db, test_port);
+    string get_block_tid = "SELECT waiting_pid FROM sys.innodb_lock_waits;";
+    vector<string> output;
+    another_dut.block_test(get_block_tid, &output);
+    
+    // check output
+    string tid_str = to_string(thread_id);
+    auto output_size = output.size();
+    for (int i = 0; i < output_size; i++) {
+        if (tid_str == output[i])
+            return true;
+    }
+
+    return false;
+}
+
+void dut_mysql::block_test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+{
+    if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
+        string err = mysql_error(&mysql);
+        if (regex_match(err, e_crash)) {
+            throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
+        }
+        throw std::runtime_error(err + " in mysql::test"); 
+    }
+
+    if (affected_row_num)
+        *affected_row_num = mysql_affected_rows(&mysql);
+
+    auto result = mysql_store_result(&mysql);
+    if (mysql_errno(&mysql) != 0) {
+        string err = mysql_error(&mysql);
+        throw std::runtime_error("mysql_store_result fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
+    }
+
+    if (output && result) {
+        auto row_num = mysql_num_rows(result);
+        if (row_num == 0) {
+            mysql_free_result(result);
+            return;
+        }
+
+        auto column_num = mysql_num_fields(result);
+        while (auto row = mysql_fetch_row(result)) {
+            for (int i = 0; i < column_num; i++) {
+                string str;
+                if (row[i] == NULL)
+                    str = "NULL";
+                else
+                    str = row[i];
+                output->push_back(str);
+            }
+            output->push_back("\n");
+        }
+    }
+    mysql_free_result(result);
+
+    return;
 }
 
 void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
@@ -375,11 +438,17 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
     auto begin_time = get_cur_time_ms();
     while (1) {
         status = mysql_real_query_nonblocking(&mysql, stmt.c_str(), stmt.size());
-        if (status != NET_ASYNC_NOT_READY)
+        if (status != NET_ASYNC_NOT_READY) {
             break;
+        }
+            
         auto cur_time = get_cur_time_ms();
-        if (cur_time - begin_time >= MYSQL_STMT_BLOCK_MS)
-            throw std::runtime_error("blocked in " + debug_info); 
+        if (cur_time - begin_time >= MYSQL_STMT_BLOCK_MS) {
+            auto blocked = check_whether_block();
+            if (blocked == true)
+                throw std::runtime_error("blocked in " + debug_info); 
+            begin_time = cur_time;
+        }
     }
 
     if (status == NET_ASYNC_ERROR) {

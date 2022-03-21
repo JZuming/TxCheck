@@ -11,7 +11,7 @@ extern "C"  {
 
 #include <sys/time.h> // for gettimeofday
 
-#define MYSQL_STMT_BLOCK_MS 3000
+#define MYSQL_STMT_BLOCK_MS 1000
 
 struct mysql_connection {
     MYSQL mysql;
@@ -50,9 +50,12 @@ struct dut_mysql : dut_base, mysql_connection {
     virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content);
     dut_mysql(string db, unsigned int port);
 
+    void block_test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
+    bool check_whether_block();
     bool has_sent_sql;
     string sent_sql;
     bool txn_abort;
+    unsigned long thread_id;
 };
 
 #endif
