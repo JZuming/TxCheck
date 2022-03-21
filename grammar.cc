@@ -561,7 +561,7 @@ delete_returning::delete_returning(prod *p, struct scope *s, table *victim)
   select_list = make_shared<struct select_list>(this);
 }
 
-insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
+insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
   : modifying_stmt(p, s, v)
 {
     match();
@@ -578,9 +578,16 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v)
     for (auto i = 0; i < insert_num; i++) {
         vector<shared_ptr<value_expr> > value_exprs;
         for (auto col : victim->columns()) {
-            auto expr = value_expr::factory(this, col.type);
-            assert(expr->type == col.type);
-            value_exprs.push_back(expr);
+            if (only_const) {
+                auto  expr = make_shared<const_expr>(this, col.type);
+                assert(expr->type == col.type);
+                value_exprs.push_back(expr);
+            }
+            else {
+                auto expr = value_expr::factory(this, col.type);
+                assert(expr->type == col.type);
+                value_exprs.push_back(expr);
+            }
         }
         value_exprs_vector.push_back(value_exprs);
     }
@@ -1665,7 +1672,7 @@ shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
 {
     try { // only use insert_stmt to add data to target table
         s->new_stmt();
-        return make_shared<insert_stmt>((struct prod *)0, s);
+        return make_shared<insert_stmt>((struct prod *)0, s, (table *)0, true);
 
     } catch (runtime_error &e) {
         cerr << "catch a runtime error in " << __FUNCTION__  << endl;
