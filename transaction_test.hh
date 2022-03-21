@@ -30,6 +30,7 @@ class transaction_test {
 public:
     static int record_bug_num;
     static pid_t server_process_id;
+    static bool try_to_kill_server();
 
     transaction* trans_arr;
     string output_path_dir;

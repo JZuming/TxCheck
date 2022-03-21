@@ -560,6 +560,23 @@ void kill_process_with_SIGTERM(pid_t process_id)
     }
 }
 
+bool transaction_test::try_to_kill_server()
+{
+    cerr << "killing the server" << endl;
+    kill(server_process_id, SIGTERM);
+    int ret;
+    auto begin_time = get_cur_time_ms();
+    while (1) {
+        ret = kill(server_process_id, 0);
+        if (ret != 0)
+            return true;
+        
+        auto now_time = get_cur_time_ms();
+        if (now_time - begin_time > KILL_PROC_TIME_MS)
+            return false;
+    }
+}
+
 bool transaction_test::fork_if_server_closed()
 {
     bool server_restart = false;
@@ -577,7 +594,7 @@ bool transaction_test::fork_if_server_closed()
             if (ret != 0) { // server has die
                 cerr << "testing server die, restart it" << endl;
 
-                kill_process_with_SIGTERM(server_process_id); // just for safe
+                try_to_kill_server(); // just for safe
                 server_process_id = fork_db_server(test_dbms_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;
@@ -588,7 +605,7 @@ bool transaction_test::fork_if_server_closed()
             if (time_end - time_begin > WAIT_FOR_PROC_TIME_MS) {
                 cerr << "testing server hang, kill it and restart" << endl;
                 
-                kill_process_with_SIGTERM(server_process_id);
+                try_to_kill_server();
                 server_process_id = fork_db_server(test_dbms_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;

@@ -698,13 +698,17 @@ pid_t dut_mysql::fork_db_server()
     if (child == 0) {
         char *server_argv[128];
         int i = 0;
-        server_argv[i++] = "/usr/local/mysql/bin/mysqld_safe"; // path of tiup
+        server_argv[i++] = "/usr/local/mysql/bin/mysqld"; // path of tiup
+        server_argv[i++] = "--basedir=/usr/local/mysql";
+        server_argv[i++] = "--datadir=/usr/local/mysql/data";
+        server_argv[i++] = "--plugin-dir=/usr/local/mysql/lib/plugin";
+        server_argv[i++] = "--user=mysql";
         server_argv[i++] = NULL;
         execv(server_argv[0], server_argv);
         cerr << "fork mysql server fail \nLocation: " + debug_info << endl; 
     }
     
-    sleep(5);
+    sleep(3);
     cout << "server pid: " << child << endl;
     return child;
 }
