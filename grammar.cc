@@ -343,10 +343,10 @@ void query_spec::out(std::ostream &out) {
         auto &selected_columns = select_list->derived_table.columns();
         auto select_list_size = selected_columns.size();
         for (std::size_t i = 0; i < select_list_size; i++) {
-#if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
-            if (selected_columns[i].type == scope->schema->inttype && d9() == 1)
-                out << "-"; 
-#endif
+// #if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
+//             if (selected_columns[i].type == scope->schema->inttype && d9() == 1)
+//                 out << "-"; 
+// #endif
             out << selected_columns[i].name;
             if (i + 1 < select_list_size)
                 out << ", ";

@@ -620,7 +620,7 @@ bool transaction_test::fork_if_server_closed()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = d6(); // 1 - 6
+    trans_num = 4 + d6(); // 5 - 10
     stmt_num = trans_num * (3 + d12()); // average statement number of each transaction is 4 - 15
     
     test_dbms_info = d_info;

@@ -131,11 +131,11 @@ int fork_for_generating_database(dbms_info& d_info)
         auto killSignal = WTERMSIG(status);
         if (child_timed_out && killSignal == SIGKILL) {
             cerr << "timeout in generating stmt, reset the seed" << endl;
-            transaction_test::try_to_kill_server();
-            auto just_check_server = make_shared<transaction_test>(d_info);
-            auto restart = just_check_server->fork_if_server_closed();
-            if (restart)
-                throw runtime_error(string("restart server")); // need to generate database again
+            // transaction_test::try_to_kill_server();
+            // auto just_check_server = make_shared<transaction_test>(d_info);
+            // auto restart = just_check_server->fork_if_server_closed();
+            // if (restart)
+            //     throw runtime_error(string("restart server")); // need to generate database again
             
             smith::rng.seed(time(NULL));
             throw runtime_error(string("transaction test timeout"));
