@@ -1,12 +1,7 @@
 #include "dbms_info.hh"
 
 dbms_info::dbms_info(map<string,string>& options)
-{
-    if (options.count("output-or-affect-num")) 
-        ouput_or_affect_num = stoi(options["output-or-affect-num"]);
-    else 
-        ouput_or_affect_num = 0;
-    
+{    
     if (options.count("sqlite")) {
         #ifdef HAVE_LIBSQLITE3
 
@@ -15,8 +10,6 @@ dbms_info::dbms_info(map<string,string>& options)
         test_port = 0; // no port
         test_db = options["sqlite"];
         can_trigger_error_in_txn = true;
-        
-        return;
         
         #else
         cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
@@ -31,8 +24,6 @@ dbms_info::dbms_info(map<string,string>& options)
         test_db = options["tidb-db"];
         can_trigger_error_in_txn = true;
         
-        return;
-        
         #else
         cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
         throw runtime_error("Does not support TiDB");
@@ -46,8 +37,6 @@ dbms_info::dbms_info(map<string,string>& options)
         test_db = options["mysql-db"];
         can_trigger_error_in_txn = true;
         
-        return;
-        
         #else
         cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
         throw runtime_error("Does not support MySQL");
@@ -58,13 +47,16 @@ dbms_info::dbms_info(map<string,string>& options)
         test_port = stoi(options["cockroach-port"]);
         test_db = options["cockroach-db"];
         can_trigger_error_in_txn = false;
-        
-        return;
     } 
     else {
         cerr << "Sorry,  you should specify a dbms and its database, or your dbms is not supported" << endl;
         throw runtime_error("Does not define target dbms and db");
     }
+
+    if (options.count("output-or-affect-num")) 
+        ouput_or_affect_num = stoi(options["output-or-affect-num"]);
+    else 
+        ouput_or_affect_num = 0;
 
     return;
 }
