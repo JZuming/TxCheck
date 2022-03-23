@@ -2,6 +2,11 @@
 
 dbms_info::dbms_info(map<string,string>& options)
 {
+    if (options.count("output-or-affect-num")) 
+        ouput_or_affect_num = stoi(options["output-or-affect-num"]);
+    else 
+        ouput_or_affect_num = 0;
+    
     if (options.count("sqlite")) {
         #ifdef HAVE_LIBSQLITE3
 

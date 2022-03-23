@@ -448,7 +448,8 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
     
     scope scope;
     db_schema->fill_scope(scope);
-    for (int i = 0; i < trans_stmt_num; i++) {
+    int stmt_num = 0;
+    while (1) {
         cerr << "generating statement ...";
         shared_ptr<prod> gen = trans_statement_factory(&scope);
         cerr << "done" << endl;
@@ -457,14 +458,17 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
         gen->out(stmt_stream);
         auto stmt = stmt_stream.str() + ";";
 
-        if (can_error == false) {
+        if (can_error == false || d_info.ouput_or_affect_num > 0) {
             try {
                 cerr << "checking (executing) statement ...";
                 auto dut = dut_setup(d_info);
-                dut->test(stmt);
+                int affect_num = 0;
+                vector<string> output;
+                dut->test(stmt, &output, &affect_num);
+                if (output.size() + affect_num < d_info.ouput_or_affect_num)
+                    continue;
                 cerr << "done" << endl;
             } catch (exception &e) {
-                i = i - 1; // generate a stmt again
                 string err = e.what();
                 if (err.find("CONNECTION FAIL") != string::npos)
                     throw e;
@@ -474,8 +478,10 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
                 continue;
             }
         }
-
         trans_rec.push_back(stmt);
+        stmt_num++;
+        if (stmt_num == trans_stmt_num)
+            break;
     }
 }
 

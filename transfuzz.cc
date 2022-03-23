@@ -282,6 +282,7 @@ int main(int argc, char *argv[])
 tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 cockroach-db|cockroach-port|\
+output-or-affect-num|\
 reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
@@ -312,6 +313,7 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
             #endif
             "    --cockroach-db=constr  cockroach database name to send queries to (should used with" << endl << 
             "    --cockroach-port=int   cockroach server port number" << endl << 
+            "    --output-or-affect-num=int  generating statement that output num rows or affect num rows"
             "    --random-seed=filename    random file for dynamic query interaction" << endl <<
             "    --reproduce-sql=filename    sql file to reproduce the problem" << endl <<
             "    --reproduce-tid=filename    tid file to reproduce the problem" << endl <<
@@ -353,6 +355,7 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
     cerr << "Test DBMS: " << d_info.dbms_name << endl;
     cerr << "Serializablility: " << d_info.serializable << endl;
     cerr << "Can trigger error in transaction: " << d_info.can_trigger_error_in_txn << endl;
+    cerr << "Output or affect num: " << d_info.ouput_or_affect_num << endl;
 
     if (options.count("reproduce-sql")) {
         cerr << "enter reproduce mode" << endl;
