@@ -562,19 +562,33 @@ void kill_process_with_SIGTERM(pid_t process_id)
 
 bool transaction_test::try_to_kill_server()
 {
-    cerr << "killing the server" << endl;
+    cerr << "try killing the server" << endl;
     kill(server_process_id, SIGTERM);
     int ret;
     auto begin_time = get_cur_time_ms();
+    bool flag = false;
     while (1) {
         ret = kill(server_process_id, 0);
-        if (ret != 0)
-            return true;
-        
+        if (ret != 0) {
+            int status;
+            if (server_process_id != 0xabcde) {
+                auto res = waitpid(server_process_id, &status, 0);
+                if (res <= 0) {
+                    cerr << "waitpid() fail: " <<  res << endl;
+                    throw runtime_error(string("waitpid() fail"));
+                }
+            }
+            flag = true;
+            break;
+        }
+
         auto now_time = get_cur_time_ms();
-        if (now_time - begin_time > KILL_PROC_TIME_MS)
-            return false;
+        if (now_time - begin_time > KILL_PROC_TIME_MS) {
+            flag = false;
+            break;
+        }
     }
+    return flag;
 }
 
 bool transaction_test::fork_if_server_closed()
@@ -594,7 +608,7 @@ bool transaction_test::fork_if_server_closed()
             if (ret != 0) { // server has die
                 cerr << "testing server die, restart it" << endl;
 
-                try_to_kill_server(); // just for safe
+                while (try_to_kill_server() == false) {} // just for safe
                 server_process_id = fork_db_server(test_dbms_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;
@@ -605,7 +619,7 @@ bool transaction_test::fork_if_server_closed()
             if (time_end - time_begin > WAIT_FOR_PROC_TIME_MS) {
                 cerr << "testing server hang, kill it and restart" << endl;
                 
-                try_to_kill_server();
+                while (try_to_kill_server() == false) {}
                 server_process_id = fork_db_server(test_dbms_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;
@@ -620,7 +634,7 @@ bool transaction_test::fork_if_server_closed()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = 4 + d6(); // 5 - 10
+    trans_num = 3 + dx(4); // 4 - 7
     stmt_num = trans_num * (3 + d12()); // average statement number of each transaction is 4 - 15
     
     test_dbms_info = d_info;

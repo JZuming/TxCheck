@@ -6,6 +6,9 @@
 #include "dbms_info.hh"
 #include "general_process.hh"
 
+#include <sys/time.h>
+#include <sys/wait.h>
+
 using namespace std;
 
 struct transaction {
