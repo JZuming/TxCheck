@@ -562,22 +562,26 @@ void kill_process_with_SIGTERM(pid_t process_id)
 
 bool transaction_test::try_to_kill_server()
 {
-    cerr << "try killing the server" << endl;
+    cerr << "try killing the server..." << endl;
     kill(server_process_id, SIGTERM);
     int ret;
     auto begin_time = get_cur_time_ms();
     bool flag = false;
     while (1) {
         ret = kill(server_process_id, 0);
-        if (ret != 0) {
-            int status;
-            if (server_process_id != 0xabcde) {
-                auto res = waitpid(server_process_id, &status, 0);
-                if (res <= 0) {
-                    cerr << "waitpid() fail: " <<  res << endl;
-                    throw runtime_error(string("waitpid() fail"));
-                }
-            }
+        if (ret != 0) { // the process die
+            flag = true;
+            break;
+        }
+
+        int status;
+        auto res = waitpid(server_process_id, &status, WNOHANG);
+        if (res < 0) {
+            cerr << "waitpid() fail: " <<  res << endl;
+            throw runtime_error(string("waitpid() fail"));
+        }
+        if (res == server_process_id) { // the dead process is collected
+            cerr << "waitpid succeed for the server process !!!" << endl;
             flag = true;
             break;
         }
