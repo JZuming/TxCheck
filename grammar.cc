@@ -18,6 +18,8 @@ int in_in_clause = 0; // 0-> not in "in" clause, 1-> in "in" clause
 int in_check_clause = 0; // 0-> not in "check" clause, 1-> in "check" clause
 set<string> update_used_column_ref;
 
+static int write_op_id = 0;
+
 static void exclude_tables(
     table *victim,
     vector<named_relation *> &target_tables,
@@ -538,6 +540,7 @@ modifying_stmt::modifying_stmt(prod *p, struct scope *s, table *victim)
 delete_stmt::delete_stmt(prod *p, struct scope *s, table *v)
   : modifying_stmt(p,s,v) {
     scope->refs.push_back(victim);
+    write_op_id++;
     
     // dont select the target table
     vector<named_relation *> excluded_tables;
@@ -565,6 +568,7 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
   : modifying_stmt(p, s, v)
 {
     match();
+    write_op_id++;
 
     // dont select the target table
     vector<named_relation *> excluded_tables;
@@ -578,6 +582,14 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
     for (auto i = 0; i < insert_num; i++) {
         vector<shared_ptr<value_expr> > value_exprs;
         for (auto col : victim->columns()) {
+            if (col.name == "wkey") {
+                auto  expr = make_shared<const_expr>(this, col.type);
+                assert(expr->type == col.type);
+                expr->expr = to_string(write_op_id); // use write_op_id
+                value_exprs.push_back(expr);
+                continue;
+            }
+
             if (only_const) {
                 auto  expr = make_shared<const_expr>(this, col.type);
                 assert(expr->type == col.type);
@@ -632,6 +644,17 @@ set_list::set_list(prod *p, table *target) : prod(p)
     update_used_column_ref.clear();
     do {
         for (auto col : target->columns()) {
+            if (col.name == "wkey") {
+                update_used_column_ref.insert(target->ident() + "." + col.name);
+                auto  expr = make_shared<const_expr>(this, col.type);
+                assert(expr->type == col.type);
+                expr->expr = to_string(write_op_id); // use write_op_id
+                
+                value_exprs.push_back(expr);
+                names.push_back(col.name);
+                continue;
+            }
+            
             if (d6() < 4)
 	            continue;
             
@@ -660,6 +683,7 @@ void set_list::out(std::ostream &out)
 update_stmt::update_stmt(prod *p, struct scope *s, table *v)
   : modifying_stmt(p, s, v) {
     scope->refs.push_back(victim);
+    write_op_id++;
 
     // dont select the target table
     vector<named_relation *> excluded_tables;
@@ -1646,8 +1670,8 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
 #endif
         if (choice == 5)
             return make_shared<insert_stmt>((struct prod *)0, s);
-        if (choice == 6)
-            return make_shared<insert_select_stmt>((struct prod *)0, s);
+        // if (choice == 6)
+        //     return make_shared<insert_select_stmt>((struct prod *)0, s);
         if (choice == 7)
             return make_shared<common_table_expression>((struct prod *)0, s);
         if (choice == 8)
