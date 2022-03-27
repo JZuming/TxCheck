@@ -265,8 +265,11 @@ void from_clause::out(std::ostream &out) {
     }
 }
 
-from_clause::from_clause(prod *p) : prod(p) {
-    reflist.push_back(table_ref::factory(this));
+from_clause::from_clause(prod *p, bool only_table) : prod(p) {
+    if (only_table)
+        reflist.push_back(make_shared<table_or_query_name>(this));
+    else
+        reflist.push_back(table_ref::factory(this));
     for (auto r : reflist.back()->refs)
         scope->refs.push_back(&*r);
 
@@ -280,9 +283,35 @@ from_clause::from_clause(prod *p) : prod(p) {
 //   }
 }
 
-select_list::select_list(prod *p, vector<shared_ptr<named_relation> > *refs, vector<sqltype *> *pointed_type) :
+select_list::select_list(prod *p, 
+                    vector<shared_ptr<named_relation> > *refs, 
+                    vector<sqltype *> *pointed_type,
+                    bool select_all) :
  prod(p), prefer_refs(refs)
 {
+    if (select_all && pointed_type != NULL) 
+        throw std::runtime_error("select_all and pointed_type cannot be used at the same time");
+    
+    if (select_all && refs == NULL)
+        throw std::runtime_error("select_all and refs should be used at the same time");
+    
+    if (select_all) { // pointed_type is null and prefer_refs is not null
+        auto r = &*random_pick(*prefer_refs);
+        for (auto& col : r->columns()) {
+            auto expr = make_shared<column_reference>(this, 0, prefer_refs);
+            expr->type = col.type;
+            expr->reference = r->ident() + "." + col.name;
+            expr->table_ref = r->ident();
+            
+            value_exprs.push_back(expr);
+            ostringstream name;
+            name << "c" << columns++;
+            sqltype *t = expr->type;
+            derived_table.columns().push_back(column(name.str(), t));
+        }
+        return;
+    }
+
     if (pointed_type == NULL) {
         do {
             shared_ptr<value_expr> e = value_expr::factory(this, 0, prefer_refs);
@@ -293,17 +322,19 @@ select_list::select_list(prod *p, vector<shared_ptr<named_relation> > *refs, vec
             assert(t);
             derived_table.columns().push_back(column(name.str(), t));
         } while (d6() > 1);
+
+        return;
     }
-    else {
-        for (size_t i = 0; i < pointed_type->size(); i++) {
-            shared_ptr<value_expr> e = value_expr::factory(this, (*pointed_type)[i], prefer_refs);
-            value_exprs.push_back(e);
-            ostringstream name;
-            name << "c" << columns++;
-            sqltype *t = e->type;
-            assert(t);
-            derived_table.columns().push_back(column(name.str(), t));
-        }
+
+    // pointed_type is not null
+    for (size_t i = 0; i < pointed_type->size(); i++) {
+        shared_ptr<value_expr> e = value_expr::factory(this, (*pointed_type)[i], prefer_refs);
+        value_exprs.push_back(e);
+        ostringstream name;
+        name << "c" << columns++;
+        sqltype *t = e->type;
+        assert(t);
+        derived_table.columns().push_back(column(name.str(), t));
     }
 }
 
@@ -315,7 +346,7 @@ void select_list::out(std::ostream &out)
         out << **expr << " as " << derived_table.columns()[i].name;
         i++;
         if (expr+1 != value_exprs.end())
-        out << ", ";
+            out << ", ";
     }
 }
 
@@ -435,7 +466,11 @@ void select_for_update::out(std::ostream &out) {
   }
 }
 
-query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *> *pointed_type) :
+query_spec::query_spec(prod *p, 
+                    struct scope *s, 
+                    bool lateral, 
+                    vector<sqltype *> *pointed_type,
+                    bool txn_mode) :
   prod(p), myscope(s)
 {
     scope = &myscope; // isolate the scope, dont effect the upper ones
@@ -455,16 +490,16 @@ query_spec::query_spec(prod *p, struct scope *s, bool lateral, vector<sqltype *>
     
     int tmp_group = use_group; // store use_group temporarily
     
-    use_group = 2; 
     // from clause can use "group by" or not.
-    from_clause = make_shared<struct from_clause>(this);
+    use_group = 2; 
+    // txn testing: need to know which rows are read, so just from a table
+    from_clause = make_shared<struct from_clause>(this, true, txn_mode);
 
-    use_group = 0; 
-    // cannot use "group by" in "where" clause.
+    use_group = 0; // cannot use "group by" in "where" and "select" clause.
     search = bool_expr::factory(this); 
 
-    // cannot use "group by" in "select" clause.
-    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, pointed_type);
+    // txn testing: need to know all info of columns so select * from table_name where
+    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, pointed_type, txn_mode);
     
     set_quantifier = (d9() == 1) ? "distinct" : "";
     use_group = tmp_group; // recover use_group
@@ -739,12 +774,12 @@ void common_table_expression::accept(prod_visitor *v)
   query->accept(v);
 }
 
-common_table_expression::common_table_expression(prod *parent, struct scope *s)
+common_table_expression::common_table_expression(prod *parent, struct scope *s, bool txn_mode)
   : prod(parent), myscope(s)
 {
     scope = &myscope;
     do {
-        shared_ptr<query_spec> query = make_shared<query_spec>(this, s);
+        shared_ptr<query_spec> query = make_shared<query_spec>(this, s, false, NULL, txn_mode);
         with_queries.push_back(query);
         string alias = scope->stmt_uid("cte");
         relation *relation = &query->select_list->derived_table;
@@ -760,7 +795,7 @@ retry:
         scope->tables.push_back(pick);
     } while (d6() > 3);
     try {
-        query = make_shared<query_spec>(this, scope);
+        query = make_shared<query_spec>(this, scope, false, NULL, txn_mode);
     } catch (runtime_error &e) {
         retry();
         goto retry;
@@ -1673,11 +1708,11 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
         // if (choice == 6)
         //     return make_shared<insert_select_stmt>((struct prod *)0, s);
         if (choice == 7)
-            return make_shared<common_table_expression>((struct prod *)0, s);
-        if (choice == 8)
-            return make_shared<unioned_query>((struct prod *)0, s);
+            return make_shared<common_table_expression>((struct prod *)0, s, true);
+        // if (choice == 8)
+        //     return make_shared<unioned_query>((struct prod *)0, s);
         if (choice == 9)
-            return make_shared<query_spec>((struct prod *)0, s);
+            return make_shared<query_spec>((struct prod *)0, s, false, NULL, true);
         
         return trans_statement_factory(s);
     } catch (runtime_error &e) {

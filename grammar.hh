@@ -106,7 +106,7 @@ struct joined_table : table_ref {
 struct from_clause : prod {
     std::vector<shared_ptr<table_ref> > reflist;
     virtual void out(std::ostream &out);
-    from_clause(prod *p);
+    from_clause(prod *p, bool only_table = false);
     ~from_clause() { }
     virtual void accept(prod_visitor *v) {
         v->visit(this);
@@ -120,7 +120,10 @@ struct select_list : prod {
     std::vector<shared_ptr<named_relation> > *prefer_refs;
     relation derived_table;
     int columns = 0;
-    select_list(prod *p, std::vector<shared_ptr<named_relation> > *refs = 0, vector<sqltype *> *pointed_type = NULL);
+    select_list(prod *p, 
+              std::vector<shared_ptr<named_relation> > *refs = 0, 
+              vector<sqltype *> *pointed_type = NULL,
+              bool select_all = false);
     virtual void out(std::ostream &out);
     ~select_list() { }
     virtual void accept(prod_visitor *v) {
@@ -181,7 +184,10 @@ struct query_spec : prod {
 
     struct scope myscope;
     virtual void out(std::ostream &out);
-    query_spec(prod *p, struct scope *s, bool lateral = 0, vector<sqltype *> *pointed_type = NULL);
+    query_spec(prod *p, struct scope *s, \
+                bool lateral = 0, 
+                vector<sqltype *> *pointed_type = NULL,
+                bool txn_mode = false);
     virtual void accept(prod_visitor *v) {
         v->visit(this);
         select_list->accept(v);
@@ -371,7 +377,7 @@ struct common_table_expression : prod {
     struct scope myscope;
     virtual void out(std::ostream &out);
     virtual void accept(prod_visitor *v);
-    common_table_expression(prod *parent, struct scope *s);
+    common_table_expression(prod *parent, struct scope *s, bool txn_mode = false);
 };
 
 struct create_table_stmt: prod {
