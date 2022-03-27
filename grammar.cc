@@ -976,19 +976,18 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     string table_name;
     table_name = unique_table_name(scope);
     created_table = make_shared<struct table>(table_name, "main", true, true);
-    
-    // create its columns
-    string key_column_name = create_unique_column_name();
-    auto key_type = scope->schema->inttype; // at least one cols has integer type
-    column key_column(key_column_name, key_type);
-    created_table->columns().push_back(key_column);
-#ifdef USE_CONSTRAINT
-    if (d6() == 1)
-        not_null_constraints.push_back("NOT NULL");
-    else
-#endif
-        not_null_constraints.push_back("");
 
+    // generate write_key (identify different write operateions)
+    column wkey("wkey", scope->schema->inttype);
+    constraints.push_back(""); // no constraint
+    created_table->columns().push_back(wkey);
+    
+    // generate primary_key (identify different rows)
+    column primary_key("pkey", scope->schema->inttype);
+    constraints.push_back("PRIMARY KEY UNIQUE NOT NULL");
+    created_table->columns().push_back(primary_key);
+
+    // generate other columns
     int column_num = d9();
     for (int i = 0; i < column_num; i++) {
         string column_name = create_unique_column_name();
@@ -1000,42 +999,15 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
 
         column create_column(column_name, type);
         created_table->columns().push_back(create_column);
+        string constraint_str = "";
 #ifdef USE_CONSTRAINT
         if (d6() == 1)
-            not_null_constraints.push_back("NOT NULL");
-        else
+            constraint_str += "NOT NULL ";
+        if (d6() == 1)
+            constraint_str += "UNIQUE ";
 #endif
-            not_null_constraints.push_back("");
+        constraints.push_back(constraint_str);
     }
-
-    // primary key
-    auto key_num = d6() / 2;
-    key_num = key_num == 0 ? 1 : key_num; // not less than 1
-    for (auto i = 0; i < key_num; i++) {
-        auto picked_col = random_pick<>(created_table->columns().begin(), created_table->columns().end());
-        while (picked_col->type == scope->schema->texttype) {
-            picked_col++;
-            if (picked_col == created_table->columns().end())
-                picked_col = created_table->columns().begin();
-        }
-        primary_key_cols.insert(picked_col->name);
-    }
-
-#ifdef USE_CONSTRAINT
-#ifndef TEST_CLICKHOUSE
-    // unique clause
-    auto unique_num = d6() / 2;
-    for (auto i = 0; i < unique_num; i++) {
-        auto picked_col = random_pick<>(created_table->columns().begin(), created_table->columns().end());
-        while (picked_col->type == scope->schema->texttype) {
-            picked_col++;
-            if (picked_col == created_table->columns().end())
-                picked_col = created_table->columns().begin();
-        }
-        unique_cols.insert(picked_col->name);
-    }
-#endif
-#endif
 
     // check clause
     has_check = false;
@@ -1065,30 +1037,10 @@ void create_table_stmt::out(std::ostream &out)
     for (int i = 0; i < column_num; i++) {
         out << columns_in_table[i].name << " ";
         out << columns_in_table[i].type->name << " ";
-        out << not_null_constraints[i] << ",";
+        out << constraints[i];
+        if (i != column_num - 1)
+            out << ",";
         indent(out);
-    }
-
-    out << "primary key(";
-    for (auto iter = primary_key_cols.begin(); iter != primary_key_cols.end();) {
-        out << *iter;
-        iter++;
-        if (iter != primary_key_cols.end())
-            out << ", ";
-    }
-    out << ")";
-
-    if (unique_cols.size()) {
-        out << ",";
-        indent(out);
-        out << "unique(";
-        for (auto iter = unique_cols.begin(); iter != unique_cols.end();) {
-            out << *iter;
-            iter++;
-            if (iter != unique_cols.end())
-                out << ", ";
-        }
-        out << ")";
     }
 
     if (has_check) {

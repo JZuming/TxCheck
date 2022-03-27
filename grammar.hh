@@ -378,9 +378,7 @@ struct create_table_stmt: prod {
     shared_ptr<struct table> created_table;
     struct scope myscope;
 
-    vector<string> not_null_constraints;
-    std::set<string> primary_key_cols;
-    std::set<string> unique_cols;
+    vector<string> constraints;
     bool has_check;
     shared_ptr<struct bool_expr> check_expr;
     virtual void out(std::ostream &out);
