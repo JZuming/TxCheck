@@ -25,6 +25,7 @@ struct table_ref : prod {
 struct table_or_query_name : table_ref {
     virtual void out(std::ostream &out);
     table_or_query_name(prod *p);
+    table_or_query_name(prod *p, table *target_table);
     virtual ~table_or_query_name() { }
     named_relation *t;
 };
@@ -107,6 +108,7 @@ struct from_clause : prod {
     std::vector<shared_ptr<table_ref> > reflist;
     virtual void out(std::ostream &out);
     from_clause(prod *p, bool only_table = false);
+    from_clause(prod *p, table *from_table);
     ~from_clause() { }
     virtual void accept(prod_visitor *v) {
         v->visit(this);
@@ -184,10 +186,16 @@ struct query_spec : prod {
 
     struct scope myscope;
     virtual void out(std::ostream &out);
-    query_spec(prod *p, struct scope *s, \
+
+    query_spec(prod *p, struct scope *s,
                 bool lateral = 0, 
                 vector<sqltype *> *pointed_type = NULL,
                 bool txn_mode = false);
+    
+    query_spec(prod *p, struct scope *s,
+              table *from_table, 
+              shared_ptr<bool_expr> where_search);
+    
     virtual void accept(prod_visitor *v) {
         v->visit(this);
         select_list->accept(v);

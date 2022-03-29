@@ -75,6 +75,8 @@ struct const_expr: value_expr {
 struct column_reference: value_expr {
     column_reference(prod *p, sqltype *type_constraint = 0, 
         vector<shared_ptr<named_relation> > *prefer_refs = 0);
+    column_reference(prod *p, sqltype *type, 
+        string column_name, string table_name);
     string table_ref;
     virtual void out(std::ostream &out) { out << reference; }
     std::string reference;
@@ -179,6 +181,9 @@ struct distinct_pred : bool_binop {
 struct comparison_op : bool_binop {
   op *oper;
   comparison_op(prod *p);
+  comparison_op(prod *p, op *target_op, 
+        shared_ptr<value_expr> left_operand,
+        shared_ptr<value_expr> right_operand);
   virtual ~comparison_op() { };
   virtual void out(std::ostream &o) {
     o << *lhs << " " << oper->name << " " << *rhs;

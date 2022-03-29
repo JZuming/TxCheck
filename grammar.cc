@@ -79,6 +79,11 @@ table_or_query_name::table_or_query_name(prod *p) : table_ref(p) {
     refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("ref"), t));
 }
 
+table_or_query_name::table_or_query_name(prod *p, table *target_table) : table_ref(p) {
+    t = target_table;
+    refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("ref"), t));
+}
+
 void table_or_query_name::out(std::ostream &out) {
   out << t->ident() << " as " << refs[0]->ident();
 }
@@ -272,15 +277,12 @@ from_clause::from_clause(prod *p, bool only_table) : prod(p) {
         reflist.push_back(table_ref::factory(this));
     for (auto r : reflist.back()->refs)
         scope->refs.push_back(&*r);
+}
 
-//   while (d6() > 5) {
-//     // add a lateral subquery
-//     if (!impedance::matched(typeid(lateral_subquery)))
-//       break;
-//     reflist.push_back(make_shared<lateral_subquery>(this));
-//     for (auto r : reflist.back()->refs)
-//       scope->refs.push_back(&*r);
-//   }
+from_clause::from_clause(prod *p, table *from_table) : prod(p) {
+    reflist.push_back(make_shared<table_or_query_name>(this, from_table));
+    for (auto r : reflist.back()->refs)
+        scope->refs.push_back(&*r);
 }
 
 select_list::select_list(prod *p, 
@@ -376,10 +378,6 @@ void query_spec::out(std::ostream &out) {
         auto &selected_columns = select_list->derived_table.columns();
         auto select_list_size = selected_columns.size();
         for (std::size_t i = 0; i < select_list_size; i++) {
-// #if (!defined TEST_MONETDB) && (!defined TEST_PGSQL)
-//             if (selected_columns[i].type == scope->schema->inttype && d9() == 1)
-//                 out << "-"; 
-// #endif
             out << selected_columns[i].name;
             if (i + 1 < select_list_size)
                 out << ", ";
@@ -392,15 +390,6 @@ void query_spec::out(std::ostream &out) {
         else
             out << "desc";
     }
-
-    // if (has_order) {
-    //     out << " order by ";
-    //     for (auto ref = order_clause.begin(); ref != order_clause.end(); ref++) {
-    //         out << **ref;
-    //         if (ref + 1 != order_clause.end())
-    //             out << ",";
-    //     }
-    // }
 
     if (has_limit)
         out << " limit " << limit_num;
@@ -480,6 +469,9 @@ query_spec::query_spec(prod *p,
     has_order = false;
     has_limit = false;
 
+    if (txn_mode == true)
+        use_group = 0;
+
     if (use_group == 2) { // confirm whether use group
         if (d6() == 1) use_group = 1;
         else use_group = 0;
@@ -493,7 +485,7 @@ query_spec::query_spec(prod *p,
     // from clause can use "group by" or not.
     use_group = 2; 
     // txn testing: need to know which rows are read, so just from a table
-    from_clause = make_shared<struct from_clause>(this, true, txn_mode);
+    from_clause = make_shared<struct from_clause>(this, txn_mode);
 
     use_group = 0; // cannot use "group by" in "where" and "select" clause.
     search = bool_expr::factory(this); 
@@ -518,7 +510,7 @@ query_spec::query_spec(prod *p,
         return;
 
 #ifndef TEST_SQLITE
-    if (has_group == false && d9() == 1) {
+    if (txn_mode == false && has_group == false && d9() == 1) {
         has_window = true;
         window_clause = make_shared<named_window>(this, this->scope);
         auto &select_exprs = select_list->value_exprs;
@@ -545,6 +537,24 @@ query_spec::query_spec(prod *p,
     //     has_limit = true;
     //     limit_num = d100() + d100();
     // }
+}
+
+query_spec::query_spec(prod *p, struct scope *s,
+              table *from_table, 
+              shared_ptr<bool_expr> where_search) :
+  prod(p), myscope(s)
+{
+    scope = &myscope; // isolate the scope, dont effect the upper ones
+    scope->tables = s->tables;
+    has_group = false;
+    has_window = false;
+    has_order = false;
+    has_limit = false;
+    use_group = 0;
+
+    from_clause = make_shared<struct from_clause>(this, from_table);
+    search = where_search; 
+    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, NULL, true);
 }
 
 long prepare_stmt::seq;

@@ -177,6 +177,15 @@ value_expr(p)
     }
 }
 
+column_reference::column_reference(prod *p, sqltype *column_type, 
+        string column_name, string table_name):
+value_expr(p)
+{
+    type = column_type;
+    reference = column_name;
+    table_ref = table_name;
+}
+
 shared_ptr<bool_expr> bool_expr::factory(prod *p)
 {
     try {
@@ -253,6 +262,16 @@ comparison_op::comparison_op(prod *p) : bool_binop(p)
     else
       rhs = value_expr::factory(this, lhs->type);
   }
+}
+
+comparison_op::comparison_op(prod *p, op *target_op, 
+        shared_ptr<value_expr> left_operand,
+        shared_ptr<value_expr> right_operand):
+bool_binop(p)
+{
+    oper = target_op;
+    lhs = left_operand;
+    rhs = right_operand;
 }
 
 coalesce::coalesce(prod *p, sqltype *type_constraint, const char *abbrev)
