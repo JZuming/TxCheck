@@ -19,6 +19,7 @@ int in_check_clause = 0; // 0-> not in "check" clause, 1-> in "check" clause
 set<string> update_used_column_ref;
 
 static int write_op_id = 0;
+static int row_id = 0;
 
 static void exclude_tables(
     table *victim,
@@ -635,6 +636,15 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
                 continue;
             }
 
+            if (col.name == "pkey") {
+                row_id++;
+                auto  expr = make_shared<const_expr>(this, col.type);
+                assert(expr->type == col.type);
+                expr->expr = to_string(row_id); // use write_op_id
+                value_exprs.push_back(expr);
+                continue;
+            }
+
             if (only_const) {
                 auto  expr = make_shared<const_expr>(this, col.type);
                 assert(expr->type == col.type);
@@ -699,6 +709,9 @@ set_list::set_list(prod *p, table *target) : prod(p)
                 names.push_back(col.name);
                 continue;
             }
+
+            if (col.name == "pkey")
+                continue;
             
             if (d6() < 4)
 	            continue;
