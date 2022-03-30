@@ -23,6 +23,10 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             final_stmt_queue.push_back(select_stmt);
             final_stmt_queue.push_back(stmt);
             final_stmt_queue.push_back(select_stmt);
+
+            final_stmt_usage.push_back(BEFORE_WRITE_READ);
+            final_stmt_usage.push_back(NORMAL);
+            final_stmt_usage.push_back(AFTER_WRITE_READ);
             
             continue;
         }
@@ -37,6 +41,9 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
 
             final_stmt_queue.push_back(select_stmt);
             final_stmt_queue.push_back(stmt);
+
+            final_stmt_usage.push_back(BEFORE_WRITE_READ);
+            final_stmt_usage.push_back(NORMAL);
 
             continue;
         }
@@ -86,6 +93,9 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
 
             final_stmt_queue.push_back(stmt);
             final_stmt_queue.push_back(select_stmt);
+
+            final_stmt_usage.push_back(NORMAL);
+            final_stmt_usage.push_back(AFTER_WRITE_READ);
 
             continue;
         }

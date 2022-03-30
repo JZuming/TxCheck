@@ -14,6 +14,8 @@
 
 using namespace std;
 
+enum stmt_usage {NORMAL, BEFORE_WRITE_READ, AFTER_WRITE_READ};
+
 struct instrumentor
 {
     instrumentor(vector<shared_ptr<prod>>& stmt_queue,
@@ -22,6 +24,8 @@ struct instrumentor
 
     vector<shared_ptr<prod>> final_stmt_queue;
     vector<int> final_tid_queue;
+
+    vector<stmt_usage> final_stmt_usage;
 };
 
 
