@@ -46,6 +46,8 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
     for (int i = op_idx - 1; i >= 0; i--) {
         if (op_list[i].stmt_u != AFTER_WRITE_READ)
             continue;
+
+        // need strict compare to find miss write bug
         if (op_list[i].hash != target_op.hash)
             continue;
         
@@ -55,6 +57,52 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
             continue;
 
         dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_READ);
+    }
+    if (find_the_write == false)
+        throw runtime_error("BUG: Cannot find the corresponding write");
+    return;
+}
+
+void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int op_idx)
+{
+    auto& target_op = op_list[op_idx];
+    if (target_op.stmt_u != BEFORE_WRITE_READ)
+        throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_RW_dependency");
+
+    for (int i = op_idx - 1; i >= 0; i--) {
+        // need eazier compare to build more edge
+        if (op_list[i].write_op_id != target_op.write_op_id)
+            continue;
+
+        if (op_list[i].tid == target_op.tid)
+            continue;
+
+        dependency_graph[op_list[i].tid][target_op.tid].push_back(READ_WRITE);
+    }
+    return;
+}
+
+void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int op_idx)
+{
+    auto& target_op = op_list[op_idx];
+    if (target_op.stmt_u != BEFORE_WRITE_READ)
+        throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_WW_dependency");
+
+    bool find_the_write = false;
+    for (int i = op_idx - 1; i >= 0; i--) {
+        if (op_list[i].stmt_u != AFTER_WRITE_READ)
+            continue;
+
+        // need strict compare to find miss write bug
+        if (op_list[i].hash != target_op.hash)
+            continue;
+        
+        find_the_write = true;
+
+        if (op_list[i].tid == target_op.tid)
+            continue;
+
+        dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_WRITE);
     }
     if (find_the_write == false)
         throw runtime_error("BUG: Cannot find the corresponding write");
@@ -111,15 +159,12 @@ tid_num(t_num)
         auto size = row_op_list.size();
         for (int i = 0; i < size; i++) {
             auto& op_unit = row_op_list[i];
-            if (op_unit.stmt_u == NORMAL) 
-                build_WR_dependency(row_op_list, i);
+            build_WR_dependency(row_op_list, i); // it is a read itself
             if (op_unit.stmt_u == BEFORE_WRITE_READ) {
-                build_WR_dependency(row_op_list, i); // it is a read itself
-                
+                build_WW_dependency(row_op_list, i);
+                build_RW_dependency(row_op_list, i);
             }
         }
-
-
     }
 }
 

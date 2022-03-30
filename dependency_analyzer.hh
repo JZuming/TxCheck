@@ -55,6 +55,8 @@ struct dependency_analyzer
 
     size_t hash_output(row_output& row);
     void build_WR_dependency(vector<operate_unit>& op_list, int op_idx);
+    void build_RW_dependency(vector<operate_unit>& op_list, int op_idx);
+    void build_WW_dependency(vector<operate_unit>& op_list, int op_idx);
 
     history h;
     int tid_num;
