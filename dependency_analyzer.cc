@@ -47,16 +47,16 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
         if (op_list[i].stmt_u != AFTER_WRITE_READ)
             continue;
 
-        // need strict compare to find miss write bug
+        // need strict compare to check whether the write is missed
         if (op_list[i].hash != target_op.hash)
             continue;
         
         find_the_write = true;
 
-        if (op_list[i].tid == target_op.tid)
-            continue;
-
-        dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_READ);
+        if (op_list[i].tid != target_op.tid) 
+            dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_READ);
+        
+        break; // only find the nearest write
     }
     if (find_the_write == false)
         throw runtime_error("BUG: Cannot find the corresponding write");
@@ -78,6 +78,8 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
             continue;
 
         dependency_graph[op_list[i].tid][target_op.tid].push_back(READ_WRITE);
+
+        // do not break, because need to find all the read
     }
     return;
 }
@@ -99,10 +101,10 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
         
         find_the_write = true;
 
-        if (op_list[i].tid == target_op.tid)
-            continue;
+        if (op_list[i].tid != target_op.tid)
+            dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_WRITE);
 
-        dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_WRITE);
+        break; // only find the nearest write
     }
     if (find_the_write == false)
         throw runtime_error("BUG: Cannot find the corresponding write");
