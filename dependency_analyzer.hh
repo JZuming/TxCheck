@@ -13,6 +13,8 @@
 #include "instrumentor.hh"
 #include "transaction_test.hh"
 #include <vector>
+#include <set>
+#include <algorithm>
 
 using namespace std;
 
@@ -73,13 +75,16 @@ struct dependency_analyzer
     // contains a directed cycle consisting entirely of dependency edges.
     bool check_G1c();
 
+    bool check_cycle(set<dependency_type>& edge_types);
+    static bool reduce_graph_indegree(int **direct_graph, int length);
+    static bool reduce_graph_outdegree(int **direct_graph, int length);
 
     history h;
     int tid_num;
     int* tid_begin_idx;
     int* tid_end_idx;
     vector<txn_status> f_txn_status;
-    vector<dependency_type> **dependency_graph;
+    set<dependency_type> **dependency_graph;
 };
 
 #endif

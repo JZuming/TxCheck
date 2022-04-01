@@ -54,7 +54,7 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
         find_the_write = true;
 
         if (op_list[i].tid != target_op.tid) 
-            dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_READ);
+            dependency_graph[op_list[i].tid][target_op.tid].insert(WRITE_READ);
         
         break; // only find the nearest write
     }
@@ -77,7 +77,7 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
         if (op_list[i].tid == target_op.tid)
             continue;
 
-        dependency_graph[op_list[i].tid][target_op.tid].push_back(READ_WRITE);
+        dependency_graph[op_list[i].tid][target_op.tid].insert(READ_WRITE);
 
         // do not break, because need to find all the read
     }
@@ -102,7 +102,7 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
         find_the_write = true;
 
         if (op_list[i].tid != target_op.tid)
-            dependency_graph[op_list[i].tid][target_op.tid].push_back(WRITE_WRITE);
+            dependency_graph[op_list[i].tid][target_op.tid].insert(WRITE_WRITE);
 
         break; // only find the nearest write
     }
@@ -121,9 +121,9 @@ dependency_analyzer::dependency_analyzer(vector<one_output>& init_output,
                         int write_op_key_idx):
 tid_num(t_num), f_txn_status(final_txn_status)
 {   
-    dependency_graph = new vector<dependency_type>* [tid_num];
+    dependency_graph = new set<dependency_type>* [tid_num];
     for (int i = 0; i < tid_num; i++) 
-        dependency_graph[i] = new vector<dependency_type> [tid_num];
+        dependency_graph[i] = new set<dependency_type> [tid_num];
 
     for (auto& each_output : init_output) {
         if (each_output.empty())
@@ -192,7 +192,7 @@ tid_num(t_num), f_txn_status(final_txn_status)
             if (i == j)
                 continue;
             if (tid_end_idx[i] < tid_begin_idx[j])
-                dependency_graph[i][j].push_back(START_DEPEND);
+                dependency_graph[i][j].insert(START_DEPEND);
         }
     }
 }
@@ -281,4 +281,122 @@ bool dependency_analyzer::check_G1b()
     }
 
     return false;
+}
+
+// recursively remove the node have 0 in-degree
+// return false if graph is empty after reduction, otherwise true
+bool dependency_analyzer::reduce_graph_indegree(int **direct_graph, int length)
+{
+    set<int> deleted_nodes;
+    while (1) {
+        // check whether the graph is empty
+        if (deleted_nodes.size() == length)
+            return false;
+        
+        // find a node whose in-degree is 0
+        int zero_indegree_idx = -1;
+        for (int i = 0; i < length; i++) {
+            if (deleted_nodes.count(i) > 0)
+                continue;
+            
+            bool has_indegree = false;
+            for (int j = 0; j < length; j++) {
+                if (direct_graph[j][i] > 0) {
+                    has_indegree = true;
+                    break;
+                }
+            }
+            if (has_indegree == false) {
+                zero_indegree_idx = i;
+                break;
+            }
+        }
+        // if all nodes have indegree, there is a cycle
+        if (zero_indegree_idx == -1)
+            return true;
+
+        // delete the node and edge from node to other node
+        deleted_nodes.insert(zero_indegree_idx);
+        for (int j = 0; j < length; j++)
+            direct_graph[zero_indegree_idx][j] = 0; 
+    }
+}
+
+// recursively remove the node have 0 out-degree
+// return false if graph is empty after reduction, otherwise true
+bool dependency_analyzer::reduce_graph_outdegree(int **direct_graph, int length)
+{
+    set<int> deleted_nodes;
+    while (1) {
+        // check whether the graph is empty
+        if (deleted_nodes.size() == length)
+            return false;
+        
+        // find a node whose out-degree is 0
+        int zero_outdegree_idx = -1;
+        for (int i = 0; i < length; i++) {
+            if (deleted_nodes.count(i) > 0)
+                continue;
+            
+            bool has_outdegree = false;
+            for (int j = 0; j < length; j++) {
+                if (direct_graph[i][j] > 0) {
+                    has_outdegree = true;
+                    break;
+                }
+            }
+            if (has_outdegree == false) {
+                zero_outdegree_idx = i;
+                break;
+            }
+        }
+        // if all nodes have outdegree, there is a cycle
+        if (zero_outdegree_idx == -1)
+            return true;
+
+        // delete the node and edge from other node to this node
+        deleted_nodes.insert(zero_outdegree_idx);
+        for (int i = 0; i < length; i++) 
+            direct_graph[i][zero_outdegree_idx] = 0;
+    }
+}
+
+// use topo sort
+bool dependency_analyzer::check_cycle(set<dependency_type>& edge_types)
+{
+    auto tmp_dgraph = new int* [tid_num];
+    for (int i = 0; i < tid_num; i++) 
+        tmp_dgraph[i] = new int [tid_num];
+    
+    // initialize tmp_dgraph
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            set<dependency_type> res;
+            set_intersection(edge_types.begin(), edge_types.end(), 
+                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
+                    inserter(res, res.begin()));
+            
+            // have needed edges
+            if (res.empty())
+                tmp_dgraph[i][j] = 0;
+            else
+                tmp_dgraph[i][j] = 1;
+        }
+    }
+
+    // topp sort
+    bool have_cycle = reduce_graph_indegree(tmp_dgraph, tid_num);
+    
+    for (int i = 0; i < tid_num; i++)
+        delete[] tmp_dgraph[i];
+    delete[] tmp_dgraph;
+
+    return have_cycle;
+}
+
+bool dependency_analyzer::check_G1c()
+{
+    set<dependency_type> ww_wr_set;
+    ww_wr_set.insert(WRITE_WRITE, WRITE_READ);
+    return check_cycle(ww_wr_set);
 }
