@@ -57,10 +57,10 @@ void transaction_test::arrage_trans_for_tid_queue()
 void transaction_test::assign_trans_status()
 {   
     for (int i = 0; i < commit_num; i++) 
-        trans_arr[i].status = 1;
+        trans_arr[i].status = TXN_COMMIT;
 
     for (int i = commit_num; i < trans_num; i++) 
-        trans_arr[i].status = 2;
+        trans_arr[i].status = TXN_ABORT;
     
     cerr << YELLOW << "show status" << RESET << endl;
     for (int i = 0; i < trans_num; i++) {
@@ -82,7 +82,7 @@ void transaction_test::gen_stmt_for_each_trans()
         // save 2 stmts for begin and commit/abort
         smith::rng.seed(time(NULL));
         new_gen_trans_stmts(schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts, test_dbms_info);
-        trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == 1);
+        trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == TXN_COMMIT);
     }
 
     for (int i = 0; i < stmt_num; i++) {
@@ -136,11 +136,11 @@ int transaction_test::trans_test_unit(int stmt_pos)
         }
         
         // abort fail, just do nothing, return executed (i.e. 1)
-        if (trans_arr[tid].status == 2)
+        if (trans_arr[tid].status == TXN_ABORT)
             return 1;
         
         // if commit fail, just abort
-        trans_arr[tid].status = 2;
+        trans_arr[tid].status = TXN_ABORT;
         trans_arr[tid].stmts.erase(trans_arr[tid].stmts.begin());
         trans_arr[tid].stmts.pop_back();
         trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
@@ -167,7 +167,7 @@ bool transaction_test::check_commit_trans_blocked()
 {
     bool has_other_commit_blocked = false;
     for (int tmp_tid = 0; tmp_tid < trans_num; tmp_tid++) {
-        if (trans_arr[tmp_tid].status == 1 && trans_arr[tmp_tid].is_blocked) {
+        if (trans_arr[tmp_tid].status == TXN_COMMIT && trans_arr[tmp_tid].is_blocked) {
             has_other_commit_blocked = true;
             break;
         }
@@ -219,7 +219,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         if (status_queue[stmt_pos] == 1)
             continue;
         
-        if (is_serializable == false && trans_arr[tid].status == 1) {
+        if (is_serializable == false && trans_arr[tid].status == TXN_COMMIT) {
             if (check_commit_trans_blocked())
                 continue;
         }
@@ -263,7 +263,7 @@ void transaction_test::trans_test()
         
         // if there is some committed transaction blocked
         // this committed transaction cannot execute (not serialiazability)
-        if (test_dbms_info.serializable == false && trans_arr[tid].status == 1) {
+        if (test_dbms_info.serializable == false && trans_arr[tid].status == TXN_COMMIT) {
             if (check_commit_trans_blocked())
                 continue;
         }
@@ -333,7 +333,7 @@ void transaction_test::get_possible_order()
     for (int i = 0; i < real_stmt_num; i++) {
         auto tid = real_tid_queue[i];
 
-        if (trans_arr[tid].status != 1) // do not consider abort transaction
+        if (trans_arr[tid].status != TXN_COMMIT) // do not consider abort transaction
             continue;
         
         // confirm their based on their commit order
@@ -372,7 +372,7 @@ void transaction_test::execute_possible_order()
 
     for (int tid = 0; tid < commit_num; tid++) {
         // if it is commit, erase "begin" and "commit"
-        if (trans_arr[tid].status == 1) {
+        if (trans_arr[tid].status == TXN_COMMIT) {
             trans_arr[tid].normal_stmts.erase(trans_arr[tid].normal_stmts.begin());
             trans_arr[tid].normal_stmts.pop_back();
         }
@@ -438,7 +438,7 @@ bool transaction_test::check_one_order_result(int order_index)
     for (auto i = 0; i < trans_num; i++) {
         if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
             continue;
-        if (trans_arr[i].status != 1) // donot check abort transaction
+        if (trans_arr[i].status != TXN_COMMIT) // donot check abort transaction
             continue;
         
         if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].possible_normal_outputs[order_index])) {

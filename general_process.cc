@@ -637,14 +637,14 @@ bool reproduce_routine(dbms_info& d_info,
         re_test.trans_arr[tid].dut = dut_setup(d_info);
         re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
         if (re_test.trans_arr[tid].stmts.empty()) {
-            re_test.trans_arr[tid].status = 2;
+            re_test.trans_arr[tid].status = TXN_ABORT;
             continue;
         }
 
         if (re_test.trans_arr[tid].stmts.back().find("COMMIT") != string::npos)
-            re_test.trans_arr[tid].status = 1;
+            re_test.trans_arr[tid].status = TXN_COMMIT;
         else
-            re_test.trans_arr[tid].status = 2;
+            re_test.trans_arr[tid].status = TXN_ABORT;
     }
 
     re_test.trans_test();

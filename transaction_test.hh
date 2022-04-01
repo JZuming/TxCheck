@@ -11,6 +11,8 @@
 
 using namespace std;
 
+enum txn_status {NOT_DEFINED, TXN_COMMIT, TXN_ABORT};
+
 struct transaction {
     shared_ptr<dut_base> dut;
     bool is_blocked;
@@ -23,10 +25,10 @@ struct transaction {
     vector<vector<vector<string>>> possible_normal_outputs;
     vector<vector<string>> possible_normal_err_info;
 
-    transaction() {is_blocked = false; stmt_num = 0; status = 0;}
+    transaction() {is_blocked = false; stmt_num = 0; status = NOT_DEFINED;}
 
     int stmt_num;
-    int status; // 0: not decided, 1: commit, 2: abort
+    txn_status status;
 };
 
 class transaction_test {
