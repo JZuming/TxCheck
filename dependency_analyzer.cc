@@ -115,6 +115,7 @@ dependency_analyzer::dependency_analyzer(vector<one_output>& init_output,
                         vector<one_output>& total_output,
                         vector<int>& final_tid_queue,
                         vector<stmt_usage>& final_stmt_usage,
+                        vector<txn_status>& final_txn_status,
                         int t_num,
                         int primary_key_idx,
                         int write_op_key_idx):
@@ -156,6 +157,7 @@ tid_num(t_num)
         }
     }
 
+    // generate ww, wr, rw dependency
     for (auto& row_history : h.change_history) {
         auto& row_op_list = row_history.row_op_list;
         auto size = row_op_list.size();
@@ -168,10 +170,38 @@ tid_num(t_num)
             }
         }
     }
+
+    // generate start dependency (for snapshot)
+    tid_begin_idx = new int[tid_num];
+    tid_end_idx = new int[tid_num];
+    for (int i = 0; i < tid_num; i++) {
+        tid_begin_idx[i] = -1;
+        tid_end_idx[i] = -1;
+    }
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = final_tid_queue[i];
+        if (tid_begin_idx[tid] == -1)
+            tid_begin_idx[tid] = i;
+        if (tid_end_idx[tid] < i)
+            tid_end_idx[tid] = i;
+    }
+    for (int i = 0; i < tid_num; i++) {
+        if (final_txn_status[i] != TXN_COMMIT)
+            continue;
+        for (int j = 0; j < tid_num; j++) {
+            if (i == j)
+                continue;
+            if (tid_end_idx[i] < tid_begin_idx[j])
+                dependency_graph[i][j].push_back(START_DEPEND);
+        }
+    }
 }
 
 dependency_analyzer::~dependency_analyzer()
 {
+    delete[] tid_end_idx;
+    delete[] tid_begin_idx;
+    
     for (int i = 0; i < tid_num; i++) 
         delete[] dependency_graph[i];
     delete[] dependency_graph;

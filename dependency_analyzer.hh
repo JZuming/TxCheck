@@ -9,12 +9,14 @@
 #include "prod.hh"
 #include "expr.hh"
 #include "grammar.hh"
+
 #include "instrumentor.hh"
+#include "transaction_test.hh"
 #include <vector>
 
 using namespace std;
 
-enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE};
+enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND};
 
 typedef vector<string> row_output; // a row consists of several field(string)
 typedef vector<row_output> one_output; // one output consits of several rows
@@ -48,6 +50,7 @@ struct dependency_analyzer
                         vector<one_output>& total_output,
                         vector<int>& final_tid_queue,
                         vector<stmt_usage>& final_stmt_usage,
+                        vector<txn_status>& final_txn_status,
                         int t_num,
                         int primary_key_idx,
                         int write_op_key_idx);
@@ -60,6 +63,8 @@ struct dependency_analyzer
 
     history h;
     int tid_num;
+    int* tid_begin_idx;
+    int* tid_end_idx;
     vector<dependency_type> **dependency_graph;
 };
 
