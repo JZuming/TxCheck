@@ -60,11 +60,25 @@ struct dependency_analyzer
     void build_WR_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_RW_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_WW_dependency(vector<operate_unit>& op_list, int op_idx);
+    
+    // G1a: Aborted Reads. A history H exhibits phenomenon G1a if it contains an aborted
+    // transaction Ti and a committed transaction Tj such that Tj has read some object
+    // (maybe via a predicate) modified by Ti.
+    bool check_G1a();
+    // G1b: Intermediate Reads. A history H exhibits phenomenon G1b if it contains a
+    // committed transaction Tj that has read a version of object x (maybe via a predicate)
+    // written by transaction Ti that was not Ti’s final modification of x.
+    bool check_G1b();
+    // G1c: Circular Information Flow. A history H exhibits phenomenon G1c if DSG(H)
+    // contains a directed cycle consisting entirely of dependency edges.
+    bool check_G1c();
+
 
     history h;
     int tid_num;
     int* tid_begin_idx;
     int* tid_end_idx;
+    vector<txn_status> f_txn_status;
     vector<dependency_type> **dependency_graph;
 };
 

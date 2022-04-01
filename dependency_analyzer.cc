@@ -119,7 +119,7 @@ dependency_analyzer::dependency_analyzer(vector<one_output>& init_output,
                         int t_num,
                         int primary_key_idx,
                         int write_op_key_idx):
-tid_num(t_num)
+tid_num(t_num), f_txn_status(final_txn_status)
 {   
     dependency_graph = new vector<dependency_type>* [tid_num];
     for (int i = 0; i < tid_num; i++) 
@@ -186,7 +186,7 @@ tid_num(t_num)
             tid_end_idx[tid] = i;
     }
     for (int i = 0; i < tid_num; i++) {
-        if (final_txn_status[i] != TXN_COMMIT)
+        if (f_txn_status[i] != TXN_COMMIT)
             continue;
         for (int j = 0; j < tid_num; j++) {
             if (i == j)
@@ -205,4 +205,80 @@ dependency_analyzer::~dependency_analyzer()
     for (int i = 0; i < tid_num; i++) 
         delete[] dependency_graph[i];
     delete[] dependency_graph;
+}
+
+// G1a: Aborted Reads. A history H exhibits phenomenon G1a if it contains an aborted
+// transaction Ti and a committed transaction Tj such that Tj has read some object
+// (maybe via a predicate) modified by Ti. Phenomenon G1a can be represented using
+// the following history fragments:
+// wi(xi:m) ... rj(xi:m) ... (ai and cj in any order)
+// wi(xi:m) ... rj(P: xi:m, ...) ... (ai and cj in any order)
+bool dependency_analyzer::check_G1a()
+{
+    // check whether there is a read dependency from Ti to Tj that is aborted
+    for (int j = 0; j < tid_num; j++) {
+        if (f_txn_status[j] != TXN_ABORT)
+            continue; // txn j must be aborted
+        
+        for (int i = 0; i < tid_num; i++) {
+            if (f_txn_status[i] != TXN_COMMIT)
+                continue; // txn i must be committed
+            
+            auto& dependencies = dependency_graph[i][j];
+            for (auto dependency : dependencies) {
+                if (dependency == WRITE_READ)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+// G1b: Intermediate Reads. A history H exhibits phenomenon G1b if it contains a
+// committed transaction Tj that has read a version of object x (maybe via a predicate)
+// written by transaction Ti that was not Ti’s final modification of x. The following history
+// fragments represent this phenomenon:
+// wi(xi:m) ... rj(xi:m) ... wi(xi:n) ... cj
+// wi(xi:m) ... rj(P: xi:m, ...) ... wi(xi:n) ... cj
+bool dependency_analyzer::check_G1b()
+{
+    enum check_stage {NONE, WRITE_STAGE, WRITE_READ_STAGE, WRITE_READ_WRITE_STAGE};
+    
+    for (auto& rch : h.change_history) {
+        auto& op_list = rch.row_op_list;
+        auto opl_size = op_list.size();
+        for (int i = 0; i < opl_size; i++) {
+            if (op_list[i].stmt_u != AFTER_WRITE_READ)
+                continue;
+            
+            int wop_id = op_list[i].write_op_id;
+            int tid = op_list[i].tid;
+            int txn_end_idx = tid_end_idx[tid];
+            bool has_read = false;
+            bool has_write = false;
+            check_stage stage = WRITE_STAGE;
+            
+            for (int j = i + 1; j < opl_size; j++) {
+                if (op_list[j].stmt_idx > txn_end_idx)
+                    break; // the later stmt will not contain the write from txn i
+                
+                // check whether the earlier version is read
+                if (has_read == false && 
+                        op_list[j].write_op_id == wop_id &&
+                        op_list[j].tid != tid)
+                    has_read = true;
+                
+                // check whether it will be rewrite by itselft
+                if (has_write == false &&
+                        op_list[j].tid == tid &&
+                        op_list[j].stmt_u == BEFORE_WRITE_READ)
+                    has_write = true;
+                
+                if (has_read && has_write)
+                    return true;
+            }
+        }
+    }
+
+    return false;
 }
