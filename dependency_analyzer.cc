@@ -268,7 +268,7 @@ bool dependency_analyzer::check_G1b()
                         op_list[j].tid != tid)
                     has_read = true;
                 
-                // check whether it will be rewrite by itselft
+                // check whether it will be rewrite by itself
                 if (has_write == false &&
                         op_list[j].tid == tid &&
                         op_list[j].stmt_u == BEFORE_WRITE_READ)
@@ -361,7 +361,6 @@ bool dependency_analyzer::reduce_graph_outdegree(int **direct_graph, int length)
     }
 }
 
-// use topo sort
 bool dependency_analyzer::check_cycle(set<dependency_type>& edge_types)
 {
     auto tmp_dgraph = new int* [tid_num];
@@ -397,6 +396,126 @@ bool dependency_analyzer::check_cycle(set<dependency_type>& edge_types)
 bool dependency_analyzer::check_G1c()
 {
     set<dependency_type> ww_wr_set;
-    ww_wr_set.insert(WRITE_WRITE, WRITE_READ);
-    return check_cycle(ww_wr_set);
+    ww_wr_set.insert(WRITE_WRITE);
+    ww_wr_set.insert(WRITE_READ);
+
+    auto tmp_dgraph = new int* [tid_num];
+    for (int i = 0; i < tid_num; i++) 
+        tmp_dgraph[i] = new int [tid_num];
+    
+    // initialize tmp_dgraph
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            set<dependency_type> res;
+            set_intersection(ww_wr_set.begin(), ww_wr_set.end(), 
+                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
+                    inserter(res, res.begin()));
+            
+            // have needed edges
+            if (res.empty())
+                tmp_dgraph[i][j] = 0;
+            else
+                tmp_dgraph[i][j] = 1;
+        }
+    }
+
+    bool have_cycle = reduce_graph_indegree(tmp_dgraph, tid_num);
+    
+    for (int i = 0; i < tid_num; i++)
+        delete[] tmp_dgraph[i];
+    delete[] tmp_dgraph;
+
+    return have_cycle;
+}
+
+bool dependency_analyzer::check_GSIa()
+{
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            // check whether they have ww or wr dependency
+            if (dependency_graph[i][j].count(WRITE_WRITE) == 0 &&
+                    dependency_graph[i][j].count(WRITE_READ) == 0) 
+                continue;
+            
+            // check whether they have start dependency
+            if (dependency_graph[i][j].count(START_DEPEND) == 0)
+                return true;
+        }
+    }
+    return false;
+}
+
+bool dependency_analyzer::check_GSIb()
+{
+    set<dependency_type> target_dependency_set;
+    target_dependency_set.insert(WRITE_WRITE);
+    target_dependency_set.insert(WRITE_READ);
+    target_dependency_set.insert(READ_WRITE);
+    target_dependency_set.insert(START_DEPEND);
+    
+    auto tmp_dgraph = new int* [tid_num];
+    for (int i = 0; i < tid_num; i++) 
+        tmp_dgraph[i] = new int [tid_num];
+    
+    // initialize tmp_dgraph
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            set<dependency_type> res;
+            set_intersection(target_dependency_set.begin(), target_dependency_set.end(), 
+                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
+                    inserter(res, res.begin()));
+            
+            // have needed edges
+            if (res.empty())
+                tmp_dgraph[i][j] = 0;
+            else
+                tmp_dgraph[i][j] = 1;
+        }
+    }
+
+    if (reduce_graph_indegree(tmp_dgraph, tid_num) == false ||
+            reduce_graph_outdegree(tmp_dgraph, tid_num) == false) {// empty
+        
+        for (int i = 0; i < tid_num; i++)
+            delete[] tmp_dgraph[i];
+        delete[] tmp_dgraph;
+        return false;
+    }
+    
+    // check which edge only have rw dependency
+    vector<pair<int, int>> rw_edges;
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            if (tmp_dgraph[i][j] == 0)
+                continue;
+            // if there is other depend (WR, WW, START(equal to WR or WW according to GSIa)), 
+            // no need to remove it, will be report by G1c
+            if (dependency_graph[i][j].size() > 1)
+                continue;
+            if (dependency_graph[i][j].count(READ_WRITE) == 0)
+                continue;
+            
+            // exactly the READ_WRITE depend
+            rw_edges.push_back(pair<int, int>(i, j));
+            tmp_dgraph[i][j] = 0; // delete the edge
+        }
+    }
+    
+    // only leave one rw edege
+    bool has_rw_cycle = false;
+    for (auto& rw_edge : rw_edges) {
+        // only insert 1 rw edge each time
+        tmp_dgraph[rw_edge.first][rw_edge.second] = 1;
+        if (reduce_graph_indegree(tmp_dgraph, tid_num)) {
+            has_rw_cycle = true;
+            break;
+        }
+        tmp_dgraph[rw_edge.first][rw_edge.second] = 0;
+    }
+
+    for (int i = 0; i < tid_num; i++)
+        delete[] tmp_dgraph[i];
+    delete[] tmp_dgraph;
+
+    return has_rw_cycle;
 }

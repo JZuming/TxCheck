@@ -75,6 +75,15 @@ struct dependency_analyzer
     // contains a directed cycle consisting entirely of dependency edges.
     bool check_G1c();
 
+    // Snapshot Isolation:
+    // G-SIa: Interference. A history H exhibits phenomenon G-SIa if SSG(H) contains a
+    // read/write-dependency edge from Ti to Tj without there also being a start-dependency
+    // edge from Ti to Tj.
+    bool check_GSIa();
+    // G-SIb: Missed Effects. A history H exhibits phenomenon G-SIb if SSG(H) contains
+    // a directed cycle with exactly one anti-dependency edge.
+    bool check_GSIb();
+
     bool check_cycle(set<dependency_type>& edge_types);
     static bool reduce_graph_indegree(int **direct_graph, int length);
     static bool reduce_graph_outdegree(int **direct_graph, int length);
