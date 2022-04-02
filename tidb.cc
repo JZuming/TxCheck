@@ -422,10 +422,11 @@ void dut_tidb::reset_to_backup(void)
     mysql_close(&mysql);
     
     string mysql_source = "mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
-    system(mysql_source.c_str());
+    if (system(mysql_source.c_str()) == -1) 
+        throw std::runtime_error(string("system() error, return -1") + " in dut_tidb::reset_to_backup!");
 
     if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
-        throw std::runtime_error(string(mysql_error(&mysql)) + " in tidb_connection!");
+        throw std::runtime_error(string(mysql_error(&mysql)) + " in dut_tidb::reset_to_backup!");
 }
 
 int dut_tidb::save_backup_file(string path)
@@ -572,8 +573,8 @@ pid_t dut_tidb::fork_db_server()
     if (child == 0) {
         char *server_argv[128];
         int i = 0;
-        server_argv[i++] = "/root/.tiup/bin/tiup"; // path of tiup
-        server_argv[i++] = "playground";
+        server_argv[i++] = (char *)"/root/.tiup/bin/tiup"; // path of tiup
+        server_argv[i++] = (char *)"playground";
         server_argv[i++] = NULL;
         execv(server_argv[0], server_argv);
         cerr << "fork tidb server fail in dut_tidb::fork_db_server" << endl; 

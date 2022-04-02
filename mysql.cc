@@ -549,7 +549,8 @@ void dut_mysql::reset_to_backup(void)
     mysql_close(&mysql);
     
     string mysql_source = "/usr/local/mysql/bin/mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
-    system(mysql_source.c_str());
+    if (system(mysql_source.c_str()) == -1) 
+        throw std::runtime_error(string("system() error, return -1") + "\nLocation: " + debug_info);
 
     if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
         throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
@@ -698,11 +699,11 @@ pid_t dut_mysql::fork_db_server()
     if (child == 0) {
         char *server_argv[128];
         int i = 0;
-        server_argv[i++] = "/usr/local/mysql/bin/mysqld"; // path of tiup
-        server_argv[i++] = "--basedir=/usr/local/mysql";
-        server_argv[i++] = "--datadir=/usr/local/mysql/data";
-        server_argv[i++] = "--plugin-dir=/usr/local/mysql/lib/plugin";
-        server_argv[i++] = "--user=mysql";
+        server_argv[i++] = (char *)"/usr/local/mysql/bin/mysqld"; // path of tiup
+        server_argv[i++] = (char *)"--basedir=/usr/local/mysql";
+        server_argv[i++] = (char *)"--datadir=/usr/local/mysql/data";
+        server_argv[i++] = (char *)"--plugin-dir=/usr/local/mysql/lib/plugin";
+        server_argv[i++] = (char *)"--user=mysql";
         server_argv[i++] = NULL;
         execv(server_argv[0], server_argv);
         cerr << "fork mysql server fail \nLocation: " + debug_info << endl; 

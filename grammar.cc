@@ -301,7 +301,7 @@ select_list::select_list(prod *p,
     if (select_all) { // pointed_type is null and prefer_refs is not null
         auto r = &*random_pick(*prefer_refs);
         for (auto& col : r->columns()) {
-            auto expr = make_shared<column_reference>(this, 0, prefer_refs);
+            auto expr = make_shared<column_reference>(this, (sqltype *)0, prefer_refs);
             expr->type = col.type;
             expr->reference = r->ident() + "." + col.name;
             expr->table_ref = r->ident();
@@ -317,7 +317,7 @@ select_list::select_list(prod *p,
 
     if (pointed_type == NULL) {
         do {
-            shared_ptr<value_expr> e = value_expr::factory(this, 0, prefer_refs);
+            shared_ptr<value_expr> e = value_expr::factory(this, (sqltype *)0, prefer_refs);
             value_exprs.push_back(e);
             ostringstream name;
             name << "c" << columns++;
@@ -555,7 +555,7 @@ query_spec::query_spec(prod *p, struct scope *s,
 
     from_clause = make_shared<struct from_clause>(this, from_table);
     search = where_search; 
-    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, NULL, true);
+    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, (vector<sqltype *> *)NULL, true);
 }
 
 long prepare_stmt::seq;
@@ -802,7 +802,7 @@ common_table_expression::common_table_expression(prod *parent, struct scope *s, 
 {
     scope = &myscope;
     do {
-        shared_ptr<query_spec> query = make_shared<query_spec>(this, s, false, NULL, txn_mode);
+        shared_ptr<query_spec> query = make_shared<query_spec>(this, s, false, (vector<sqltype *> *)NULL, txn_mode);
         with_queries.push_back(query);
         string alias = scope->stmt_uid("cte");
         relation *relation = &query->select_list->derived_table;
@@ -818,7 +818,7 @@ retry:
         scope->tables.push_back(pick);
     } while (d6() > 3);
     try {
-        query = make_shared<query_spec>(this, scope, false, NULL, txn_mode);
+        query = make_shared<query_spec>(this, scope, false, (vector<sqltype *> *)NULL, txn_mode);
     } catch (runtime_error &e) {
         retry();
         goto retry;
@@ -1735,7 +1735,7 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
         // if (choice == 8)
         //     return make_shared<unioned_query>((struct prod *)0, s);
         if (choice == 9)
-            return make_shared<query_spec>((struct prod *)0, s, false, NULL, true);
+            return make_shared<query_spec>((struct prod *)0, s, false, (vector<sqltype *> *)NULL, true);
         
         return trans_statement_factory(s);
     } catch (runtime_error &e) {

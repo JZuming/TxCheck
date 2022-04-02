@@ -491,7 +491,8 @@ void dut_cockroachdb::reset(void)
 void dut_cockroachdb::backup(void)
 {
     string delete_backup = "cockroach userfile delete test.backup --insecure";
-    system(delete_backup.c_str());
+    if (system(delete_backup.c_str()) == -1) 
+        throw std::runtime_error(string("system() error, return -1") + " in dut_cockroachdb::backup!");
     
     string backup_sql = "BACKUP DATABASE " + test_db + " TO 'userfile:///test.backup';";
     auto res = PQexec(conn, backup_sql.c_str());
@@ -662,11 +663,11 @@ pid_t dut_cockroachdb::fork_db_server()
     if (child == 0) {
         char *server_argv[128];
         int i = 0;
-        server_argv[i++] = "/usr/local/bin/cockroach";
-        server_argv[i++] = "start-single-node";
-        server_argv[i++] = "--insecure";
-        server_argv[i++] = "--listen-addr=localhost:26257";
-        server_argv[i++] = "--http-addr=localhost:8080";
+        server_argv[i++] = (char *)"/usr/local/bin/cockroach";
+        server_argv[i++] = (char *)"start-single-node";
+        server_argv[i++] = (char *)"--insecure";
+        server_argv[i++] = (char *)"--listen-addr=localhost:26257";
+        server_argv[i++] = (char *)"--http-addr=localhost:8080";
         server_argv[i++] = NULL;
         execv(server_argv[0], server_argv);
         cerr << "fork cockroachdb server fail in dut_cockroachdb::fork_db_server" << endl;

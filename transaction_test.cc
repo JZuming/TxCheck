@@ -499,7 +499,8 @@ int transaction_test::test()
 
         make_dir_error_exit(dir_name);
         string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
-        system(cmd.c_str());
+        if (system(cmd.c_str()) == -1) 
+        throw std::runtime_error(string("system() error, return -1") + " in transaction_test::test!");
         
         // save database
         auto dut = dut_setup(test_dbms_info);
