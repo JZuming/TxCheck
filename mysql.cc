@@ -662,31 +662,19 @@ void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<stri
     }
 }
 
-bool dut_mysql::is_begin_stmt(string& stmt)
+string dut_mysql::begin_stmt()
 {
-    if (stmt == "START TRANSACTION;")
-        return true;
-    return false;
+    return "START TRANSACTION";
 }
 
-bool dut_mysql::is_commit_abort_stmt(string& stmt)
+string dut_mysql::commit_stmt()
 {
-    if (stmt == "COMMIT;")
-        return true;
-    if (stmt == "ROLLBACK;")
-        return true;
-    return false;
+    return "COMMIT";
 }
 
-void dut_mysql::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
+string dut_mysql::abort_stmt()
 {
-    stmt_vec.insert(stmt_vec.begin(), "START TRANSACTION;");
-    string last_sql;
-    if (is_commit) 
-        last_sql = "COMMIT;";
-    else
-        last_sql = "ROLLBACK;";
-    stmt_vec.push_back(last_sql);
+    return "ROLLBACK";
 }
 
 pid_t dut_mysql::fork_db_server()

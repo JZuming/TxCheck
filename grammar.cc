@@ -1714,7 +1714,7 @@ shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
     }
 }
 
-shared_ptr<prod> trans_statement_factory(struct scope *s)
+shared_ptr<prod> txn_statement_factory(struct scope *s)
 {
     try {
         s->new_stmt();
@@ -1728,19 +1728,15 @@ shared_ptr<prod> trans_statement_factory(struct scope *s)
 #endif
         if (choice == 5)
             return make_shared<insert_stmt>((struct prod *)0, s);
-        // if (choice == 6)
-        //     return make_shared<insert_select_stmt>((struct prod *)0, s);
         if (choice == 7)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
-        // if (choice == 8)
-        //     return make_shared<unioned_query>((struct prod *)0, s);
         if (choice == 9)
             return make_shared<query_spec>((struct prod *)0, s, false, (vector<sqltype *> *)NULL, true);
         
-        return trans_statement_factory(s);
+        return txn_statement_factory(s);
     } catch (runtime_error &e) {
         string err = e.what();
         cerr << "catch a runtime error: " << err << endl;
-        return trans_statement_factory(s);
+        return txn_statement_factory(s);
     }
 }

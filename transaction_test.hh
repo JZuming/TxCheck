@@ -17,7 +17,7 @@ struct transaction {
     shared_ptr<dut_base> dut;
     bool is_blocked;
     
-    vector<string> stmts;
+    vector<shared_ptr<prod>> stmts;
     vector<vector<string>> stmt_outputs;
     vector<string> stmt_err_info;
 
@@ -40,26 +40,25 @@ public:
     transaction* trans_arr;
     string output_path_dir;
 
-    int commit_num;
-
     dbms_info test_dbms_info;
+    int commit_num;
 
     int trans_num;
     int stmt_num;
 
     vector<int> tid_queue;
-    vector<string> stmt_queue;
+    vector<shared_ptr<prod>> stmt_queue;
 
     vector<int> real_tid_queue;
-    vector<string> real_stmt_queue;
+    vector<shared_ptr<prod>> real_stmt_queue;
     map<string, vector<string>> trans_db_content;
 
     vector<vector<int>> possible_normal_trans_order;
     vector<map<string, vector<string>>> possible_normal_db_content;
 
-    void arrage_trans_for_tid_queue();
-    void assign_trans_status();
-    void gen_stmt_for_each_trans();
+    void assign_txn_id();
+    void assign_txn_status();
+    void gen_txn_stmts();
     
     bool check_commit_trans_blocked();
     void trans_test();

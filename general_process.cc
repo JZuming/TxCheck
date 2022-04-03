@@ -437,9 +437,9 @@ int generate_database(dbms_info& d_info)
     return 0;
 }
 
-void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
+void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                         int trans_stmt_num,
-                        vector<string>& trans_rec,
+                        vector<shared_ptr<prod>>& trans_rec,
                         dbms_info& d_info)
 {
     auto can_error = d_info.can_trigger_error_in_txn;
@@ -451,7 +451,7 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
     int stmt_num = 0;
     while (1) {
         cerr << "generating statement ...";
-        shared_ptr<prod> gen = trans_statement_factory(&scope);
+        shared_ptr<prod> gen = txn_statement_factory(&scope);
         cerr << "done" << endl;
 
         ostringstream stmt_stream;
@@ -478,7 +478,7 @@ void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
                 continue;
             }
         }
-        trans_rec.push_back(stmt);
+        trans_rec.push_back(gen);
         stmt_num++;
         if (stmt_num == trans_stmt_num)
             break;

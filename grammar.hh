@@ -496,9 +496,20 @@ struct insert_select_stmt : modifying_stmt {
     }
 };
 
+struct txn_string_stmt : prod {
+  string stmt;
+  txn_string_stmt(prod *p, string bs) : 
+    prod(p), stmt(bs) {}
+  virtual ~txn_string_stmt() {}
+  virtual void out(std::ostream &out) {out << stmt;}
+  virtual void accept(prod_visitor *v) {
+    v->visit(this);
+  }
+};
+
 shared_ptr<prod> statement_factory(struct scope *s);
 shared_ptr<prod> ddl_statement_factory(struct scope *s);
 shared_ptr<prod> basic_dml_statement_factory(struct scope *s);
-shared_ptr<prod> trans_statement_factory(struct scope *s);
+shared_ptr<prod> txn_statement_factory(struct scope *s);
 
 #endif

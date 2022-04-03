@@ -1,60 +1,41 @@
 #include "transaction_test.hh"
 
-void transaction_test::arrage_trans_for_tid_queue()
+#define MAX_CONCURRENT_TXN_NUM  5
+
+void transaction_test::assign_txn_id()
 {
-    for (int tid = 0; tid < trans_num; tid++)
-        trans_arr[tid].stmt_num = 0;
-    
-    for (int i = 0; i < stmt_num; i++) {
-        int tid = dx(trans_num) - 1;
-        tid_queue.push_back(tid);
-        trans_arr[tid].stmt_num++;
+    set<int> concurrent_tid;
+    set<int> available_tid;
+    int tid_insertd_stmt[trans_num];
+    for (int i = 0; i < trans_num; i++) {
+        available_tid.insert(i);
+        tid_insertd_stmt[i] = 0;
     }
 
-    // each transaction at least has two statement (begin and commit/abort)
-    for (int tid = 0; tid < trans_num; tid++) {
-        while (trans_arr[tid].stmt_num < 2) {
-            int pos = dx(stmt_num) - 1;
-            tid_queue.insert(tid_queue.begin() + pos, tid);
-            stmt_num++;
-            trans_arr[tid].stmt_num++;
+    while (available_tid.empty() == false) {
+        int tid;
+        if (concurrent_tid.size() < MAX_CONCURRENT_TXN_NUM) {
+            auto idx = dx(available_tid.size());
+            auto tid = *next(available_tid.begin(), idx);
+            concurrent_tid.insert(tid);
         }
-    }
+        else {
+            auto idx = dx(concurrent_tid.size());
+            auto tid = *next(concurrent_tid.begin(), idx);
+        }
 
-    if (test_dbms_info.serializable)
-        return;
-    
-    // for non-serializable, make the commit trans executing without interleaving
-    int holder_tid = -7;
-    for (int i = 0; i < stmt_num; i++) { // replace the tid with holder tid
-        auto tid = tid_queue[i];
-        if (tid < commit_num) 
-            tid_queue[i] = holder_tid;
-    }
-
-    int tid_now = 0;
-    int arranged_stmt_num = 0;
-    for (int i = 0; i < stmt_num; i++) {
-        if (tid_queue[i] != holder_tid)
-            continue;
-        
-        tid_queue[i] = tid_now;
-        arranged_stmt_num++;
-
-        if (arranged_stmt_num < trans_arr[tid_now].stmt_num)
-            continue;
-        
-        tid_now++;
-        arranged_stmt_num = 0;
-
-        if (tid_now >= commit_num)
-            break;
+        tid_queue.push_back(tid);
+        tid_insertd_stmt[tid]++;
+        if (tid_insertd_stmt[tid] >= trans_arr[tid].stmt_num) {
+            available_tid.erase(tid);
+            concurrent_tid.erase(tid);
+        }
     }
 
     return;
 }
 
-void transaction_test::assign_trans_status()
+void transaction_test::assign_txn_status()
 {   
     for (int i = 0; i < commit_num; i++) 
         trans_arr[i].status = TXN_COMMIT;
@@ -70,7 +51,7 @@ void transaction_test::assign_trans_status()
     return;
 }
 
-void transaction_test::gen_stmt_for_each_trans()
+void transaction_test::gen_txn_stmts()
 {    
     shared_ptr<int[]> stmt_pos_of_trans(new int[trans_num]);
     
@@ -81,8 +62,14 @@ void transaction_test::gen_stmt_for_each_trans()
         
         // save 2 stmts for begin and commit/abort
         smith::rng.seed(time(NULL));
-        new_gen_trans_stmts(schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts, test_dbms_info);
-        trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, trans_arr[tid].status == TXN_COMMIT);
+        gen_stmts_for_one_txn(schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts, test_dbms_info);
+        // insert begin and end stmts
+        trans_arr[tid].stmts.insert(trans_arr[tid].stmts.begin(), 
+                make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->begin_stmt()));
+        if (trans_arr[tid].status == TXN_COMMIT) 
+            trans_arr[tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->commit_stmt()));
+        else 
+            trans_arr[tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->abort_stmt()));
     }
 
     for (int i = 0; i < stmt_num; i++) {
@@ -99,7 +86,10 @@ void transaction_test::gen_stmt_for_each_trans()
 int transaction_test::trans_test_unit(int stmt_pos)
 {
     auto tid = tid_queue[stmt_pos];
-    auto &stmt = stmt_queue[stmt_pos];
+    auto &stmt_prod = stmt_queue[stmt_pos];
+    ostringstream stmt_stream;
+    stmt_prod->out(stmt_stream);
+    auto stmt = stmt_stream.str() + ";";
     vector<string> output;
 
     try {
@@ -130,7 +120,9 @@ int transaction_test::trans_test_unit(int stmt_pos)
             exit(-1);
         
         // store the error info of non-commit statement
-        if (!trans_arr[tid].dut->is_commit_abort_stmt(stmt)) {
+        if (trans_arr[tid].dut->commit_stmt() != stmt &&
+            trans_arr[tid].dut->abort_stmt() != stmt) {
+
             trans_arr[tid].stmt_err_info.push_back(err);
             return 1;
         }
@@ -141,12 +133,15 @@ int transaction_test::trans_test_unit(int stmt_pos)
         
         // if commit fail, just abort
         trans_arr[tid].status = TXN_ABORT;
-        trans_arr[tid].stmts.erase(trans_arr[tid].stmts.begin());
         trans_arr[tid].stmts.pop_back();
-        trans_arr[tid].dut->wrap_stmts_as_trans(trans_arr[tid].stmts, false);
+        trans_arr[tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->abort_stmt()));
         stmt_queue[stmt_pos] = trans_arr[tid].stmts.back();
 
-        stmt = stmt_queue[stmt_pos];
+        stmt_prod = stmt_queue[stmt_pos];
+        ostringstream stmt_stream;
+        stmt_prod->out(stmt_stream);
+        stmt = stmt_stream.str() + ";";
+
         try {
             trans_arr[tid].dut->test(stmt);
             cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
@@ -231,7 +226,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             status_queue[stmt_pos] = 1;
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(stmt_queue[stmt_pos]);
-
+            
             if (trans_arr[tid].dut->is_commit_abort_stmt(stmt_queue[stmt_pos]))
                 retry_block_stmt(stmt_pos, status_queue);
         } else if (is_executed == 2) { // skipped
@@ -487,9 +482,9 @@ void transaction_test::save_test_case(string dir_name)
 int transaction_test::test()
 {
     try {
-        arrage_trans_for_tid_queue();
-        assign_trans_status();
-        gen_stmt_for_each_trans();
+        assign_txn_id();
+        assign_txn_status();
+        gen_txn_stmts();
     } catch(exception &e) {
         cerr << "Trigger a normal bugs when inializing the stmts" << endl;
         cerr << "Bug info: " << e.what() << endl;
@@ -636,21 +631,18 @@ bool transaction_test::fork_if_server_closed()
     return server_restart;
 }
 
-
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = 3 + dx(4); // 4 - 7
-    stmt_num = trans_num * (3 + d12()); // average statement number of each transaction is 4 - 15
-    
+    trans_num = 10 + d9(); // 11 - 19
     test_dbms_info = d_info;
 
-    // commit_num = dx(trans_num);
-    if (trans_num >= 2)
-        commit_num = 2;
-    else
-        commit_num = trans_num;
-
     trans_arr = new transaction[trans_num];
+    commit_num = trans_num / 2;
+    stmt_num = 0;
+    for (int i = 0; i < trans_num; i++) {
+        trans_arr[i].stmt_num = 2 + d6(); // 3 - 8
+        stmt_num = trans_arr[i].stmt_num;
+    }
 
     output_path_dir = "found_bugs/";
     struct stat buffer;

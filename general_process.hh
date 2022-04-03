@@ -76,9 +76,9 @@ struct test_thread_arg {
     bool has_exception;
 };
 
-void new_gen_trans_stmts(shared_ptr<schema> &db_schema,
+void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                         int trans_stmt_num,
-                        vector<string>& trans_rec,
+                        vector<shared_ptr<prod>>& trans_rec,
                         dbms_info& d_info);
 
 bool compare_output(vector<vector<string>>& trans_output,
