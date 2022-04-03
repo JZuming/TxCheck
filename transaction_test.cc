@@ -86,10 +86,7 @@ void transaction_test::gen_txn_stmts()
 int transaction_test::trans_test_unit(int stmt_pos)
 {
     auto tid = tid_queue[stmt_pos];
-    auto &stmt_prod = stmt_queue[stmt_pos];
-    ostringstream stmt_stream;
-    stmt_prod->out(stmt_stream);
-    auto stmt = stmt_stream.str() + ";";
+    auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
     vector<string> output;
 
     try {
@@ -120,8 +117,8 @@ int transaction_test::trans_test_unit(int stmt_pos)
             exit(-1);
         
         // store the error info of non-commit statement
-        if (trans_arr[tid].dut->commit_stmt() != stmt &&
-            trans_arr[tid].dut->abort_stmt() != stmt) {
+        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos &&
+            stmt.find(trans_arr[tid].dut->abort_stmt()) == string::npos) {
 
             trans_arr[tid].stmt_err_info.push_back(err);
             return 1;
@@ -137,10 +134,7 @@ int transaction_test::trans_test_unit(int stmt_pos)
         trans_arr[tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->abort_stmt()));
         stmt_queue[stmt_pos] = trans_arr[tid].stmts.back();
 
-        stmt_prod = stmt_queue[stmt_pos];
-        ostringstream stmt_stream;
-        stmt_prod->out(stmt_stream);
-        stmt = stmt_stream.str() + ";";
+        stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
 
         try {
             trans_arr[tid].dut->test(stmt);
@@ -227,8 +221,11 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(stmt_queue[stmt_pos]);
             
-            if (trans_arr[tid].dut->is_commit_abort_stmt(stmt_queue[stmt_pos]))
+            auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
+            if (stmt.find(trans_arr[tid].dut->commit_stmt()) != string::npos ||
+                    stmt.find(trans_arr[tid].dut->abort_stmt()) != string::npos) {
                 retry_block_stmt(stmt_pos, status_queue);
+            }
         } else if (is_executed == 2) { // skipped
             trans_arr[tid].is_blocked = false;
             status_queue[stmt_pos] = 1;
@@ -280,8 +277,11 @@ void transaction_test::trans_test()
         real_stmt_queue.push_back(stmt);
         
         // after a commit or abort, retry the statement
-        if (trans_arr[tid].dut->is_commit_abort_stmt(stmt))
+        auto stmt_str = print_stmt_to_string(stmt);
+        if (stmt_str.find(trans_arr[tid].dut->commit_stmt()) != string::npos ||
+                stmt_str.find(trans_arr[tid].dut->abort_stmt()) != string::npos) {
             retry_block_stmt(stmt_index, status_queue);
+        }
     }
 
     while (1) {
@@ -332,7 +332,9 @@ void transaction_test::get_possible_order()
             continue;
         
         // confirm their based on their commit order
-        if (!trans_arr[tid].dut->is_commit_abort_stmt(real_stmt_queue[i]))
+        auto stmt_str = print_stmt_to_string(real_stmt_queue[i]);
+        if (stmt_str.find(trans_arr[tid].dut->commit_stmt()) == string::npos &&
+                stmt_str.find(trans_arr[tid].dut->abort_stmt()) == string::npos)
             continue;
             
         most_possible_trans_order.push_back(tid);
@@ -385,7 +387,7 @@ void transaction_test::execute_possible_order()
 
             auto normal_stmt_num = trans_arr[tid].normal_stmts.size();
             for (int i = 0; i < normal_stmt_num; i++) {
-                auto& stmt = trans_arr[tid].normal_stmts[i];
+                auto stmt = print_stmt_to_string(trans_arr[tid].normal_stmts[i]);
                 vector<string> output;
                 try {
                     normal_dut->test(stmt, &output);

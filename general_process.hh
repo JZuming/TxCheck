@@ -104,12 +104,14 @@ int generate_database(dbms_info& d_info);
 void kill_process_with_SIGTERM(pid_t process_id);
 
 bool reproduce_routine(dbms_info& d_info,
-                        vector<string>& stmt_queue, 
+                        vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue);
 
 bool minimize_testcase(dbms_info& d_info,
                         vector<string>& stmt_queue, 
                         vector<int>& tid_queue);
+
+string print_stmt_to_string(shared_ptr<prod> stmt);
 
 int make_dir_error_exit(string folder);
 

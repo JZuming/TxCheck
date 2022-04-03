@@ -21,7 +21,7 @@ struct transaction {
     vector<vector<string>> stmt_outputs;
     vector<string> stmt_err_info;
 
-    vector<string> normal_stmts;
+    vector<shared_ptr<prod>> normal_stmts;
     vector<vector<vector<string>>> possible_normal_outputs;
     vector<vector<string>> possible_normal_err_info;
 

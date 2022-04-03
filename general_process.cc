@@ -486,7 +486,7 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
 }
 
 bool minimize_testcase(dbms_info& d_info,
-                        vector<string>& stmt_queue, 
+                        vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue)
 {
     cerr << "Check reproduce..." << endl;
@@ -504,14 +504,14 @@ bool minimize_testcase(dbms_info& d_info,
     }
     int txn_num = max_tid + 1;
     
-    vector<string> final_stmt_queue = stmt_queue;
+    auto final_stmt_queue = stmt_queue;
     vector<int> final_tid_queue = tid_queue;
     
     // txn level minimize
     for (int tid = 0; tid < txn_num; tid++) {
         cerr << "Try to delete txn " << tid << "..." << endl;
 
-        vector<string> tmp_stmt_queue = final_stmt_queue;
+        auto tmp_stmt_queue = final_stmt_queue;
         vector<int> tmp_tid_queue = final_tid_queue;
 
         // delete current tid
@@ -550,14 +550,16 @@ bool minimize_testcase(dbms_info& d_info,
     for (int i = 0; i < stmt_num; i++) {
         cerr << "Try to delete stmt " << i << "..." << endl;
 
-        vector<string> tmp_stmt_queue = final_stmt_queue;
+        auto tmp_stmt_queue = final_stmt_queue;
         vector<int> tmp_tid_queue = final_tid_queue;
 
         // do not delete commit or abort
-        if (dut->is_begin_stmt(tmp_stmt_queue[i]))
+        auto tmp_stmt_str = print_stmt_to_string(tmp_stmt_queue[i]);
+        if (tmp_stmt_str.find(dut->begin_stmt()) != string::npos)
             continue;
-        
-        if (dut->is_commit_abort_stmt(tmp_stmt_queue[i]))
+        if (tmp_stmt_str.find(dut->commit_stmt()) != string::npos)
+            continue;
+        if (tmp_stmt_str.find(dut->abort_stmt()) != string::npos)
             continue;
         
         tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
@@ -603,7 +605,7 @@ bool minimize_testcase(dbms_info& d_info,
 
 
 bool reproduce_routine(dbms_info& d_info,
-                        vector<string>& stmt_queue, 
+                        vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue)
 {
     transaction_test re_test(d_info);
@@ -641,7 +643,8 @@ bool reproduce_routine(dbms_info& d_info,
             continue;
         }
 
-        if (re_test.trans_arr[tid].stmts.back().find("COMMIT") != string::npos)
+        auto stmt_str = print_stmt_to_string(re_test.trans_arr[tid].stmts.back());
+        if (stmt_str.find("COMMIT") != string::npos)
             re_test.trans_arr[tid].status = TXN_COMMIT;
         else
             re_test.trans_arr[tid].status = TXN_ABORT;
@@ -655,4 +658,11 @@ bool reproduce_routine(dbms_info& d_info,
     }
 
     return false;
+}
+
+string print_stmt_to_string(shared_ptr<prod> stmt)
+{
+    ostringstream stmt_stream;
+    stmt->out(stmt_stream);
+    return stmt_stream.str() + ";";
 }
