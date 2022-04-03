@@ -27,7 +27,8 @@ sqlsmith_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTG
 
 transfuzz_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
     random.cc prod.cc expr.cc grammar.cc log.cc dump.cc impedance.cc	\
-    transaction_test.cc cockroachdb.cc transfuzz.cc dbms_info.cc general_process.cc
+    transaction_test.cc cockroachdb.cc transfuzz.cc dbms_info.cc \
+    general_process.cc instrumentor.cc dependency_analyzer.cc
 
 transfuzz_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS) -lpthread
 

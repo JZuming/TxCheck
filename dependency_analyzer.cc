@@ -242,8 +242,6 @@ bool dependency_analyzer::check_G1a()
 // wi(xi:m) ... rj(P: xi:m, ...) ... wi(xi:n) ... cj
 bool dependency_analyzer::check_G1b()
 {
-    enum check_stage {NONE, WRITE_STAGE, WRITE_READ_STAGE, WRITE_READ_WRITE_STAGE};
-    
     for (auto& rch : h.change_history) {
         auto& op_list = rch.row_op_list;
         auto opl_size = op_list.size();
@@ -256,7 +254,6 @@ bool dependency_analyzer::check_G1b()
             int txn_end_idx = tid_end_idx[tid];
             bool has_read = false;
             bool has_write = false;
-            check_stage stage = WRITE_STAGE;
             
             for (int j = i + 1; j < opl_size; j++) {
                 if (op_list[j].stmt_idx > txn_end_idx)

@@ -54,15 +54,14 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                 }
             }
             if (equal_op == NULL) 
-                throw runtime_error("intrument insert statement: cannot find = operator");
+                throw runtime_error("intrument update statement: cannot find = operator");
             
             // init column reference
-            auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table);
+            auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
             // init where clause
             auto where_search = make_shared<comparison_op>((struct prod *)0, equal_op, wkey_column, wkey_value);
             // init the select
-            auto after_write_select_stmt = make_shared<query_spec>((struct prod *)0, used_scope,
-                                    table, where_search);
+            auto after_write_select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, where_search);
 
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
             final_tid_queue.push_back(tid);
@@ -128,11 +127,11 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                 throw runtime_error("intrument insert statement: cannot find = operator");
             
             // init column reference
-            auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table);
+            auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
             // init where clause
             auto where_search = make_shared<comparison_op>((struct prod *)0, equal_op, wkey_column, wkey_value);
             // init the select
-            auto select_stmt = make_shared<query_spec>((struct prod *)0, used_scope,
+            auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope,
                                     table, where_search);
             
             // item does not exist, so no need for ealier dependency
