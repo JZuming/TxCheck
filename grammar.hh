@@ -179,6 +179,7 @@ struct query_spec : prod {
     shared_ptr<struct named_window> window_clause;
 
     bool has_order;
+    bool asc;
     vector<shared_ptr<value_expr> > order_clause;
     
     bool has_limit;

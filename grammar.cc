@@ -386,7 +386,7 @@ void query_spec::out(std::ostream &out) {
                 out << " ";
         }
 
-        if (d6() > 3) 
+        if (asc) 
             out << "asc";
         else
             out << "desc";
@@ -532,6 +532,10 @@ query_spec::query_spec(prod *p,
 
     if (has_group == false && d6() == 1) {
         has_order = true;
+        if (d6() > 3)
+            asc = true;
+        else
+            asc = false;
     }
 
     // if (in_in_clause == 0 && d6() < 3) { // the subquery in clause cannot use limit (mysql) 
@@ -1672,7 +1676,8 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
         if (choice == 1)
             return make_shared<create_table_select_stmt>((struct prod *)0, s);
         #else
-            return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
+            // do not use view because it will prevent write operation
+            // return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
         #endif
         
         if (choice == 2)
@@ -1721,16 +1726,16 @@ shared_ptr<prod> txn_statement_factory(struct scope *s)
         auto choice = d9();
         // should not have ddl statement, which will auto commit in tidb;
 #ifndef TEST_CLICKHOUSE
-        if (choice == 3)
+        if (choice == 1)
             return make_shared<delete_stmt>((struct prod *)0, s);
-        if (choice == 4) 
+        if (choice == 7 || choice == 8 || choice == 9) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif
-        if (choice == 5)
+        if (choice == 2)
             return make_shared<insert_stmt>((struct prod *)0, s);
-        if (choice == 7)
+        if (choice == 3)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
-        if (choice == 9)
+        if (choice == 4)
             return make_shared<query_spec>((struct prod *)0, s, false, (vector<sqltype *> *)NULL, true);
         
         return txn_statement_factory(s);

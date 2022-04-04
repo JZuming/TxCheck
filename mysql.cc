@@ -432,8 +432,8 @@ void dut_mysql::test(const std::string &stmt, std::vector<std::string>* output, 
 
     if (sent_sql != stmt) 
         throw std::runtime_error("sent sql stmt changed in " + debug_info + 
-            "\nsent_sql: " + sent_sql.substr(0, sent_sql.size() > 20 ? 20 : sent_sql.size()) +
-            "\nstmt: " + stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size())); 
+            "\nsent_sql: " + sent_sql +
+            "\nstmt: " + stmt); 
 
     auto begin_time = get_cur_time_ms();
     while (1) {

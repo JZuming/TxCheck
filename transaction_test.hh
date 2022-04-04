@@ -46,6 +46,8 @@ public:
     int trans_num;
     int stmt_num;
 
+    shared_ptr<schema> db_schema;
+
     vector<int> tid_queue;
     vector<shared_ptr<prod>> stmt_queue;
 

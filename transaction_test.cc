@@ -24,7 +24,6 @@ void transaction_test::assign_txn_id()
             tid = *next(concurrent_tid.begin(), idx);
         }
 
-        cerr << "push tid:" << tid << endl;
         tid_queue.push_back(tid);
         tid_insertd_stmt[tid]++;
         if (tid_insertd_stmt[tid] >= trans_arr[tid].stmt_num) {
@@ -54,16 +53,16 @@ void transaction_test::assign_txn_status()
 
 void transaction_test::gen_txn_stmts()
 {    
-    shared_ptr<int[]> stmt_pos_of_trans(new int[trans_num]);
-    
-    auto schema = get_schema(test_dbms_info);
+    int stmt_pos_of_trans[trans_num];
+
+    db_schema = get_schema(test_dbms_info);
     for (int tid = 0; tid < trans_num; tid++) {
         trans_arr[tid].dut = dut_setup(test_dbms_info);
         stmt_pos_of_trans[tid] = 0;
         
         // save 2 stmts for begin and commit/abort
         smith::rng.seed(time(NULL));
-        gen_stmts_for_one_txn(schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts, test_dbms_info);
+        gen_stmts_for_one_txn(db_schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts, test_dbms_info);
         // insert begin and end stmts
         trans_arr[tid].stmts.insert(trans_arr[tid].stmts.begin(), 
                 make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->begin_stmt()));
@@ -96,9 +95,7 @@ int transaction_test::trans_test_unit(int stmt_pos)
             trans_arr[tid].stmt_outputs.push_back(output);
         
         cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
-
         return 1;
-    
     } catch(exception &e) {
         string err = e.what();
         cerr << RED 
@@ -485,13 +482,9 @@ void transaction_test::save_test_case(string dir_name)
 int transaction_test::test()
 {
     try {
-        cerr << 111 << endl;
         assign_txn_id();
-        cerr << 222 << endl;
         assign_txn_status();
-        cerr << 333 << endl;
         gen_txn_stmts();
-        cerr << 444 << endl;
     } catch(exception &e) {
         cerr << "Trigger a normal bugs when inializing the stmts" << endl;
         cerr << "Bug info: " << e.what() << endl;
@@ -640,7 +633,8 @@ bool transaction_test::fork_if_server_closed()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = 10 + d9(); // 11 - 19
+    // trans_num = 10 + d9(); // 11 - 19
+    trans_num = 4;
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];

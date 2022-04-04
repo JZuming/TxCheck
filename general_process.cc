@@ -446,8 +446,8 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                         dbms_info& d_info)
 {
     auto can_error = d_info.can_trigger_error_in_txn;
-    if (can_error == false)
-        dut_reset_to_backup(d_info);
+    // if (can_error == false || d_info.ouput_or_affect_num > 0)
+    //     dut_reset_to_backup(d_info);
     
     scope scope;
     db_schema->fill_scope(scope);
