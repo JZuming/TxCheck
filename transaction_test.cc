@@ -464,7 +464,7 @@ void transaction_test::save_test_case(string dir_name)
     string total_stmts_file = dir_name + "stmts.sql";
     ofstream total_stmt_output(total_stmts_file);
     for (int i = 0; i < stmt_num; i++) {
-        total_stmt_output << stmt_queue[i] << endl;
+        total_stmt_output << print_stmt_to_string(stmt_queue[i]) << endl;
         total_stmt_output << endl;
     }
     total_stmt_output.close();
@@ -509,7 +509,7 @@ int transaction_test::test()
         trans_test();
         // normal_test();
         // if (check_result())
-            return 0;
+            // return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }

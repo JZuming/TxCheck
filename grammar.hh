@@ -286,6 +286,7 @@ struct insert_stmt : modifying_stmt {
 struct set_list : prod {
     vector<shared_ptr<value_expr> > value_exprs;
     vector<string> names;
+    std::set<string> name_set;
     set_list(prod *p, table *target);
     virtual ~set_list() {  }
     virtual void out(std::ostream &out);
@@ -512,6 +513,6 @@ struct txn_string_stmt : prod {
 shared_ptr<prod> statement_factory(struct scope *s);
 shared_ptr<prod> ddl_statement_factory(struct scope *s);
 shared_ptr<prod> basic_dml_statement_factory(struct scope *s);
-shared_ptr<prod> txn_statement_factory(struct scope *s);
+shared_ptr<prod> txn_statement_factory(struct scope *s, int choice = -1);
 
 #endif

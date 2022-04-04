@@ -703,6 +703,9 @@ set_list::set_list(prod *p, table *target) : prod(p)
     update_used_column_ref.clear();
     do {
         for (auto col : target->columns()) {
+            if (name_set.count(col.name) != 0)
+                continue;
+            
             if (col.name == "wkey") {
                 update_used_column_ref.insert(target->ident() + "." + col.name);
                 auto  expr = make_shared<const_expr>(this, col.type);
@@ -711,6 +714,7 @@ set_list::set_list(prod *p, table *target) : prod(p)
                 
                 value_exprs.push_back(expr);
                 names.push_back(col.name);
+                name_set.insert(col.name);
                 continue;
             }
 
@@ -725,8 +729,9 @@ set_list::set_list(prod *p, table *target) : prod(p)
             auto expr = value_expr::factory(this, col.type);
             value_exprs.push_back(expr);
             names.push_back(col.name);
+            name_set.insert(col.name);
         }
-    } while (!names.size());
+    } while (names.size() < 2);
     in_update_set_list = tmp_update_set;
 }
 
@@ -1724,29 +1729,30 @@ shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
     }
 }
 
-shared_ptr<prod> txn_statement_factory(struct scope *s)
+shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
 {
     try {
         s->new_stmt();
-        auto choice = d9();
+        if (choice == -1)
+            choice = d9();
         // should not have ddl statement, which will auto commit in tidb;
 #ifndef TEST_CLICKHOUSE
         if (choice == 1)
             return make_shared<delete_stmt>((struct prod *)0, s);
-        if (choice == 7 || choice == 8 || choice == 9) 
+        if (choice == 8 || choice == 9) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif
         if (choice == 2)
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice == 3)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
-        if (choice == 4)
+        if (choice == 4 || choice == 5)
             return make_shared<query_spec>((struct prod *)0, s, false, (vector<sqltype *> *)NULL, true);
         
         return txn_statement_factory(s);
     } catch (runtime_error &e) {
         string err = e.what();
         cerr << "catch a runtime error: " << err << endl;
-        return txn_statement_factory(s);
+        return txn_statement_factory(s, choice);
     }
 }
