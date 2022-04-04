@@ -16,12 +16,12 @@ void transaction_test::assign_txn_id()
         int tid;
         if (concurrent_tid.size() < MAX_CONCURRENT_TXN_NUM) {
             auto idx = dx(available_tid.size());
-            auto tid = *next(available_tid.begin(), idx);
+            tid = *next(available_tid.begin(), idx);
             concurrent_tid.insert(tid);
         }
         else {
             auto idx = dx(concurrent_tid.size());
-            auto tid = *next(concurrent_tid.begin(), idx);
+            tid = *next(concurrent_tid.begin(), idx);
         }
 
         tid_queue.push_back(tid);

@@ -108,7 +108,7 @@ bool reproduce_routine(dbms_info& d_info,
                         vector<int>& tid_queue);
 
 bool minimize_testcase(dbms_info& d_info,
-                        vector<string>& stmt_queue, 
+                        vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue);
 
 string print_stmt_to_string(shared_ptr<prod> stmt);

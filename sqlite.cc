@@ -394,7 +394,7 @@ extern "C" int dut_callback(void *arg, int argc, char **argv, char **azColName)
 }
 
 extern "C" int content_callback(void *data, int argc, char **argv, char **azColName){
-    int i;
+    int i; (void) azColName;
     auto data_vec = (vector<string> *)data;
     if (data_vec == NULL)
         return 0;
@@ -624,29 +624,14 @@ void dut_sqlite::get_content(vector<string>& tables_name, map<string, vector<str
     }
 }
 
-bool dut_sqlite::is_commit_abort_stmt(string& stmt)
-{
-    if (stmt == "COMMIT;")
-        return true;
-    if (stmt == "ROLLBACK;")
-        return true;
-    return false;
+string dut_sqlite::commit_stmt() {
+    return "COMMIT";
 }
 
-bool dut_sqlite::is_begin_stmt(string& stmt)
-{
-    if (stmt == "BEGIN TRANSACTION;")
-        return true;
-    return false;
+string dut_sqlite::abort_stmt() {
+    return "ROLLBACK";
 }
 
-void dut_sqlite::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
-{
-    stmt_vec.insert(stmt_vec.begin(), "BEGIN TRANSACTION;");
-    string last_sql;
-    if (is_commit) 
-        last_sql = "COMMIT;";
-    else
-        last_sql = "ROLLBACK;";
-    stmt_vec.push_back(last_sql);
+string dut_sqlite::begin_stmt() {
+    return "BEGIN TRANSACTION";
 }

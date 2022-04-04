@@ -365,7 +365,7 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         }
 
         // get stmt queue
-        vector<string> stmt_queue;
+        vector<shared_ptr<prod>> stmt_queue;
         ifstream stmt_file(options["reproduce-sql"]);
         stringstream buffer;
         buffer << stmt_file.rdbuf();
@@ -381,7 +381,7 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
             auto each_sql = stmts.substr(old_off, new_off - old_off); // not include ;\n\n
             old_off = new_off + string(";\n\n").size();
 
-            stmt_queue.push_back(each_sql + ";");
+            stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, each_sql));
         }
 	    
         // get tid queue

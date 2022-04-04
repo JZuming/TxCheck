@@ -38,9 +38,9 @@ struct dut_cockroachdb : dut_base, cockroachdb_connection {
     virtual void reset_to_backup(void);
     virtual int save_backup_file(string path);
     
-    virtual bool is_commit_abort_stmt(string& stmt);
-    virtual bool is_begin_stmt(string& stmt);
-    virtual void wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit);
+    virtual string commit_stmt();
+    virtual string abort_stmt();
+    virtual string begin_stmt();
 
     static pid_t fork_db_server();
     

@@ -338,7 +338,7 @@ dut_mysql::dut_mysql(string db, unsigned int port)
     has_sent_sql = false;
     txn_abort = false;
     thread_id = mysql_thread_id(&mysql);
-    block_test("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
+    // block_test("SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
 }
 
 static unsigned long long get_cur_time_ms(void) {
@@ -662,18 +662,15 @@ void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<stri
     }
 }
 
-string dut_mysql::begin_stmt()
-{
+string dut_mysql::begin_stmt() {
     return "START TRANSACTION";
 }
 
-string dut_mysql::commit_stmt()
-{
+string dut_mysql::commit_stmt() {
     return "COMMIT";
 }
 
-string dut_mysql::abort_stmt()
-{
+string dut_mysql::abort_stmt() {
     return "ROLLBACK";
 }
 

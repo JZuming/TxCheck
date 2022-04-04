@@ -536,31 +536,16 @@ void dut_tidb::get_content(vector<string>& tables_name, map<string, vector<strin
     }
 }
 
-bool dut_tidb::is_commit_abort_stmt(string& stmt)
-{
-    if (stmt == "COMMIT;")
-        return true;
-    if (stmt == "ROLLBACK;")
-        return true;
-    return false;
+string dut_tidb::commit_stmt() {
+    return "COMMIT";
 }
 
-bool dut_tidb::is_begin_stmt(string& stmt)
-{
-    if (stmt == "BEGIN OPTIMISTIC;")
-        return true;
-    return false;
+string dut_tidb::abort_stmt() {
+    return "ROLLBACK";
 }
 
-void dut_tidb::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
-{
-    stmt_vec.insert(stmt_vec.begin(), "BEGIN OPTIMISTIC;");
-    string last_sql;
-    if (is_commit) 
-        last_sql = "COMMIT;";
-    else
-        last_sql = "ROLLBACK;";
-    stmt_vec.push_back(last_sql);
+string dut_tidb::begin_stmt() {
+    return "BEGIN OPTIMISTIC";
 }
 
 pid_t dut_tidb::fork_db_server()

@@ -364,6 +364,8 @@ void dut_libpq::command(const std::string &stmt)
 
 void dut_libpq::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
+    (void)affected_row_num;
+    (void)output;
     command("ROLLBACK;");
     command("BEGIN;");
     command(stmt.c_str());
@@ -405,20 +407,14 @@ void dut_libpq::get_content(vector<string>& tables_name, map<string, vector<stri
   (void)content;
 }
 
-bool dut_libpq::is_commit_abort_stmt(string& stmt)
-{
-  (void)stmt;
-  return false;
+string dut_libpq::commit_stmt() {
+  return "COMMIT";
 }
 
-bool dut_libpq::is_begin_stmt(string& stmt)
-{
-    (void)stmt;
-    return false;
+string dut_libpq::abort_stmt() {
+  return "ROLLBACK";
 }
 
-void dut_libpq::wrap_stmts_as_trans(vector<std::string> &stmt_vec, bool is_commit)
-{
-  (void)stmt_vec;
-  (void)is_commit;
+string dut_libpq::begin_stmt() {
+  return "BEGIN";
 }
