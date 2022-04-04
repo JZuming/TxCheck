@@ -507,8 +507,8 @@ int transaction_test::test()
     
     try {
         trans_test();
-        normal_test();
-        if (check_result())
+        // normal_test();
+        // if (check_result())
             return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
@@ -633,8 +633,8 @@ bool transaction_test::fork_if_server_closed()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    // trans_num = 10 + d9(); // 11 - 19
-    trans_num = 4;
+    trans_num = 10 + d9(); // 11 - 19
+    // trans_num = 4;
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];

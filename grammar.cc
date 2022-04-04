@@ -1501,6 +1501,11 @@ named_window::named_window(prod *p, struct scope *s):
             order_num--;
         }
     }
+
+    if (d6() > 3)
+        asc = true;
+    else
+        asc = false;
 }
 
 void named_window::out(std::ostream &out)
@@ -1518,7 +1523,7 @@ void named_window::out(std::ostream &out)
         if (ref + 1 != order_by.end())
             out << ",";
     }
-    if (d6() > 3) 
+    if (asc) 
         out << " asc";
     else
         out << " desc";

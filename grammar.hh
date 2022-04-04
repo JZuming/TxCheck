@@ -156,6 +156,7 @@ struct named_window : prod {
     string window_name;
     vector<shared_ptr<value_expr> > partition_by;
     vector<shared_ptr<value_expr> > order_by;
+    bool asc;
 
     virtual void accept(prod_visitor *v) {
         v->visit(this);
