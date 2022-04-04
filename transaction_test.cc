@@ -643,7 +643,7 @@ transaction_test::transaction_test(dbms_info& d_info)
     stmt_num = 0;
     for (int i = 0; i < trans_num; i++) {
         trans_arr[i].stmt_num = 2 + d6(); // 3 - 8
-        stmt_num = trans_arr[i].stmt_num;
+        stmt_num += trans_arr[i].stmt_num;
     }
 
     output_path_dir = "found_bugs/";
