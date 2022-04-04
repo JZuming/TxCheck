@@ -1739,14 +1739,14 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
 #ifndef TEST_CLICKHOUSE
         if (choice == 1)
             return make_shared<delete_stmt>((struct prod *)0, s);
-        if (choice == 8 || choice == 9) 
+        if (choice == 7 || choice == 8 || choice == 9) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif
-        if (choice == 2)
+        if (choice == 5 || choice == 6)
             return make_shared<insert_stmt>((struct prod *)0, s);
-        if (choice == 3)
+        if (choice == 2)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
-        if (choice == 4 || choice == 5)
+        if (choice == 3 || choice == 4)
             return make_shared<query_spec>((struct prod *)0, s, false, (vector<sqltype *> *)NULL, true);
         
         return txn_statement_factory(s);

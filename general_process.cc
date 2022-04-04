@@ -452,10 +452,24 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
     scope scope;
     db_schema->fill_scope(scope);
     int stmt_num = 0;
+    bool succeed = true;
+    int fail_time = 0;
+    int choice = -1;
     while (1) {
         cerr << "generating statement ...";
-        shared_ptr<prod> gen = txn_statement_factory(&scope);
-        cerr << "done" << endl;
+        if (succeed) 
+            choice = d9();
+        else { // if fail, do not change choice
+            fail_time++;
+            if (fail_time >= 8) {
+                choice = d9();
+                fail_time = 0;
+            }
+        }
+        cerr << "choice: " << choice;
+        shared_ptr<prod> gen = txn_statement_factory(&scope, choice);
+        succeed = false;
+        cerr << "...done" << endl;
 
         ostringstream stmt_stream;
         gen->out(stmt_stream);
@@ -482,6 +496,7 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
             }
         }
         trans_rec.push_back(gen);
+        succeed = true;
         stmt_num++;
         if (stmt_num == trans_stmt_num)
             break;
