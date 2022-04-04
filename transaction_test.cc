@@ -15,15 +15,16 @@ void transaction_test::assign_txn_id()
     while (available_tid.empty() == false) {
         int tid;
         if (concurrent_tid.size() < MAX_CONCURRENT_TXN_NUM) {
-            auto idx = dx(available_tid.size());
+            auto idx = dx(available_tid.size()) - 1;
             tid = *next(available_tid.begin(), idx);
             concurrent_tid.insert(tid);
         }
         else {
-            auto idx = dx(concurrent_tid.size());
+            auto idx = dx(concurrent_tid.size()) - 1;
             tid = *next(concurrent_tid.begin(), idx);
         }
 
+        cerr << "push tid:" << tid << endl;
         tid_queue.push_back(tid);
         tid_insertd_stmt[tid]++;
         if (tid_insertd_stmt[tid] >= trans_arr[tid].stmt_num) {
@@ -484,9 +485,13 @@ void transaction_test::save_test_case(string dir_name)
 int transaction_test::test()
 {
     try {
+        cerr << 111 << endl;
         assign_txn_id();
+        cerr << 222 << endl;
         assign_txn_status();
+        cerr << 333 << endl;
         gen_txn_stmts();
+        cerr << 444 << endl;
     } catch(exception &e) {
         cerr << "Trigger a normal bugs when inializing the stmts" << endl;
         cerr << "Bug info: " << e.what() << endl;
