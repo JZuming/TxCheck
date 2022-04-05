@@ -81,12 +81,16 @@ table_or_query_name::table_or_query_name(prod *p) : table_ref(p) {
 }
 
 table_or_query_name::table_or_query_name(prod *p, table *target_table) : table_ref(p) {
+    // in this case, do not use aliase
     t = target_table;
-    refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("ref"), t));
+    refs.push_back(make_shared<aliased_relation>(t->ident(), t));
 }
 
 void table_or_query_name::out(std::ostream &out) {
-  out << t->ident() << " as " << refs[0]->ident();
+    if (refs[0]->ident() != t->ident())
+        out << t->ident() << " as " << refs[0]->ident();
+    else
+        out << t->ident();
 }
 
 target_table::target_table(prod *p, table *victim) : table_ref(p)

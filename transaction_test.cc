@@ -516,14 +516,14 @@ int transaction_test::test()
         // return 1; // not need to do other transaction thing
     }
     
-    // try {
-    //     trans_test();
-    //     // normal_test();
-    //     // if (check_result())
-    //         // return 0;
-    // } catch(exception &e) {
-    //     cerr << "error captured by test: " << e.what() << endl;
-    // }
+    try {
+        trans_test();
+        // normal_test();
+        // if (check_result())
+            // return 0;
+    } catch(exception &e) {
+        cerr << "error captured by test: " << e.what() << endl;
+    }
 
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;
