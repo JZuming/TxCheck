@@ -5,6 +5,7 @@
 
 #include "dbms_info.hh"
 #include "general_process.hh"
+#include "instrumentor.hh"
 
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -50,6 +51,7 @@ public:
 
     vector<int> tid_queue;
     vector<shared_ptr<prod>> stmt_queue;
+    vector<stmt_usage> stmt_use;
 
     vector<int> real_tid_queue;
     vector<shared_ptr<prod>> real_stmt_queue;
@@ -61,6 +63,7 @@ public:
     void assign_txn_id();
     void assign_txn_status();
     void gen_txn_stmts();
+    void instrument_txn_stmts();
     
     bool check_commit_trans_blocked();
     void trans_test();

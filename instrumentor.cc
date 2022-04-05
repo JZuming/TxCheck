@@ -4,19 +4,24 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                             vector<int>& tid_queue,
                             shared_ptr<schema> db_schema)
 {
+    cerr << "instrumenting the statement" << endl;
     int stmt_num = stmt_queue.size();
     scope used_scope;
     db_schema->fill_scope(used_scope);
 
     for (int i = 0; i < stmt_num; i++) {
+        cerr << "instrumenting stmt " << i << endl;
         auto stmt = stmt_queue[i];
         auto tid = tid_queue[i];
 
         auto update_statement = dynamic_pointer_cast<update_stmt>(stmt);
         if (update_statement) { // is a update statement
+            cerr << "instrumenting update stmt " << i << endl;
+            used_scope.new_stmt(); // for before_write_select_stmt
             auto before_write_select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, 
                                     update_statement->victim, update_statement->search);
             
+            used_scope.new_stmt(); // for after_write_select_stmt
             // get wkey idex
             auto table = update_statement->victim;
             int wkey_idx = -1;
@@ -58,10 +63,8 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             
             // init column reference
             auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
-            // init where clause
-            auto where_search = make_shared<comparison_op>((struct prod *)0, equal_op, wkey_column, wkey_value);
             // init the select
-            auto after_write_select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, where_search);
+            auto after_write_select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, equal_op, wkey_column, wkey_value);
 
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
             final_tid_queue.push_back(tid);
@@ -80,8 +83,11 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
 
         auto delete_statement = dynamic_pointer_cast<delete_stmt>(stmt);
         if (delete_statement) {
+            cerr << "instrumenting delete stmt " << i << endl;
+            used_scope.new_stmt(); // for select_stmt
             auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope,
                                     delete_statement->victim, delete_statement->search);
+            cerr << "instrumenting delete stmt " << i << " finished" << endl;
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
             final_tid_queue.push_back(tid);
             // item is deleted, so no need for later dependency
@@ -97,6 +103,8 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
 
         auto insert_statement = dynamic_pointer_cast<insert_stmt>(stmt);
         if (insert_statement) {
+            cerr << "instrumenting insert stmt " << i << endl;
+            used_scope.new_stmt(); // for select_stmt
             // get wkey idex
             auto table = insert_statement->victim;
             int wkey_idx = -1;
@@ -128,11 +136,8 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             
             // init column reference
             auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
-            // init where clause
-            auto where_search = make_shared<comparison_op>((struct prod *)0, equal_op, wkey_column, wkey_value);
             // init the select
-            auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope,
-                                    table, where_search);
+            auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, equal_op, wkey_column, wkey_value);
             
             // item does not exist, so no need for ealier dependency
             final_tid_queue.push_back(tid);
@@ -147,6 +152,11 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             continue;
         }
 
-
+        // normal read query
+        final_tid_queue.push_back(tid);
+        final_stmt_queue.push_back(stmt);
+        final_stmt_usage.push_back(NORMAL);
     }
+
+    cerr << "instrumenting finished" << endl;
 }

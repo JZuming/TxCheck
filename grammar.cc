@@ -562,6 +562,26 @@ query_spec::query_spec(prod *p, struct scope *s,
     select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, (vector<sqltype *> *)NULL, true);
 }
 
+query_spec::query_spec(prod *p, struct scope *s,
+              table *from_table, 
+              op *target_op, 
+              shared_ptr<value_expr> left_operand,
+              shared_ptr<value_expr> right_operand) :
+  prod(p), myscope(s)
+{
+    scope = &myscope; // isolate the scope, dont effect the upper ones
+    scope->tables = s->tables;
+    has_group = false;
+    has_window = false;
+    has_order = false;
+    has_limit = false;
+    use_group = 0;
+
+    from_clause = make_shared<struct from_clause>(this, from_table);
+    search = make_shared<struct comparison_op>(this, target_op, left_operand, right_operand);
+    select_list = make_shared<struct select_list>(this, &from_clause->reflist.back()->refs, (vector<sqltype *> *)NULL, true);
+}
+
 long prepare_stmt::seq;
 
 void modifying_stmt::pick_victim()

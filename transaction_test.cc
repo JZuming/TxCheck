@@ -80,6 +80,16 @@ void transaction_test::gen_txn_stmts()
     }
 }
 
+void transaction_test::instrument_txn_stmts()
+{
+    instrumentor i(stmt_queue, tid_queue, db_schema);
+    stmt_queue.clear();
+    stmt_queue = i.final_stmt_queue;
+    tid_queue.clear();
+    tid_queue = i.final_tid_queue;
+    stmt_use = i.final_stmt_usage;
+}
+
 // 2: fatal error (e.g. restart transaction, current transaction is aborted), skip the stmt
 // 1: executed
 // 0: blocked, not executed
@@ -485,6 +495,7 @@ int transaction_test::test()
         assign_txn_id();
         assign_txn_status();
         gen_txn_stmts();
+        instrument_txn_stmts();
     } catch(exception &e) {
         cerr << "Trigger a normal bugs when inializing the stmts" << endl;
         cerr << "Bug info: " << e.what() << endl;
@@ -505,14 +516,14 @@ int transaction_test::test()
         // return 1; // not need to do other transaction thing
     }
     
-    try {
-        trans_test();
-        // normal_test();
-        // if (check_result())
-            // return 0;
-    } catch(exception &e) {
-        cerr << "error captured by test: " << e.what() << endl;
-    }
+    // try {
+    //     trans_test();
+    //     // normal_test();
+    //     // if (check_result())
+    //         // return 0;
+    // } catch(exception &e) {
+    //     cerr << "error captured by test: " << e.what() << endl;
+    // }
 
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;

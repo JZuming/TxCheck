@@ -198,6 +198,12 @@ struct query_spec : prod {
               table *from_table, 
               shared_ptr<bool_expr> where_search);
     
+    query_spec(prod *p, struct scope *s,
+              table *from_table, 
+              op *target_op, 
+              shared_ptr<value_expr> left_operand,
+              shared_ptr<value_expr> right_operand);
+    
     virtual void accept(prod_visitor *v) {
         v->visit(this);
         select_list->accept(v);
