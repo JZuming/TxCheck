@@ -6,6 +6,7 @@
 #include "dbms_info.hh"
 #include "general_process.hh"
 #include "instrumentor.hh"
+#include "dependency_analyzer.hh"
 
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -19,11 +20,11 @@ struct transaction {
     bool is_blocked;
     
     vector<shared_ptr<prod>> stmts;
-    vector<vector<string>> stmt_outputs;
+    vector<stmt_output> stmt_outputs;
     vector<string> stmt_err_info;
 
     vector<shared_ptr<prod>> normal_stmts;
-    vector<vector<vector<string>>> possible_normal_outputs;
+    vector<vector<stmt_output>> possible_normal_outputs; // vector of txn output
     vector<vector<string>> possible_normal_err_info;
 
     transaction() {is_blocked = false; stmt_num = 0; status = NOT_DEFINED;}
@@ -55,10 +56,10 @@ public:
 
     vector<int> real_tid_queue;
     vector<shared_ptr<prod>> real_stmt_queue;
-    map<string, vector<string>> trans_db_content;
+    map<string, vector<vector<string>>> trans_db_content;
 
     vector<vector<int>> possible_normal_trans_order;
-    vector<map<string, vector<string>>> possible_normal_db_content;
+    vector<map<string, vector<vector<string>>>> possible_normal_db_content;
 
     void assign_txn_id();
     void assign_txn_status();

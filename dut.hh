@@ -47,7 +47,7 @@ struct syntax : failure {
 
 struct dut_base {
   std::string version;
-  virtual void test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL) = 0;
+  virtual void test(const string &stmt, vector<vector<string>>* output = NULL, int* affected_row_num = NULL) = 0;
   virtual void reset(void) = 0;
 
   virtual void backup(void) = 0;
@@ -58,11 +58,7 @@ struct dut_base {
   virtual string abort_stmt() = 0;
   virtual string begin_stmt() = 0;
   
-  virtual void trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec
-                          , vector<vector<string>>* output = NULL
-                          , int commit_or_not = 1) = 0;
-  virtual void get_content(vector<string>& tables_name, map<string, vector<string>>& content) = 0;
+  virtual void get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content) = 0;
 };
 
 #endif

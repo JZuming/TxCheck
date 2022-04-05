@@ -131,7 +131,7 @@ void dut_reset_to_backup(dbms_info& d_info)
 }
 
 void dut_get_content(dbms_info& d_info, 
-                    map<string, vector<string>>& content)
+                    map<string, vector<vector<string>>>& content)
 {
     vector<string> table_names;
     auto schema = get_schema(d_info);
@@ -240,18 +240,16 @@ static size_t BKDRHash(const char *str, size_t hash)
     return hash;  
 }
 
-static void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set)
+static void hash_output_to_set(vector<vector<string>> &output, vector<size_t>& hash_set)
 {
     size_t hash = 0;
-    size_t output_size = output.size();
-    for (size_t i = 0; i < output_size; i++) {
-        if (output[i] == "\n") {
-            hash_set.push_back(hash);
-            hash = 0;
-            continue;
-        }
-
-        hash = BKDRHash(output[i].c_str(), hash);
+    auto row_size = output.size();
+    for (int i = 0; i < row_size; i++) {
+        auto column_size = output[i].size();
+        for (int j = 0; j < column_size; j++)
+            hash = BKDRHash(output[i][j].c_str(), hash);
+        hash_set.push_back(hash);
+        hash = 0;
     }
 
     // sort the set, because some output order is random
@@ -259,19 +257,21 @@ static void hash_output_to_set(vector<string> &output, vector<size_t>& hash_set)
     return;
 }
 
-static void output_diff(string item_name, vector<string>& con_result, vector<string>& seq_result)
+static void output_diff(string item_name, vector<vector<string>>& a_result, vector<vector<string>>& b_result)
 {
     ofstream ofile("/tmp/comp_diff.txt", ios::app);
     ofile << "============================" << endl;
     ofile << "item name: " << item_name << endl;
-    ofile << "concurrent: " << endl;
-    for (auto& str : con_result) {
-        ofile << "    " << str;
+    ofile << "A result: " << endl;
+    for (auto& row_str : a_result) {
+        for (auto& str : row_str)
+            ofile << "    " << str;
     }
     ofile << endl;
-    ofile << "sequential: " << endl;
-    for (auto& str : seq_result) {
-        ofile << "    " << str;
+    ofile << "B result: " << endl;
+    for (auto& row_str : b_result) {
+        for (auto& str : row_str)
+            ofile << "    " << str;
     }
     ofile.close();
 }
@@ -308,43 +308,46 @@ static bool is_number(const string &s) {
     return true;
 }
 
-static bool nomoalize_content(vector<string> &content)
+static bool nomoalize_content(vector<vector<string>> &content)
 {
     auto size = content.size();
 
     for (int i = 0; i < size; i++) {
-        auto str = content[i];
-        double value = 0;
-        
-        if (!is_number(str) || str.find(".") == string::npos)
-            continue;
+        auto column_num = content.size();
+        for (int j = 0; j < column_num; j++) {
+            auto str = content[i][j];
+            double value = 0;
+            
+            if (!is_number(str) || str.find(".") == string::npos)
+                continue;
 
-        // value is a float
-        value = stod(str);
-        value = round(value * 100) / 100; // keep 2 number after the point
-        content[i] = to_string(value);
+            // value is a float
+            value = stod(str);
+            value = round(value * 100) / 100; // keep 2 number after the point
+            content[i][j] = to_string(value);\
+        }
     }
     return true;
 }
 
-bool compare_content(map<string, vector<string>>&con_content, 
-                     map<string, vector<string>>&seq_content)
+bool compare_content(map<string, vector<vector<string>>>&a_content, 
+                     map<string, vector<vector<string>>>&b_content)
 {
-    if (con_content.size() != seq_content.size()) {
-        cerr << "size not equal: " << con_content.size() << " " << seq_content.size() << endl;
+    if (a_content.size() != b_content.size()) {
+        cerr << "size not equal: " << a_content.size() << " " << b_content.size() << endl;
         return false;
     }
     
-    for (auto iter = con_content.begin(); iter != con_content.begin(); iter++) {
+    for (auto iter = a_content.begin(); iter != a_content.begin(); iter++) {
         auto& table = iter->first;
         auto& con_table_content = iter->second;
         
-        if (seq_content.count(table) == 0) {
-            cerr << "seq_content does not have " << table << endl;
+        if (b_content.count(table) == 0) {
+            cerr << "b_content does not have " << table << endl;
             return false;
         }
 
-        auto& seq_table_content = seq_content[table];
+        auto& seq_table_content = b_content[table];
 
         nomoalize_content(con_table_content);
         nomoalize_content(seq_table_content);
@@ -372,37 +375,37 @@ bool compare_content(map<string, vector<string>>&con_content,
     return true;
 }
 
-bool compare_output(vector<vector<string>>& trans_output,
-                    vector<vector<string>>& seq_output)
+bool compare_output(vector<vector<vector<string>>>& a_output,
+                    vector<vector<vector<string>>>& b_output)
 {
-    auto size = trans_output.size();
-    if (size != seq_output.size()) {
-        cerr << "output sizes are not equel: "<< trans_output.size() << " " << seq_output.size() << endl;
+    auto size = a_output.size();
+    if (size != b_output.size()) {
+        cerr << "stmt output sizes are not equel: "<< a_output.size() << " " << b_output.size() << endl;
         return false;
     }
 
-    for (auto i = 0; i < size; i++) {
-        auto& trans_stmt_output = trans_output[i];
-        auto& seq_stmt_output = seq_output[i];
+    for (auto i = 0; i < size; i++) { // for each stmt
+        auto& a_stmt_output = a_output[i];
+        auto& b_stmt_output = b_output[i];
     
-        nomoalize_content(trans_stmt_output);
-        nomoalize_content(seq_stmt_output);
+        nomoalize_content(a_stmt_output);
+        nomoalize_content(b_stmt_output);
         
-        vector<size_t> trans_hash_set, seq_hash_set;
-        hash_output_to_set(trans_stmt_output, trans_hash_set);
-        hash_output_to_set(seq_stmt_output, seq_hash_set);
+        vector<size_t> a_hash_set, b_hash_set;
+        hash_output_to_set(a_stmt_output, a_hash_set);
+        hash_output_to_set(b_stmt_output, b_hash_set);
 
-        size_t stmt_output_size = trans_hash_set.size();
-        if (stmt_output_size != seq_hash_set.size()) {
-            cerr << "stmt[" << i << "] output sizes are not equel: " << trans_hash_set.size() << " " << seq_hash_set.size() << endl;
-            output_diff("stmt["+ to_string(i) + "]", trans_stmt_output, seq_stmt_output);
+        size_t stmt_output_size = a_hash_set.size();
+        if (stmt_output_size != b_hash_set.size()) {
+            cerr << "stmt[" << i << "] output sizes are not equel: " << a_hash_set.size() << " " << b_hash_set.size() << endl;
+            output_diff("stmt["+ to_string(i) + "]", a_stmt_output, b_stmt_output);
             return false;
         }
 
         for (auto j = 0; j < stmt_output_size; j++) {
-            if (trans_hash_set[j] != seq_hash_set[j]) {
+            if (a_hash_set[j] != b_hash_set[j]) {
                 cerr << "stmt[" << i << "] output are not equel" << endl;
-                output_diff("stmt["+ to_string(i) + "]", trans_stmt_output, seq_stmt_output);
+                output_diff("stmt["+ to_string(i) + "]", a_stmt_output, b_stmt_output);
                 return false;
             }
         }
@@ -480,7 +483,7 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                 cerr << "checking (executing) statement ...";
                 auto dut = dut_setup(d_info);
                 int affect_num = 0;
-                vector<string> output;
+                vector<vector<string>> output;
                 dut->test(stmt, &output, &affect_num);
                 if (output.size() + affect_num < d_info.ouput_or_affect_num)
                     continue;

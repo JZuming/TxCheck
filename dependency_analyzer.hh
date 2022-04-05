@@ -21,7 +21,7 @@ using namespace std;
 enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND};
 
 typedef vector<string> row_output; // a row consists of several field(string)
-typedef vector<row_output> one_output; // one output consits of several rows
+typedef vector<row_output> stmt_output; // one output consits of several rows
 
 struct operate_unit {
     stmt_usage stmt_u;
@@ -48,8 +48,8 @@ struct history {
 
 struct dependency_analyzer
 {
-    dependency_analyzer(vector<one_output>& init_output,
-                        vector<one_output>& total_output,
+    dependency_analyzer(vector<stmt_output>& init_output,
+                        vector<stmt_output>& total_output,
                         vector<int>& final_tid_queue,
                         vector<stmt_usage>& final_stmt_usage,
                         vector<txn_status>& final_txn_status,

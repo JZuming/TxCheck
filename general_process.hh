@@ -81,11 +81,11 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                         vector<shared_ptr<prod>>& trans_rec,
                         dbms_info& d_info);
 
-bool compare_output(vector<vector<string>>& trans_output,
-                    vector<vector<string>>& seq_output);
+bool compare_output(vector<vector<vector<string>>>& a_output,
+                    vector<vector<vector<string>>>& b_output);
 
-bool compare_content(map<string, vector<string>>&con_content, 
-                     map<string, vector<string>>&seq_content);
+bool compare_content(map<string, vector<vector<string>>>&a_content, 
+                     map<string, vector<vector<string>>>&b_content);
 
 pid_t fork_db_server(dbms_info& d_info);
 
@@ -98,7 +98,7 @@ void dut_reset(dbms_info& d_info);
 void dut_backup(dbms_info& d_info);
 void dut_reset_to_backup(dbms_info& d_info);
 void dut_get_content(dbms_info& d_info, 
-                    map<string, vector<string>>& content);
+                    map<string, vector<vector<string>>>& content);
 
 int generate_database(dbms_info& d_info);
 void kill_process_with_SIGTERM(pid_t process_id);

@@ -97,7 +97,7 @@ int transaction_test::trans_test_unit(int stmt_pos)
 {
     auto tid = tid_queue[stmt_pos];
     auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
-    vector<string> output;
+    vector<vector<string>> output;
 
     try {
         trans_arr[tid].dut->test(stmt, &output);
@@ -259,27 +259,24 @@ void transaction_test::trans_test()
         auto& stmt = stmt_queue[stmt_index];
         
         if (trans_arr[tid].is_blocked)
-            continue;
-        
+            continue;      
         // if there is some committed transaction blocked
         // this committed transaction cannot execute (not serialiazability)
         if (test_dbms_info.serializable == false && trans_arr[tid].status == TXN_COMMIT) {
             if (check_commit_trans_blocked())
                 continue;
         }
-        
+
         auto is_executed = trans_test_unit(stmt_index);
         
         if (is_executed == 0) {
             trans_arr[tid].is_blocked = true;
             continue;
         }
-
         if (is_executed == 2) {
             status_queue[stmt_index] = 1;
             continue;
         }
-
         status_queue[stmt_index] = 1;
         real_tid_queue.push_back(tid);
         real_stmt_queue.push_back(stmt);
@@ -390,13 +387,13 @@ void transaction_test::execute_possible_order()
         auto normal_dut = dut_setup(test_dbms_info);
         
         for (auto tid : trans_order) {
-            vector<vector<string>> normal_output;
+            vector<vector<vector<string>>> normal_output;
             vector<string> normal_err_info;
 
             auto normal_stmt_num = trans_arr[tid].normal_stmts.size();
             for (int i = 0; i < normal_stmt_num; i++) {
                 auto stmt = print_stmt_to_string(trans_arr[tid].normal_stmts[i]);
-                vector<string> output;
+                vector<vector<string>> output;
                 try {
                     normal_dut->test(stmt, &output);
                     if (!output.empty())
@@ -416,7 +413,7 @@ void transaction_test::execute_possible_order()
             trans_arr[tid].possible_normal_err_info.push_back(normal_err_info);
         }
         normal_dut.reset();
-        map<string, vector<string>> normal_db_content;
+        map<string, vector<vector<string>>> normal_db_content;
         dut_get_content(test_dbms_info, normal_db_content);
         possible_normal_db_content.push_back(normal_db_content);
     }
