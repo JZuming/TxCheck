@@ -13,8 +13,6 @@
 
 using namespace std;
 
-enum txn_status {NOT_DEFINED, TXN_COMMIT, TXN_ABORT};
-
 struct transaction {
     shared_ptr<dut_base> dut;
     bool is_blocked;

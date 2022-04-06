@@ -338,7 +338,7 @@ dut_tidb::dut_tidb(string db, unsigned int port)
 {
 }
 
-void dut_tidb::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+void dut_tidb::test(const std::string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
@@ -361,15 +361,16 @@ void dut_tidb::test(const std::string &stmt, std::vector<std::string>* output, i
 
         auto column_num = mysql_num_fields(result);
         while (auto row = mysql_fetch_row(result)) {
+            vector<string> row_output;
             for (int i = 0; i < column_num; i++) {
                 string str;
                 if (row[i] == NULL)
                     str = "NULL";
                 else
                     str = row[i];
-                output->push_back(str);
+                row_output.push_back(str);
             }
-            output->push_back("\n");
+            output->push_back(row_output);
         }
     }
     mysql_free_result(result);
@@ -435,76 +436,10 @@ int dut_tidb::save_backup_file(string path)
     return system(cp_cmd.c_str());
 }
 
-void dut_tidb::trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec
-                          , vector<vector<string>>* output
-                          , int commit_or_not)
-{
-    if (commit_or_not != 2) {
-        cerr << pthread_self() << ": BEGIN OPTIMISTIC;" << endl;
-        test("BEGIN OPTIMISTIC;");
-    }
-
-    auto size = stmt_vec.size();
-    for (auto i = 0; i < size; i++) {
-        auto &stmt = stmt_vec[i];
-        int try_time = 0;
-        vector<string> stmt_output;
-        while (1) {
-            try {
-                if (try_time >= MAX_TRY_TIME) {
-                    cerr << pthread_self() << ": " << i << " skip " << stmt.substr(0, 20) << endl;
-                    break;
-                }
-                try_time++;
-                test(stmt, &stmt_output);
-                if (exec_stmt_vec != NULL)
-                    exec_stmt_vec->push_back(stmt);
-                if (output != NULL)
-                    output->push_back(stmt_output);
-                cerr << pthread_self() << ": " << i << endl;
-                break; // success and then break while loop
-            } catch(std::exception &e) { // ignore runtime error
-                string err = e.what();
-                if (err.find("locked") != string::npos) {
-                    continue; // not break and continue to test 
-                }
-                cerr << pthread_self() << ": " << i << " has error: " << err << endl;
-                break;
-            }
-        }
-    }
-    
-    if (commit_or_not == 2)
-        return;
-    
-    string last_sql;
-    if (commit_or_not == 1) 
-        last_sql = "COMMIT;";
-    else
-        last_sql = "ROLLBACK;";
-    
-    cerr << pthread_self() << ": " << last_sql << endl;
-    while (1) {
-        try{
-            test(last_sql);
-            break;
-        }catch(std::exception &e) { // ignore runtime error
-            string err = e.what();
-            if (err.find("locked") != string::npos) 
-                continue; // not break and continue to test 
-            cerr << pthread_self() << ": " << err << endl;
-            break;
-        }
-    }
-    cerr << pthread_self() << ": " << last_sql << " done" << endl;
-    return;
-}
-
-void dut_tidb::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
+void dut_tidb::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
 {
     for (auto& table:tables_name) {
-        vector<string> table_content;
+        vector<vector<string>> table_content;
         auto query = "SELECT * FROM " + table + " ORDER BY 1;";
 
         if (mysql_real_query(&mysql, query.c_str(), query.size())) {
@@ -519,15 +454,16 @@ void dut_tidb::get_content(vector<string>& tables_name, map<string, vector<strin
         if (result) {
             auto column_num = mysql_num_fields(result);
             while (auto row = mysql_fetch_row(result)) {
+                vector<string> row_output;
                 for (int i = 0; i < column_num; i++) {
                     string str;
                     if (row[i] == NULL)
                         str = "NULL";
                     else
                         str = row[i];
-                    table_content.push_back(str);
+                    row_output.push_back(str);
                 }
-                table_content.push_back("\n");
+                table_content.push_back(row_output);
             }
         }
         mysql_free_result(result);

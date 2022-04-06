@@ -395,25 +395,26 @@ extern "C" int dut_callback(void *arg, int argc, char **argv, char **azColName)
 
 extern "C" int content_callback(void *data, int argc, char **argv, char **azColName){
     int i; (void) azColName;
-    auto data_vec = (vector<string> *)data;
+    auto data_vec = (vector<vector<string>> *)data;
     if (data_vec == NULL)
         return 0;
 
+    vector<string> row_output;
     for (i = 0; i < argc; i++) {
         if (argv[i] == NULL) {
-            data_vec->push_back("NULL");
+            row_output.push_back("NULL");
             continue;
         }
         string str = argv[i];
         str.erase(0, str.find_first_not_of(" "));
         str.erase(str.find_last_not_of(" ") + 1);
-        data_vec->push_back(str);
+        row_output.push_back(str);
     }
-    data_vec->push_back("\n");
+    data_vec->push_back(row_output);
     return 0;
 }
 
-void dut_sqlite::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+void dut_sqlite::test(const std::string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {
     // alarm(6);
     rc = sqlite3_exec(db, stmt.c_str(), content_callback, (void *)output, &zErrMsg);
@@ -538,79 +539,10 @@ int dut_sqlite::save_backup_file(string path)
     return system(cp_cmd.c_str());
 }
 
-// 0: abort or rollback
-// 1: commit
-// 2: do not use transaction (do not use begin and commit)
-void dut_sqlite::trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec
-                          , vector<vector<string>>* output
-                          , int commit_or_not)
-{
-    if (commit_or_not != 2) {
-        cerr << pthread_self() << ": BEGIN TRANSACTION" << endl;
-        test("BEGIN TRANSACTION;");
-    }
-
-    auto size = stmt_vec.size();
-    for (auto i = 0; i < size; i++) {
-        auto &stmt = stmt_vec[i];
-        int try_time = 0;
-        vector<string> stmt_output;
-        while (1) {
-            try {
-                if (try_time >= MAX_TRY_TIME) {
-                    cerr << pthread_self() << ": " << i << " skip " << stmt.substr(0, 20) << endl;
-                    break;
-                }
-                try_time++;
-                test(stmt, &stmt_output);
-                if (exec_stmt_vec != NULL)
-                    exec_stmt_vec->push_back(stmt);
-                if (output != NULL)
-                    output->push_back(stmt_output);
-                cerr << pthread_self() << ": " << i << endl;
-                break; // success and then break while loop
-            } catch(std::exception &e) { // ignore runtime error
-                string err = e.what();
-                if (err.find("locked") != string::npos) {
-                    continue; // not break and continue to test 
-                }
-                cerr << pthread_self() << ": " << i << " " << err << endl;
-                break;
-            }
-        }
-    }
-    
-    if (commit_or_not == 2)
-        return;
-    
-    string last_sql;
-    if (commit_or_not == 1) 
-        last_sql = "COMMIT;";
-    else
-        last_sql = "ROLLBACK;";
-    
-    cerr << pthread_self() << " " << last_sql << endl;
-    while (1) {
-        try{
-            test(last_sql);
-            break;
-        }catch(std::exception &e) { // ignore runtime error
-            string err = e.what();
-            if (err.find("locked") != string::npos) 
-                continue; // not break and continue to test 
-            cerr << pthread_self() << " " << err << endl;
-            break;
-        }
-    }
-    cerr << pthread_self() << ": " << last_sql << " done" << endl;
-    return;
-}
-
-void dut_sqlite::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
+void dut_sqlite::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
 {
     for (auto& table:tables_name) {
-        vector<string> table_content;
+        vector<vector<string>> table_content;
         auto query = "SELECT * FROM " + table + " ORDER BY 1;";
         
         rc = sqlite3_exec(db, query.c_str(), content_callback, (void *)&table_content, &zErrMsg);

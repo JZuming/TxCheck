@@ -11,7 +11,6 @@
 #include "grammar.hh"
 
 #include "instrumentor.hh"
-#include "transaction_test.hh"
 #include <vector>
 #include <set>
 #include <algorithm>

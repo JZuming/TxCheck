@@ -347,7 +347,7 @@ static bool check_blocked(PGconn *conn)
     return PQisBusy(conn);
 }
 
-void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+void dut_cockroachdb::test(const std::string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {    
     if (has_sent_sql == false) {
         if (stmt == "COMMIT;") {
@@ -426,6 +426,7 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
             auto field_num = PQnfields(res);
             auto row_num = PQntuples(res);
             for (int i = 0; i < row_num; i++) {
+                vector<string> row_output;
                 for (int j = 0; j < field_num; j++) {
                     auto res_unit = PQgetvalue(res, i, j);
                     string str;
@@ -433,9 +434,9 @@ void dut_cockroachdb::test(const std::string &stmt, std::vector<std::string>* ou
                         str = "NULL";
                     else
                         str = res_unit;
-                    output->push_back(str);
+                    row_output.push_back(str);
                 }
-                output->push_back("\n");
+                output->push_back(row_output);
             }
         }
         PQclear(res);
@@ -525,76 +526,10 @@ int dut_cockroachdb::save_backup_file(string path)
     return system(save_backup.c_str());
 }
 
-void dut_cockroachdb::trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec
-                          , vector<vector<string>>* output
-                          , int commit_or_not)
-{
-    if (commit_or_not != 2) {
-        cerr << pthread_self() << ": BEGIN;" << endl;
-        test("BEGIN;");
-    }
-
-    auto size = stmt_vec.size();
-    for (auto i = 0; i < size; i++) {
-        auto &stmt = stmt_vec[i];
-        int try_time = 0;
-        vector<string> stmt_output;
-        while (1) {
-            try {
-                if (try_time >= MAX_TRY_TIME) {
-                    cerr << pthread_self() << ": " << i << " skip " << stmt.substr(0, 20) << endl;
-                    break;
-                }
-                try_time++;
-                test(stmt, &stmt_output);
-                if (exec_stmt_vec != NULL)
-                    exec_stmt_vec->push_back(stmt);
-                if (output != NULL)
-                    output->push_back(stmt_output);
-                cerr << pthread_self() << ": " << i << endl;
-                break; // success and then break while loop
-            } catch(std::exception &e) { // ignore runtime error
-                string err = e.what();
-                if (err.find("locked") != string::npos) {
-                    continue; // not break and continue to test 
-                }
-                cerr << pthread_self() << ": " << i << " has error: " << err << endl;
-                break;
-            }
-        }
-    }
-    
-    if (commit_or_not == 2)
-        return;
-    
-    string last_sql;
-    if (commit_or_not == 1) 
-        last_sql = "COMMIT;";
-    else
-        last_sql = "ROLLBACK;";
-    
-    cerr << pthread_self() << ": " << last_sql << endl;
-    while (1) {
-        try{
-            test(last_sql);
-            break;
-        }catch(std::exception &e) { // ignore runtime error
-            string err = e.what();
-            if (err.find("locked") != string::npos) 
-                continue; // not break and continue to test 
-            cerr << pthread_self() << ": " << err << endl;
-            break;
-        }
-    }
-    cerr << pthread_self() << ": " << last_sql << " done" << endl;
-    return;
-}
-
-void dut_cockroachdb::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
+void dut_cockroachdb::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
 {
     for (auto& table : tables_name) {
-        vector<string> table_content;
+        vector<vector<string>> table_content;
         
         auto query = "SELECT * FROM " + table + " ORDER BY 1;";
         auto res = PQexec(conn, query.c_str());
@@ -610,6 +545,7 @@ void dut_cockroachdb::get_content(vector<string>& tables_name, map<string, vecto
         auto field_num = PQnfields(res);
         auto row_num = PQntuples(res);
         for (int i = 0; i < row_num; i++) {
+            vector<string> row_output;
             for (int j = 0; j < field_num; j++) {
                 auto res_unit = PQgetvalue(res, i, j);
                 string str;
@@ -617,9 +553,9 @@ void dut_cockroachdb::get_content(vector<string>& tables_name, map<string, vecto
                     str = "NULL";
                 else
                     str = res_unit;
-                table_content.push_back(str);
+                row_output.push_back(str);
             }
-            table_content.push_back("\n");
+            table_content.push_back(row_output);
         }
         PQclear(res);
         content[table] = table_content;

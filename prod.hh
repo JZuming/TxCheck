@@ -13,6 +13,7 @@
 #define MAX_TRY_TIME 1
 #define TEST_TIME_FOR_EACH_DB 10
 #define TRANSACTION_TIMEOUT 600
+enum txn_status {NOT_DEFINED, TXN_COMMIT, TXN_ABORT};
 
 /// Base class for walking the AST
 struct prod_visitor {

@@ -362,7 +362,7 @@ void dut_libpq::command(const std::string &stmt)
     }
 }
 
-void dut_libpq::test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+void dut_libpq::test(const std::string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {
     (void)affected_row_num;
     (void)output;
@@ -390,18 +390,7 @@ int dut_libpq::save_backup_file(string path)
   return 0;
 }
 
-void dut_libpq::trans_test(const std::vector<std::string> &stmt_vec
-                          , std::vector<std::string>* exec_stmt_vec
-                          , vector<vector<string>>* output
-                          , int commit_or_not)
-{
-  (void)stmt_vec;
-  (void)exec_stmt_vec;
-  (void)output;
-  (void)commit_or_not;
-}
-
-void dut_libpq::get_content(vector<string>& tables_name, map<string, vector<string>>& content)
+void dut_libpq::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
 {
   (void)tables_name;
   (void)content;
