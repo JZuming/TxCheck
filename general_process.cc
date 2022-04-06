@@ -672,11 +672,11 @@ bool reproduce_routine(dbms_info& d_info,
     }
 
     re_test.trans_test();
-    re_test.normal_test();
-    if (!re_test.check_result()) {
+    // re_test.normal_test();
+    // if (!re_test.check_result()) {
         cerr << "reproduce successfully" << endl;
         return true;
-    }
+    // }
 
     return false;
 }

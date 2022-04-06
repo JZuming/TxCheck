@@ -88,6 +88,7 @@ void transaction_test::instrument_txn_stmts()
     tid_queue.clear();
     tid_queue = i.final_tid_queue;
     stmt_use = i.final_stmt_usage;
+    stmt_num = stmt_queue.size();
 }
 
 // 2: fatal error (e.g. restart transaction, current transaction is aborted), skip the stmt
@@ -260,12 +261,12 @@ void transaction_test::trans_test()
         
         if (trans_arr[tid].is_blocked)
             continue;      
-        // if there is some committed transaction blocked
-        // this committed transaction cannot execute (not serialiazability)
-        if (test_dbms_info.serializable == false && trans_arr[tid].status == TXN_COMMIT) {
-            if (check_commit_trans_blocked())
-                continue;
-        }
+        // // if there is some committed transaction blocked
+        // // this committed transaction cannot execute (not serialiazability)
+        // if (test_dbms_info.serializable == false && trans_arr[tid].status == TXN_COMMIT) {
+        //     if (check_commit_trans_blocked())
+        //         continue;
+        // }
 
         auto is_executed = trans_test_unit(stmt_index);
         
@@ -313,7 +314,7 @@ void transaction_test::trans_test()
             continue;
         
         cerr << RED << "something error, some stmt is still not executed" << RESET << endl;
-        exit(-1);
+        throw runtime_error("some stmt is still not executed");
     }
 
     // collect database information
