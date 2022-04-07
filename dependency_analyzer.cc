@@ -146,10 +146,6 @@ tid_num(t_num + 1),  // add 1 for init txn
 f_txn_status(final_txn_status)
 {   
     f_txn_status.push_back(TXN_COMMIT); // for init txn;
-    cerr << "tid_num: "<< tid_num << endl;
-    for (int i = 0; i < tid_num; i++) {
-        cerr << "f_txn_status " << i << " " << f_txn_status[i] << endl;
-    }
     
     dependency_graph = new set<dependency_type>* [tid_num];
     for (int i = 0; i < tid_num; i++) 
