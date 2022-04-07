@@ -73,6 +73,9 @@ struct dependency_analyzer
     // G1c: Circular Information Flow. A history H exhibits phenomenon G1c if DSG(H)
     // contains a directed cycle consisting entirely of dependency edges.
     bool check_G1c();
+    // G2-item: Item Anti-dependency Cycles. A history H exhibits phenomenon G2-item
+    // if DSG(H) contains a directed cycle having one or more item-anti-dependency edges.
+    bool check_G2_item();
 
     // Snapshot Isolation:
     // G-SIa: Interference. A history H exhibits phenomenon G-SIa if SSG(H) contains a

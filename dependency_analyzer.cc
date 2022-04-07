@@ -440,6 +440,45 @@ bool dependency_analyzer::check_G1c()
     return have_cycle;
 }
 
+// G2-item: Item Anti-dependency Cycles. A history H exhibits phenomenon G2-item
+// if DSG(H) contains a directed cycle having one or more item-anti-dependency edges.
+bool dependency_analyzer::check_G2_item()
+{
+    set<dependency_type> ww_wr_rw_set;
+    ww_wr_rw_set.insert(WRITE_WRITE);
+    ww_wr_rw_set.insert(WRITE_READ);
+    ww_wr_rw_set.insert(READ_WRITE);
+
+    auto tmp_dgraph = new int* [tid_num];
+    for (int i = 0; i < tid_num; i++) 
+        tmp_dgraph[i] = new int [tid_num];
+    
+    // initialize tmp_dgraph
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            set<dependency_type> res;
+            set_intersection(ww_wr_rw_set.begin(), ww_wr_rw_set.end(), 
+                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
+                    inserter(res, res.begin()));
+            
+            // have needed edges
+            if (res.empty())
+                tmp_dgraph[i][j] = 0;
+            else
+                tmp_dgraph[i][j] = 1;
+        }
+    }
+
+    bool have_cycle = reduce_graph_indegree(tmp_dgraph, tid_num);
+    
+    for (int i = 0; i < tid_num; i++)
+        delete[] tmp_dgraph[i];
+    delete[] tmp_dgraph;
+
+    return have_cycle;
+}
+
+
 bool dependency_analyzer::check_GSIa()
 {
     for (int i = 0; i < tid_num; i++) {
