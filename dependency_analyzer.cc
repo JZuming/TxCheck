@@ -295,27 +295,48 @@ bool dependency_analyzer::check_G1b()
             int wop_id = op_list[i].write_op_id;
             int tid = op_list[i].tid;
             int txn_end_idx = tid_end_idx[tid];
-            bool has_read = false;
-            bool has_write = false;
+            int other_read_idx = -1;
+            int second_write_idx = -1;
             
             for (int j = i + 1; j < opl_size; j++) {
                 if (op_list[j].stmt_idx > txn_end_idx)
                     break; // the later stmt will not contain the write from txn i
                 
                 // check whether the earlier version is read
-                if (has_read == false && 
+                if (other_read_idx == -1 && 
                         op_list[j].write_op_id == wop_id &&
                         op_list[j].tid != tid)
-                    has_read = true;
+                    other_read_idx = j;
                 
                 // check whether it will be rewrite by itself
-                if (has_write == false &&
+                if (second_write_idx == -1 &&
                         op_list[j].tid == tid &&
                         op_list[j].stmt_u == BEFORE_WRITE_READ)
-                    has_write = true;
+                    second_write_idx = j;
                 
-                if (has_read && has_write)
+                if (other_read_idx >= 0 && second_write_idx >= 0) {
+                    cerr << "first_write_idx: " << i << endl;
+                    cerr << "tid: " << tid << endl;
+                    cerr << "outpout: " << endl;
+                    auto& first_write_row = hash_to_output[op_list[i].hash];
+                    for (int e = 0; e < first_write_row.size(); e++)
+                        cerr << first_write_row[e] << " ";
+                    cerr << endl;
+                    
+                    cerr << "other_read_idx: " << other_read_idx << endl;
+                    cerr << "tid: " << op_list[other_read_idx].tid << endl;
+                    cerr << "outpout: " << endl;
+                    auto& read_row = hash_to_output[op_list[other_read_idx].hash];
+                    for (int e = 0; e < read_row.size(); e++)
+                        cerr << read_row[e] << " ";
+                    cerr << endl;
+
+                    cerr << "second_write_idx: " << second_write_idx << endl;
+                    cerr << "tid: " << op_list[second_write_idx].tid << endl;
+                    
                     return true;
+                }
+                    
             }
         }
     }
