@@ -670,13 +670,19 @@ bool reproduce_routine(dbms_info& d_info,
         else
             re_test.trans_arr[tid].status = TXN_ABORT;
     }
-
-    re_test.trans_test();
-    // re_test.normal_test();
-    // if (!re_test.check_result()) {
+    
+    try {
+        re_test.trans_test();
+        if (re_test.analyze_txn_dependency()) {
+            cerr << RED << "Find Bugs!!" << RESET << endl;
+            return true;
+        }
+        // re_test.normal_test();
+        // if (!re_test.check_result()) {
+    } catch (exception &e) {
         cerr << "reproduce successfully" << endl;
         return true;
-    // }
+    }
 
     return false;
 }

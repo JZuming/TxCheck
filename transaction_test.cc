@@ -119,16 +119,27 @@ bool transaction_test::analyze_txn_dependency()
                             1, // primary_key_idx
                             0); // write_op_key_idx
     
-    if (da.check_G1a() == true)
+    if (da.check_G1a() == true) {
+        cerr << "check_G1a violate!!" << endl;
         return true;
-    if (da.check_G1b() == true)
+    }
+        
+    if (da.check_G1b() == true){
+        cerr << "check_G1b violate!!" << endl;
         return true;
-    if (da.check_G1c() == true)
+    }
+    if (da.check_G1c() == true){
+        cerr << "check_G1c violate!!" << endl;
         return true;
-    if (da.check_GSIa() == true)
+    }
+    if (da.check_GSIa() == true){
+        cerr << "check_GSIa violate!!" << endl;
         return true;
-    if (da.check_GSIb() == true)
+    }
+    if (da.check_GSIb() == true){
+        cerr << "check_GSIb violate!!" << endl;
         return true;
+    }
     
     return false;
 }

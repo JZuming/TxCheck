@@ -41,12 +41,14 @@ size_t dependency_analyzer::hash_output(row_output& row)
 
 void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int op_idx)
 {
+    cerr << "build_WR_dependency..." << endl;
+
     auto& target_op = op_list[op_idx];
     bool find_the_write = false;
     for (int i = op_idx - 1; i >= 0; i--) {
         if (op_list[i].stmt_u != AFTER_WRITE_READ)
             continue;
-
+        
         // need strict compare to check whether the write is missed
         if (op_list[i].hash != target_op.hash)
             continue;
@@ -58,13 +60,37 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
         
         break; // only find the nearest write
     }
-    if (find_the_write == false)
+    if (find_the_write == false) {
+        cerr << "Read stmt idx: " << target_op.stmt_idx << endl;
+        cerr << "Read stmt tid: " << target_op.tid << endl;
+        
+        cerr << "Problem read: ";
+        auto& problem_row = hash_to_output[target_op.hash];
+        for (int i = 0; i < problem_row.size(); i++)
+            cerr << problem_row[i] << " ";
+        cerr << endl;
+
+        for (int i = 0; i < op_list.size(); i++) {
+            if (op_list[i].stmt_u != AFTER_WRITE_READ)
+                continue;
+            cerr << "AFTER_WRITE_READ " << i << ": ";
+            auto& write_row = hash_to_output[op_list[i].hash];
+            for (int i = 0; i < write_row.size(); i++)
+                cerr << write_row[i] << " ";
+            cerr << endl;
+        }
+
         throw runtime_error("BUG: Cannot find the corresponding write");
+    }
+
+    cerr << "done" << endl;
     return;
 }
 
 void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int op_idx)
 {
+    cerr << "build_RW_dependency..." << endl;
+    
     auto& target_op = op_list[op_idx];
     if (target_op.stmt_u != BEFORE_WRITE_READ)
         throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_RW_dependency");
@@ -81,11 +107,15 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
 
         // do not break, because need to find all the read
     }
+
+    cerr << "done" << endl;
     return;
 }
 
 void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int op_idx)
 {
+    cerr << "build_WW_dependency..." << endl;
+
     auto& target_op = op_list[op_idx];
     if (target_op.stmt_u != BEFORE_WRITE_READ)
         throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_WW_dependency");
@@ -108,6 +138,8 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
     }
     if (find_the_write == false)
         throw runtime_error("BUG: Cannot find the corresponding write");
+    
+    cerr << "done" << endl;
     return;
 }
 
@@ -119,8 +151,11 @@ dependency_analyzer::dependency_analyzer(vector<stmt_output>& init_output,
                         int t_num,
                         int primary_key_idx,
                         int write_op_key_idx):
-tid_num(t_num), f_txn_status(final_txn_status)
+tid_num(t_num + 1),  // add 1 for init txn
+f_txn_status(final_txn_status)
 {   
+    f_txn_status.push_back(TXN_COMMIT); // for init txn;
+    
     dependency_graph = new set<dependency_type>* [tid_num];
     for (int i = 0; i < tid_num; i++) 
         dependency_graph[i] = new set<dependency_type> [tid_num];
@@ -132,7 +167,8 @@ tid_num(t_num), f_txn_status(final_txn_status)
             auto row_id = stoi(row[primary_key_idx]);
             auto write_op_id = stoi(row[write_op_key_idx]);
             auto hash = hash_output(row);
-            operate_unit op(AFTER_WRITE_READ, write_op_id, -1, -1, row_id, hash);
+            hash_to_output[hash] = row;
+            operate_unit op(AFTER_WRITE_READ, write_op_id, tid_num - 1, -1, row_id, hash);
             h.insert_to_history(op);
         }
     }
@@ -152,6 +188,7 @@ tid_num(t_num), f_txn_status(final_txn_status)
             auto row_id = stoi(row[primary_key_idx]);
             auto write_op_id = stoi(row[write_op_key_idx]);
             auto hash = hash_output(row);
+            hash_to_output[hash] = row;
             operate_unit op(stmt_u, write_op_id, tid, i, row_id, hash);
             h.insert_to_history(op);
         }
@@ -163,6 +200,10 @@ tid_num(t_num), f_txn_status(final_txn_status)
         auto size = row_op_list.size();
         for (int i = 0; i < size; i++) {
             auto& op_unit = row_op_list[i];
+            if (op_unit.tid == tid_num - 1) // init txn do not depend on others
+                continue;
+            if (op_unit.stmt_u == AFTER_WRITE_READ)
+                continue;
             build_WR_dependency(row_op_list, i); // it is a read itself
             if (op_unit.stmt_u == BEFORE_WRITE_READ) {
                 build_WW_dependency(row_op_list, i);

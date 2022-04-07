@@ -92,6 +92,7 @@ struct dependency_analyzer
     int* tid_begin_idx;
     int* tid_end_idx;
     vector<txn_status> f_txn_status;
+    map<int, row_output> hash_to_output;
     set<dependency_type> **dependency_graph;
 };
 
