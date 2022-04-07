@@ -89,22 +89,61 @@ void transaction_test::instrument_txn_stmts()
     tid_queue = i.final_tid_queue;
     stmt_use = i.final_stmt_usage;
     stmt_num = stmt_queue.size();
+
+    for (int tid = 0; tid < trans_num; tid++)
+        trans_arr[tid].stmts.clear();
+
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        auto &stmt = stmt_queue[i];
+        trans_arr[tid].stmts.push_back(stmt);
+    }
+}
+
+bool transaction_test::analyze_txn_dependency()
+{
+    vector<stmt_output> init_content_vector;
+    for (auto iter = init_db_content.begin(); iter != init_db_content.end(); iter++)
+        init_content_vector.push_back(iter->second);
+    
+    vector<txn_status> real_txn_status;
+    for (int tid = 0; tid < trans_num; tid++) 
+        real_txn_status.push_back(trans_arr[tid].status);
+
+    dependency_analyzer da(init_content_vector, // init_output 
+                            real_output_queue, // total_output
+                            real_tid_queue, // final_tid_queue
+                            real_stmt_usage, // final_stmt_usage
+                            real_txn_status, // final_txn_status
+                            trans_num, // t_num
+                            1, // primary_key_idx
+                            0); // write_op_key_idx
+    
+    if (da.check_G1a() == true)
+        return true;
+    if (da.check_G1b() == true)
+        return true;
+    if (da.check_G1c() == true)
+        return true;
+    if (da.check_GSIa() == true)
+        return true;
+    if (da.check_GSIb() == true)
+        return true;
+    
+    return false;
 }
 
 // 2: fatal error (e.g. restart transaction, current transaction is aborted), skip the stmt
 // 1: executed
 // 0: blocked, not executed
-int transaction_test::trans_test_unit(int stmt_pos)
+int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
 {
     auto tid = tid_queue[stmt_pos];
     auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
-    vector<vector<string>> output;
 
     try {
         trans_arr[tid].dut->test(stmt, &output);
-        if (!output.empty())
-            trans_arr[tid].stmt_outputs.push_back(output);
-        
+        trans_arr[tid].stmt_outputs.push_back(output);
         cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
         return 1;
     } catch(exception &e) {
@@ -113,15 +152,12 @@ int transaction_test::trans_test_unit(int stmt_pos)
             << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
             << err << RESET << endl;
 
-        if (err.find("ost connection") != string::npos)
+        if (err.find("ost connection") != string::npos) // lost connection
             throw e;
-        
         if (err.find("blocked") != string::npos)
             return 0;
-
         if (err.find("skipped") != string::npos)
             return 2;
-
         if (err.find("sent sql stmt changed") != string::npos) 
             exit(-1);
         
@@ -144,12 +180,10 @@ int transaction_test::trans_test_unit(int stmt_pos)
         stmt_queue[stmt_pos] = trans_arr[tid].stmts.back();
 
         stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
-
         try {
             trans_arr[tid].dut->test(stmt);
             cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
             return 1;
-            
         } catch(exception &e2) {
             err = e2.what();
             cerr << RED 
@@ -192,12 +226,15 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             continue;
         
         first_tried_tid.insert(tid);
-        auto is_executed = trans_test_unit(i);
+        stmt_output output;
+        auto is_executed = trans_test_unit(i, output);
         if (is_executed == 1) { // executed
             trans_arr[tid].is_blocked = false;
             status_queue[i] = 1;
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(stmt_queue[i]);
+            real_output_queue.push_back(output);
+            real_stmt_usage.push_back(stmt_use[i]);
         } else if (is_executed == 2) { // skipped
             trans_arr[tid].is_blocked = false;
             status_queue[i] = 1;
@@ -222,13 +259,16 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
                 continue;
         }
 
-        auto is_executed = trans_test_unit(stmt_pos);
+        stmt_output output;
+        auto is_executed = trans_test_unit(stmt_pos, output);
         // successfully execute the stmt, so label as not blocked
         if (is_executed == 1) {
             trans_arr[tid].is_blocked = false;
             status_queue[stmt_pos] = 1;
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(stmt_queue[stmt_pos]);
+            real_output_queue.push_back(output);
+            real_stmt_usage.push_back(stmt_use[stmt_pos]);
             
             auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
             if (stmt.find(trans_arr[tid].dut->commit_stmt()) != string::npos ||
@@ -249,7 +289,10 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
 void transaction_test::trans_test()
 {
     dut_reset_to_backup(test_dbms_info);
+    dut_get_content(test_dbms_info, init_db_content); // get initial database content
+    
     cerr << YELLOW << "transaction test" << RESET << endl;
+    // status_queue: 0 -> blocked, 1->executed (succeed or fail)
     shared_ptr<int[]> status_queue(new int[stmt_num]);
     
     for (int i = 0; i < stmt_num; i++) 
@@ -258,29 +301,33 @@ void transaction_test::trans_test()
     for (int stmt_index = 0; stmt_index < stmt_num; stmt_index++) {
         auto tid = tid_queue[stmt_index];
         auto& stmt = stmt_queue[stmt_index];
+        auto su = stmt_use[stmt_index];
         
         if (trans_arr[tid].is_blocked)
-            continue;      
+            continue;
+        
         // // if there is some committed transaction blocked
         // // this committed transaction cannot execute (not serialiazability)
         // if (test_dbms_info.serializable == false && trans_arr[tid].status == TXN_COMMIT) {
         //     if (check_commit_trans_blocked())
         //         continue;
         // }
-
-        auto is_executed = trans_test_unit(stmt_index);
         
+        stmt_output output;
+        auto is_executed = trans_test_unit(stmt_index, output);
         if (is_executed == 0) {
             trans_arr[tid].is_blocked = true;
             continue;
         }
-        if (is_executed == 2) {
+        if (is_executed == 2) { // the executed stmt fail
             status_queue[stmt_index] = 1;
             continue;
         }
         status_queue[stmt_index] = 1;
         real_tid_queue.push_back(tid);
         real_stmt_queue.push_back(stmt);
+        real_output_queue.push_back(output);
+        real_stmt_usage.push_back(su);
         
         // after a commit or abort, retry the statement
         auto stmt_str = print_stmt_to_string(stmt);
@@ -516,6 +563,9 @@ int transaction_test::test()
     
     try {
         trans_test();
+        if (analyze_txn_dependency()) {
+            cerr << RED << "Find Bugs!!" << RESET << endl;
+        }
         // normal_test();
         // if (check_result())
             // return 0;

@@ -51,9 +51,12 @@ public:
     vector<int> tid_queue;
     vector<shared_ptr<prod>> stmt_queue;
     vector<stmt_usage> stmt_use;
+    map<string, vector<vector<string>>> init_db_content;
 
     vector<int> real_tid_queue;
     vector<shared_ptr<prod>> real_stmt_queue;
+    vector<stmt_output> real_output_queue;
+    vector<stmt_usage> real_stmt_usage;
     map<string, vector<vector<string>>> trans_db_content;
 
     vector<vector<int>> possible_normal_trans_order;
@@ -63,11 +66,13 @@ public:
     void assign_txn_status();
     void gen_txn_stmts();
     void instrument_txn_stmts();
+
+    bool analyze_txn_dependency();
     
     bool check_commit_trans_blocked();
     void trans_test();
     void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue);
-    int trans_test_unit(int stmt_pos);
+    int trans_test_unit(int stmt_pos, stmt_output& output);
 
     void normal_test();
     bool check_result();

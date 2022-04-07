@@ -317,6 +317,8 @@ bool dependency_analyzer::reduce_graph_indegree(int **direct_graph, int length)
         for (int j = 0; j < length; j++)
             direct_graph[zero_indegree_idx][j] = 0; 
     }
+
+    return false;
 }
 
 // recursively remove the node have 0 out-degree
@@ -356,6 +358,8 @@ bool dependency_analyzer::reduce_graph_outdegree(int **direct_graph, int length)
         for (int i = 0; i < length; i++) 
             direct_graph[i][zero_outdegree_idx] = 0;
     }
+
+    return false;
 }
 
 bool dependency_analyzer::check_cycle(set<dependency_type>& edge_types)
