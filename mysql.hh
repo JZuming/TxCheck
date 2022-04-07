@@ -11,7 +11,7 @@ extern "C"  {
 
 #include <sys/time.h> // for gettimeofday
 
-#define MYSQL_STMT_BLOCK_MS 1000
+#define MYSQL_STMT_BLOCK_MS 500
 
 struct mysql_connection {
     MYSQL mysql;

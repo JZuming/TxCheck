@@ -41,8 +41,6 @@ size_t dependency_analyzer::hash_output(row_output& row)
 
 void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int op_idx)
 {
-    cerr << "build_WR_dependency..." << endl;
-
     auto& target_op = op_list[op_idx];
     bool find_the_write = false;
     for (int i = op_idx - 1; i >= 0; i--) {
@@ -83,14 +81,11 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
         throw runtime_error("BUG: Cannot find the corresponding write");
     }
 
-    cerr << "done" << endl;
     return;
 }
 
 void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int op_idx)
 {
-    cerr << "build_RW_dependency..." << endl;
-    
     auto& target_op = op_list[op_idx];
     if (target_op.stmt_u != BEFORE_WRITE_READ)
         throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_RW_dependency");
@@ -108,14 +103,11 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
         // do not break, because need to find all the read
     }
 
-    cerr << "done" << endl;
     return;
 }
 
 void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int op_idx)
 {
-    cerr << "build_WW_dependency..." << endl;
-
     auto& target_op = op_list[op_idx];
     if (target_op.stmt_u != BEFORE_WRITE_READ)
         throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_WW_dependency");
@@ -139,7 +131,6 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
     if (find_the_write == false)
         throw runtime_error("BUG: Cannot find the corresponding write");
     
-    cerr << "done" << endl;
     return;
 }
 
@@ -155,6 +146,10 @@ tid_num(t_num + 1),  // add 1 for init txn
 f_txn_status(final_txn_status)
 {   
     f_txn_status.push_back(TXN_COMMIT); // for init txn;
+    cerr << "tid_num: "<< tid_num << endl;
+    for (int i = 0; i < tid_num; i++) {
+        cerr << "f_txn_status " << i << " " << f_txn_status[i] << endl;
+    }
     
     dependency_graph = new set<dependency_type>* [tid_num];
     for (int i = 0; i < tid_num; i++) 
@@ -213,14 +208,22 @@ f_txn_status(final_txn_status)
     }
 
     // generate start dependency (for snapshot)
+    // count the second stmt as begin stmt, because some dbms donot use snapshot unless it read or write something
+    auto tid_has_used_begin = new bool[tid_num];
     tid_begin_idx = new int[tid_num];
     tid_end_idx = new int[tid_num];
     for (int i = 0; i < tid_num; i++) {
         tid_begin_idx[i] = -1;
         tid_end_idx[i] = -1;
+        tid_has_used_begin[i] = false;
     }
     for (int i = 0; i < stmt_num; i++) {
         auto tid = final_tid_queue[i];
+        // skip the first stmt (i.e. start transaction)
+        if (tid_has_used_begin[tid] == false) {
+            tid_has_used_begin[tid] = true;
+            continue;
+        }
         if (tid_begin_idx[tid] == -1)
             tid_begin_idx[tid] = i;
         if (tid_end_idx[tid] < i)
@@ -232,10 +235,11 @@ f_txn_status(final_txn_status)
         for (int j = 0; j < tid_num; j++) {
             if (i == j)
                 continue;
-            if (tid_end_idx[i] < tid_begin_idx[j])
+            if (tid_end_idx[i] < tid_begin_idx[j]) 
                 dependency_graph[i][j].insert(START_DEPEND);
         }
     }
+    delete[] tid_has_used_begin;
 }
 
 dependency_analyzer::~dependency_analyzer()
@@ -265,11 +269,9 @@ bool dependency_analyzer::check_G1a()
             if (f_txn_status[i] != TXN_COMMIT)
                 continue; // txn i must be committed
             
-            auto& dependencies = dependency_graph[i][j];
-            for (auto dependency : dependencies) {
-                if (dependency == WRITE_READ)
-                    return true;
-            }
+            auto& dependencies = dependency_graph[j][i]; // j(abort) -> WR -> i(commit) [i wr depend on j]
+            if (dependencies.count(WRITE_READ) > 0)
+                return true;
         }
     }
     return false;
@@ -403,38 +405,6 @@ bool dependency_analyzer::reduce_graph_outdegree(int **direct_graph, int length)
     return false;
 }
 
-bool dependency_analyzer::check_cycle(set<dependency_type>& edge_types)
-{
-    auto tmp_dgraph = new int* [tid_num];
-    for (int i = 0; i < tid_num; i++) 
-        tmp_dgraph[i] = new int [tid_num];
-    
-    // initialize tmp_dgraph
-    for (int i = 0; i < tid_num; i++) {
-        for (int j = 0; j < tid_num; j++) {
-            set<dependency_type> res;
-            set_intersection(edge_types.begin(), edge_types.end(), 
-                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
-                    inserter(res, res.begin()));
-            
-            // have needed edges
-            if (res.empty())
-                tmp_dgraph[i][j] = 0;
-            else
-                tmp_dgraph[i][j] = 1;
-        }
-    }
-
-    // topp sort
-    bool have_cycle = reduce_graph_indegree(tmp_dgraph, tid_num);
-    
-    for (int i = 0; i < tid_num; i++)
-        delete[] tmp_dgraph[i];
-    delete[] tmp_dgraph;
-
-    return have_cycle;
-}
-
 bool dependency_analyzer::check_G1c()
 {
     set<dependency_type> ww_wr_set;
@@ -480,8 +450,12 @@ bool dependency_analyzer::check_GSIa()
                 continue;
             
             // check whether they have start dependency
-            if (dependency_graph[i][j].count(START_DEPEND) == 0)
+            if (dependency_graph[i][j].count(START_DEPEND) == 0) {
+                cerr << "txn i: " << i <<endl;
+                cerr << "txn j: " << j << endl;
                 return true;
+            }
+                
         }
     }
     return false;
