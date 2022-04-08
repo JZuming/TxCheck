@@ -421,6 +421,11 @@ int generate_database(dbms_info& d_info)
     vector<string> stage_1_rec;
     vector<string> stage_2_rec;
     
+    // stage 0: reset db
+    cerr << YELLOW << "stage 0: reset dbms ..." << RESET;
+    dut_reset(d_info);
+    cerr << YELLOW << "finished" << RESET << endl;
+
     // stage 1: DDL stage (create, alter, drop)
     cerr << YELLOW << "stage 1: generate the shared database ..." << RESET;
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
