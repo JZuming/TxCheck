@@ -103,9 +103,6 @@ int fork_for_generating_database(dbms_info& d_info)
         output_wkey.close();
         exit(NORMAL_EXIT);
     }
-    ifstream input_wkey("wkey.txt");
-    input_wkey >> write_op_id;
-    input_wkey.close();
 
     itimer.it_value.tv_sec = TRANSACTION_TIMEOUT;
     itimer.it_value.tv_usec = 0; // us limit
@@ -156,6 +153,13 @@ int fork_for_generating_database(dbms_info& d_info)
         }
     }
 
+    ifstream input_wkey("wkey.txt");
+    input_wkey >> write_op_id;
+    input_wkey.close();
+
+    write_op_id++;
+    cerr << "updating write_op_id: "<< write_op_id << endl;
+
     return 0;
 }
 
@@ -172,6 +176,7 @@ int fork_for_transaction_test(dbms_info& d_info)
     child_pid = fork();
     if (child_pid == 0) { // in child process
         try {
+            cerr << "write_op_id: " << write_op_id << endl;
             transaction_test tt(d_info);
             auto ret = tt.test();
             if (ret == 1) {

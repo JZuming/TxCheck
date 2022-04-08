@@ -1,5 +1,7 @@
 #include "general_process.hh"
 
+extern int write_op_id;
+
 int make_dir_error_exit(string folder)
 {
     if (mkdir(folder.c_str(), 0700)) {
@@ -493,7 +495,7 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                 continue;
             }
         }
-        cerr << YELLOW << "generated one useful stmt..." << RESET << endl;
+        cerr << YELLOW << "generated one useful stmt, write_op_id: " << write_op_id << RESET << endl;
         trans_rec.push_back(gen);
         succeed = true;
         stmt_num++;
