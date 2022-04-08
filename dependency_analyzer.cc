@@ -431,24 +431,41 @@ bool dependency_analyzer::check_G1c()
     auto tmp_dgraph = new int* [tid_num];
     for (int i = 0; i < tid_num; i++) 
         tmp_dgraph[i] = new int [tid_num];
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            tmp_dgraph[i][j] = 0;
+        }
+    }
     
     // initialize tmp_dgraph
     for (int i = 0; i < tid_num; i++) {
+        if (f_txn_status[i] != TXN_COMMIT)
+            continue;
         for (int j = 0; j < tid_num; j++) {
+            if (f_txn_status[j] != TXN_COMMIT)
+                continue;
             set<dependency_type> res;
             set_intersection(ww_wr_set.begin(), ww_wr_set.end(), 
                     dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
                     inserter(res, res.begin()));
             
             // have needed edges
-            if (res.empty())
-                tmp_dgraph[i][j] = 0;
-            else
+            if (res.empty() == false)
                 tmp_dgraph[i][j] = 1;
         }
     }
 
-    bool have_cycle = reduce_graph_indegree(tmp_dgraph, tid_num);
+    reduce_graph_indegree(tmp_dgraph, tid_num);
+    bool have_cycle = reduce_graph_outdegree(tmp_dgraph, tid_num);
+    if (have_cycle) {
+        cerr << "have cycle in G1c" << endl;
+        for (int i = 0; i < tid_num; i++) {
+            for (int j = 0; j < tid_num; j++) {
+                if (tmp_dgraph[i][j] == 1)
+                    cerr << i << " " << j << endl;
+            }
+        }
+    }
     
     for (int i = 0; i < tid_num; i++)
         delete[] tmp_dgraph[i];
@@ -469,24 +486,45 @@ bool dependency_analyzer::check_G2_item()
     auto tmp_dgraph = new int* [tid_num];
     for (int i = 0; i < tid_num; i++) 
         tmp_dgraph[i] = new int [tid_num];
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            tmp_dgraph[i][j] = 0;
+        }
+    }
     
     // initialize tmp_dgraph
     for (int i = 0; i < tid_num; i++) {
+        if (f_txn_status[i] != TXN_COMMIT)
+            continue;
         for (int j = 0; j < tid_num; j++) {
+            if (f_txn_status[j] != TXN_COMMIT)
+                continue;
             set<dependency_type> res;
             set_intersection(ww_wr_rw_set.begin(), ww_wr_rw_set.end(), 
                     dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
                     inserter(res, res.begin()));
             
             // have needed edges
-            if (res.empty())
-                tmp_dgraph[i][j] = 0;
-            else
+            if (res.empty() == false)
                 tmp_dgraph[i][j] = 1;
         }
     }
 
-    bool have_cycle = reduce_graph_indegree(tmp_dgraph, tid_num);
+    reduce_graph_indegree(tmp_dgraph, tid_num);
+    bool have_cycle = reduce_graph_outdegree(tmp_dgraph, tid_num);
+    if (have_cycle) {
+        cerr << "have cycle in G2_item" << endl;
+        for (int i = 0; i < tid_num; i++) {
+            for (int j = 0; j < tid_num; j++) {
+                if (tmp_dgraph[i][j] == 1) {
+                    cerr << i << " " << j << ": ";
+                    for (auto& dependency:dependency_graph[i][j])
+                        cerr << dependency << " ";
+                    cerr << endl;
+                }
+            }
+        }
+    }
     
     for (int i = 0; i < tid_num; i++)
         delete[] tmp_dgraph[i];
@@ -528,19 +566,26 @@ bool dependency_analyzer::check_GSIb()
     auto tmp_dgraph = new int* [tid_num];
     for (int i = 0; i < tid_num; i++) 
         tmp_dgraph[i] = new int [tid_num];
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            tmp_dgraph[i][j] = 0;
+        }
+    }
     
     // initialize tmp_dgraph
     for (int i = 0; i < tid_num; i++) {
+        if (f_txn_status[i] != TXN_COMMIT)
+            continue;
         for (int j = 0; j < tid_num; j++) {
+            if (f_txn_status[j] != TXN_COMMIT)
+                continue;
             set<dependency_type> res;
             set_intersection(target_dependency_set.begin(), target_dependency_set.end(), 
                     dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
                     inserter(res, res.begin()));
             
             // have needed edges
-            if (res.empty())
-                tmp_dgraph[i][j] = 0;
-            else
+            if (res.empty() == false)
                 tmp_dgraph[i][j] = 1;
         }
     }
