@@ -630,6 +630,20 @@ bool dependency_analyzer::check_GSIb()
         tmp_dgraph[rw_edge.first][rw_edge.second] = 0;
     }
 
+    if (has_rw_cycle) {
+        cerr << "have cycle in GSIb" << endl;
+        for (int i = 0; i < tid_num; i++) {
+            for (int j = 0; j < tid_num; j++) {
+                if (tmp_dgraph[i][j] == 1) {
+                    cerr << i << " " << j << ": ";
+                    for (auto& dependency:dependency_graph[i][j])
+                        cerr << dependency << " ";
+                    cerr << endl;
+                }
+            }
+        }
+    }
+
     for (int i = 0; i < tid_num; i++)
         delete[] tmp_dgraph[i];
     delete[] tmp_dgraph;

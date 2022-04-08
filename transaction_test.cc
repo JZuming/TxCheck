@@ -551,6 +551,15 @@ void transaction_test::save_test_case(string dir_name)
         total_tid_output << tid_queue[i] << endl;
     }
     total_tid_output.close();
+
+    // save stmt use queue
+    string total_stmt_use_file = dir_name + "stmt_use.txt";
+    ofstream total_stmt_use_output(total_stmt_use_file);
+    for (int i = 0; i < stmt_num; i++) {
+        total_stmt_use_output << stmt_use[i] << endl;
+    }
+    total_stmt_use_output.close();
+
     cerr << RED << "done" << RESET << endl;
 }
 
