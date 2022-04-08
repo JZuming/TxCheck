@@ -459,7 +459,6 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
     int fail_time = 0;
     int choice = -1;
     while (1) {
-        cerr << "generating statement ...";
         if (succeed) 
             choice = d9();
         else { // if fail, do not change choice
@@ -469,10 +468,8 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                 fail_time = 0;
             }
         }
-        cerr << "choice: " << choice;
         shared_ptr<prod> gen = txn_statement_factory(&scope, choice);
         succeed = false;
-        cerr << "...done" << endl;
 
         ostringstream stmt_stream;
         gen->out(stmt_stream);
@@ -480,14 +477,12 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
 
         if (can_error == false || d_info.ouput_or_affect_num > 0) {
             try {
-                cerr << "checking (executing) statement ...";
                 auto dut = dut_setup(d_info);
                 int affect_num = 0;
                 vector<vector<string>> output;
                 dut->test(stmt, &output, &affect_num);
                 if (output.size() + affect_num < d_info.ouput_or_affect_num)
                     continue;
-                cerr << "done" << endl;
             } catch (exception &e) {
                 string err = e.what();
                 if (err.find("CONNECTION FAIL") != string::npos)
@@ -498,6 +493,7 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                 continue;
             }
         }
+        cerr << YELLOW << "generated one useful stmt..." << RESET << endl;
         trans_rec.push_back(gen);
         succeed = true;
         stmt_num++;

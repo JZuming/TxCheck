@@ -160,8 +160,8 @@ int fork_for_transaction_test(dbms_info& d_info)
         throw runtime_error(string("restart server")); // need to generate database again
     just_check_server.reset();
     
-    // child_pid = fork();
-    // if (child_pid == 0) { // in child process
+    child_pid = fork();
+    if (child_pid == 0) { // in child process
         try {
             transaction_test tt(d_info);
             auto ret = tt.test();
@@ -174,7 +174,7 @@ int fork_for_transaction_test(dbms_info& d_info)
             cerr << "in test: " << e.what() << endl;
         }
         exit(NORMAL_EXIT);
-    // }
+    }
 
     itimer.it_value.tv_sec = TRANSACTION_TIMEOUT;
     itimer.it_value.tv_usec = 0; // us limit
@@ -200,6 +200,8 @@ int fork_for_transaction_test(dbms_info& d_info)
         if (exit_code == FIND_BUG_EXIT) {
             cerr << RED << "a bug is found in fork process" << RESET << endl;
             transaction_test::record_bug_num++;
+
+            exit(-1);
         }
         if (exit_code == 255)
             exit(-1);

@@ -583,9 +583,8 @@ int transaction_test::test()
     
     try {
         trans_test();
-        if (analyze_txn_dependency()) {
-            cerr << RED << "Find Bugs!!" << RESET << endl;
-        }
+        if (!analyze_txn_dependency()) 
+            return 0;
         // normal_test();
         // if (check_result())
             // return 0;
