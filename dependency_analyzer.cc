@@ -266,8 +266,11 @@ bool dependency_analyzer::check_G1a()
                 continue; // txn i must be committed
             
             auto& dependencies = dependency_graph[j][i]; // j(abort) -> WR -> i(commit) [i wr depend on j]
-            if (dependencies.count(WRITE_READ) > 0)
+            if (dependencies.count(WRITE_READ) > 0) {
+                cerr << "abort txn: " << j << endl;
+                cerr << "commit txn: " << i << endl;
                 return true;
+            }    
         }
     }
     return false;

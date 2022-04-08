@@ -18,7 +18,7 @@ int in_in_clause = 0; // 0-> not in "in" clause, 1-> in "in" clause
 int in_check_clause = 0; // 0-> not in "check" clause, 1-> in "check" clause
 set<string> update_used_column_ref;
 
-static int write_op_id = 0;
+int write_op_id = 0;
 static int row_id = 0;
 
 static void exclude_tables(

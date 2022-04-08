@@ -66,6 +66,8 @@ pthread_cond_t  cond_timeout;
 int child_pid = 0;
 bool child_timed_out = false;
 
+extern int write_op_id;
+
 void kill_process_signal(int signal)  
 {  
     if(signal != SIGALRM) {  
@@ -92,11 +94,18 @@ int fork_for_generating_database(dbms_info& d_info)
         throw runtime_error(string("restart server")); // need to generate database again
     just_check_server.reset();
 
+    write_op_id = 0;
     child_pid = fork();
     if (child_pid == 0) { // in child process
         generate_database(d_info);
+        ofstream output_wkey("wkey.txt");
+        output_wkey << write_op_id << endl;
+        output_wkey.close();
         exit(NORMAL_EXIT);
     }
+    ifstream input_wkey("wkey.txt");
+    input_wkey >> write_op_id;
+    input_wkey.close();
 
     itimer.it_value.tv_sec = TRANSACTION_TIMEOUT;
     itimer.it_value.tv_usec = 0; // us limit
@@ -285,7 +294,7 @@ tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 cockroach-db|cockroach-port|\
 output-or-affect-num|\
-reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
+reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
         smatch match;
@@ -319,6 +328,7 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
             "    --random-seed=filename    random file for dynamic query interaction" << endl <<
             "    --reproduce-sql=filename    sql file to reproduce the problem" << endl <<
             "    --reproduce-tid=filename    tid file to reproduce the problem" << endl <<
+            "    --reproduce-usage=filename    stmt usage file to reproduce the problem" << endl <<
             "    --min                  minimize the reproduce test case (should be used with --reproduce-sql and --reproduce-tid)" << endl <<
             "    --help                 print available command line options and exit" << endl;
         return 0;
@@ -398,10 +408,33 @@ reproduce-sql|reproduce-tid)(?:=((?:.|\n)*))?");
         }
         tid_file.close();
 
+        // get stmt use queue
+        vector<stmt_usage> stmt_usage_queue;
+        ifstream stmt_usage_file(options["reproduce-usage"]);
+        int use;
+        while (stmt_usage_file >> use) {
+            switch (use) {
+            case 0:
+                stmt_usage_queue.push_back(NORMAL);
+                break;
+            case 1:
+                stmt_usage_queue.push_back(BEFORE_WRITE_READ);
+                break;
+            case 2:
+                stmt_usage_queue.push_back(AFTER_WRITE_READ);
+                break;
+            default:
+                cerr << "unknown stmt usage: " << use << endl;
+                exit(-1);
+                break;
+            }
+        }
+        stmt_usage_file.close();
+
         if (options.count("min"))
-            minimize_testcase(d_info, stmt_queue, tid_queue);
+            minimize_testcase(d_info, stmt_queue, tid_queue, stmt_usage_queue);
         else
-            reproduce_routine(d_info, stmt_queue, tid_queue);
+            reproduce_routine(d_info, stmt_queue, tid_queue, stmt_usage_queue);
 
         return 0;
     }

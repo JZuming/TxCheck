@@ -32,6 +32,7 @@
 #include "grammar.hh" // for statement gen
 #include "dbms_info.hh" // for dbms_info
 #include "transaction_test.hh" // for transaction
+#include "instrumentor.hh" // for stmt_usage
 
 extern "C" { //for sigusr1
 #include <stdlib.h>
@@ -105,11 +106,13 @@ void kill_process_with_SIGTERM(pid_t process_id);
 
 bool reproduce_routine(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
-                        vector<int>& tid_queue);
+                        vector<int>& tid_queue,
+                        vector<stmt_usage> usage_queue);
 
 bool minimize_testcase(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
-                        vector<int>& tid_queue);
+                        vector<int>& tid_queue,
+                        vector<stmt_usage> usage_queue);
 
 string print_stmt_to_string(shared_ptr<prod> stmt);
 

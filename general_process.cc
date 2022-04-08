@@ -504,10 +504,11 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
 
 bool minimize_testcase(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
-                        vector<int>& tid_queue)
+                        vector<int>& tid_queue,
+                        vector<stmt_usage> usage_queue)
 {
     cerr << "Check reproduce..." << endl;
-    auto r_check = reproduce_routine(d_info, stmt_queue, tid_queue);
+    auto r_check = reproduce_routine(d_info, stmt_queue, tid_queue, usage_queue);
     if (!r_check) {
         cerr << "No" << endl;
         return false;
@@ -523,6 +524,7 @@ bool minimize_testcase(dbms_info& d_info,
     
     auto final_stmt_queue = stmt_queue;
     vector<int> final_tid_queue = tid_queue;
+    vector<stmt_usage> final_usage_queue = usage_queue;
     
     // txn level minimize
     for (int tid = 0; tid < txn_num; tid++) {
@@ -530,6 +532,7 @@ bool minimize_testcase(dbms_info& d_info,
 
         auto tmp_stmt_queue = final_stmt_queue;
         vector<int> tmp_tid_queue = final_tid_queue;
+        vector<stmt_usage> tmp_usage_queue = final_usage_queue;
 
         // delete current tid
         for (int i = 0; i < tmp_tid_queue.size(); i++) {
@@ -538,6 +541,7 @@ bool minimize_testcase(dbms_info& d_info,
             
             tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
             tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
+            tmp_usage_queue.erase(tmp_usage_queue.begin() + i);
             i--;
         }
 
@@ -549,7 +553,7 @@ bool minimize_testcase(dbms_info& d_info,
             tmp_tid_queue[i]--;
         }
 
-        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue);
+        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
         if (ret == false)
             continue;
 
@@ -557,6 +561,7 @@ bool minimize_testcase(dbms_info& d_info,
         cerr << "Succeed to delete txn " << tid << "\n\n\n" << endl;
         final_stmt_queue = tmp_stmt_queue;
         final_tid_queue = tmp_tid_queue;
+        final_usage_queue = tmp_usage_queue;
         tid--;
         txn_num--;
     }
@@ -569,6 +574,7 @@ bool minimize_testcase(dbms_info& d_info,
 
         auto tmp_stmt_queue = final_stmt_queue;
         vector<int> tmp_tid_queue = final_tid_queue;
+        vector<stmt_usage> tmp_usage_queue = final_usage_queue;
 
         // do not delete commit or abort
         auto tmp_stmt_str = print_stmt_to_string(tmp_stmt_queue[i]);
@@ -578,11 +584,37 @@ bool minimize_testcase(dbms_info& d_info,
             continue;
         if (tmp_stmt_str.find(dut->abort_stmt()) != string::npos)
             continue;
+
+        // do not delete BEFORE_WRITE_READ or AFTER_WRITE_READ seperately
+        if (tmp_usage_queue[i] != NORMAL)
+            continue;
         
+        // delete possible AFTER_WRITE_READ
+        int goback_num = 0;
+        int delete_num = 0;
+        if (i + 1 <= tmp_usage_queue.size() && tmp_usage_queue[i + 1] == AFTER_WRITE_READ) {
+            delete_num++;
+            // deleting later stmt donot need to goback the "i"
+            tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i + 1);
+            tmp_tid_queue.erase(tmp_tid_queue.begin() + i + 1);
+            tmp_usage_queue.erase(tmp_usage_queue.begin() + i + 1);
+        }
+        // delete the statement
+        goback_num++;
+        delete_num++;
         tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
         tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
+        tmp_usage_queue.erase(tmp_usage_queue.begin() + i);
+        // delete possible BEFORE_WRITE_READ
+        if (i - 1 >= 0 && tmp_usage_queue[i - 1] == BEFORE_WRITE_READ) {
+            goback_num++;
+            delete_num++;
+            tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i - 1);
+            tmp_tid_queue.erase(tmp_tid_queue.begin() + i - 1);
+            tmp_usage_queue.erase(tmp_usage_queue.begin() + i - 1);
+        }
 
-        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue);
+        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
         if (ret == false)
             continue;
         
@@ -590,8 +622,9 @@ bool minimize_testcase(dbms_info& d_info,
         cerr << "Succeed to delete stmt " << "\n\n\n" << endl;
         final_stmt_queue = tmp_stmt_queue;
         final_tid_queue = tmp_tid_queue;
-        i--;
-        stmt_num--;
+        final_usage_queue = tmp_usage_queue;
+        i = i - goback_num;
+        stmt_num = stmt_num - delete_num;
     }
 
     if (final_stmt_queue.size() == stmt_queue.size())
@@ -599,12 +632,13 @@ bool minimize_testcase(dbms_info& d_info,
 
     stmt_queue = final_stmt_queue;
     tid_queue = final_tid_queue;
+    usage_queue = final_usage_queue;
 
     string mimimized_stmt_file = "min_stmts.sql";
     // save stmt queue
     ofstream mimimized_stmt_output(mimimized_stmt_file);
     for (int i = 0; i < stmt_queue.size(); i++) {
-        mimimized_stmt_output << stmt_queue[i] << endl;
+        mimimized_stmt_output << print_stmt_to_string(stmt_queue[i]) << endl;
         mimimized_stmt_output << endl;
     }
     mimimized_stmt_output.close();
@@ -617,18 +651,28 @@ bool minimize_testcase(dbms_info& d_info,
     }
     minimized_tid_output.close();
 
+    // save stmt usage queue
+    string minimized_usage_file = "min_usage.txt";
+    ofstream minimized_usage_output(minimized_usage_file);
+    for (int i = 0; i < usage_queue.size(); i++) {
+        minimized_usage_output << usage_queue[i] << endl;
+    }
+    minimized_usage_output.close();
+
     return true;
 }
 
 
 bool reproduce_routine(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
-                        vector<int>& tid_queue)
+                        vector<int>& tid_queue,
+                        vector<stmt_usage> usage_queue)
 {
     transaction_test re_test(d_info);
     re_test.stmt_queue = stmt_queue;
     re_test.tid_queue = tid_queue;
     re_test.stmt_num = re_test.tid_queue.size();
+    re_test.stmt_use = usage_queue;
 
     int max_tid = -1;
     for (auto tid:tid_queue) {
