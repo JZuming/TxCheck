@@ -1,5 +1,8 @@
 #include "instrumentor.hh"
 
+
+string print_stmt_to_string(shared_ptr<prod> stmt);
+
 instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                             vector<int>& tid_queue,
                             shared_ptr<schema> db_schema)
@@ -31,8 +34,10 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                     break;
                 }
             }
-            if (wkey_idx == -1)
+            if (wkey_idx == -1) {
+                cerr << "problem stmt:\n" << print_stmt_to_string(update_statement) << endl;
                 throw runtime_error("intrument update statement: cannot find wkey");
+            }
             
             // get wkey value
             int wkey_set_idx = -1;
@@ -111,8 +116,11 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                     break;
                 }
             }
-            if (wkey_idx == -1)
+            if (wkey_idx == -1) {
+                cerr << "problem stmt:\n" << print_stmt_to_string(insert_statement) << endl;
                 throw runtime_error("intrument insert statement: cannot find wkey");
+            }
+                
             
             // get wkey value
             auto& items = insert_statement->value_exprs_vector.front();
