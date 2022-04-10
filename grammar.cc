@@ -1326,13 +1326,19 @@ prod(parent), myscope(s)
         stmt_string = "alter table " + table_ref->ident() + " rename to " + new_table_name;
     }
     else if (stmt_type == 1) { // rename column
-        auto& column_ref = random_pick(table_ref->columns());
+        column *column_ref;
+        while (1) {
+            column_ref = &random_pick(table_ref->columns());
+            // do not alter pkey and wkey
+            if (column_ref->name != "pkey" && column_ref->name != "wkey")
+                break;
+        }
         auto new_column_name = "c_" + random_identifier_generate();
         while (exist_column_name.count(upper_translate(new_column_name))) {
             new_column_name = new_column_name + "_2";
         }
 
-        stmt_string = "alter table " + table_ref->ident() + " rename column " + column_ref.name
+        stmt_string = "alter table " + table_ref->ident() + " rename column " + column_ref->name
                         + " to " + new_column_name;
     }
     else if (stmt_type == 2) { // add column
