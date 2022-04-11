@@ -456,9 +456,10 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                         dbms_info& d_info)
 {
     auto can_error = d_info.can_trigger_error_in_txn;
-    // if (can_error == false || d_info.ouput_or_affect_num > 0)
-    //     dut_reset_to_backup(d_info);
+    if (can_error == false || d_info.ouput_or_affect_num > 0)
+        dut_reset_to_backup(d_info);
     
+    vector<shared_ptr<prod>> all_tested_stmts; // if crash, report such statement
     scope scope;
     db_schema->fill_scope(scope);
     int stmt_num = 0;
@@ -487,15 +488,22 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                 auto dut = dut_setup(d_info);
                 int affect_num = 0;
                 vector<vector<string>> output;
+                all_tested_stmts.push_back(gen);
+                
                 dut->test(stmt, &output, &affect_num);
                 if (output.size() + affect_num < d_info.ouput_or_affect_num)
                     continue;
             } catch (exception &e) {
                 string err = e.what();
-                if (err.find("CONNECTION FAIL") != string::npos)
+                if (err.find("CONNECTION FAIL") != string::npos ||
+                        err.find("BUG") != string::npos) {
+                    
+                    ofstream bug_file(NORMAL_BUG_FILE);
+                    for (auto& stmt : all_tested_stmts) 
+                        bug_file << print_stmt_to_string(stmt) << endl;
+                    bug_file.close();
                     throw e;
-                if (err.find("BUG") != string::npos)
-                    throw e;
+                }
                 cerr << "err: " << e.what() << ", try again" << endl;
                 continue;
             }

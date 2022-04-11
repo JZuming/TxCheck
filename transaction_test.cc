@@ -582,6 +582,9 @@ int transaction_test::test()
         if (system(cmd.c_str()) == -1) 
         throw std::runtime_error(string("system() error, return -1") + " in transaction_test::test!");
         
+        // check whether the server is still alive
+        fork_if_server_closed();
+
         // save database
         auto dut = dut_setup(test_dbms_info);
         dut->save_backup_file(dir_name);
@@ -604,6 +607,9 @@ int transaction_test::test()
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;
     make_dir_error_exit(dir_name);
+
+    // check whether the server is still alive
+    fork_if_server_closed();
 
     cerr << RED << "Saving database..." << RESET << endl;
     auto dut = dut_setup(test_dbms_info);
