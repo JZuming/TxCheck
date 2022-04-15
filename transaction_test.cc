@@ -139,16 +139,16 @@ bool transaction_test::analyze_txn_dependency()
     //     cerr << "check_G2_item violate!!" << endl;
     //     return true;
     // }
-    // cerr << "check_GSIa ...!!" << endl;
-    // if (da.check_GSIa() == true){
-    //     cerr << "check_GSIa violate!!" << endl;
-    //     return true;
-    // }
-    // cerr << "check_GSIb ...!!" << endl;
-    // if (da.check_GSIb() == true){
-    //     cerr << "check_GSIb violate!!" << endl;
-    //     return true;
-    // }
+    cerr << "check_GSIa ...!!" << endl;
+    if (da.check_GSIa() == true){
+        cerr << "check_GSIa violate!!" << endl;
+        return true;
+    }
+    cerr << "check_GSIb ...!!" << endl;
+    if (da.check_GSIb() == true){
+        cerr << "check_GSIb violate!!" << endl;
+        return true;
+    }
     
     return false;
 }
@@ -589,8 +589,8 @@ int transaction_test::test()
         auto dut = dut_setup(test_dbms_info);
         dut->save_backup_file(dir_name);
 
-        exit(-1);
-        // return 1; // not need to do other transaction thing
+        // exit(-1);
+        return 1; // not need to do other transaction thing
     }
     
     try {
@@ -617,7 +617,7 @@ int transaction_test::test()
     
     save_test_case(dir_name);
     
-    exit(-1);
+    // exit(-1);
     return 1;
 }
 
@@ -731,7 +731,7 @@ transaction_test::transaction_test(dbms_info& d_info)
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];
-    commit_num = trans_num / 2;
+    commit_num = trans_num * 3 / 4;
     stmt_num = 0;
     for (int i = 0; i < trans_num; i++) {
         trans_arr[i].stmt_num = 2 + d6(); // 3 - 8

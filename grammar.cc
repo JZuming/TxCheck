@@ -1764,19 +1764,19 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
     try {
         s->new_stmt();
         if (choice == -1)
-            choice = d9();
+            choice = d12();
         // should not have ddl statement, which will auto commit in tidb;
 #ifndef TEST_CLICKHOUSE
         if (choice == 1)
             return make_shared<delete_stmt>((struct prod *)0, s);
-        if (choice == 7 || choice == 8 || choice == 9) 
+        if (choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif
-        if (choice == 5 || choice == 6)
+        if (choice == 4 || choice == 5 || choice == 6 || choice == 7)
             return make_shared<insert_stmt>((struct prod *)0, s);
         if (choice == 2)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
-        if (choice == 3 || choice == 4)
+        if (choice == 3)
             return make_shared<query_spec>((struct prod *)0, s, false, (vector<sqltype *> *)NULL, true);
         
         return txn_statement_factory(s);
