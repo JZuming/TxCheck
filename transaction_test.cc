@@ -153,13 +153,57 @@ bool transaction_test::analyze_txn_dependency()
         return true;
     }
 
-    auto l_path = da.PL2_longest_path();
+    longest_seq_txn_order = da.PL2_longest_path();
+    longest_seq_txn_order.erase(longest_seq_txn_order.begin());
     cerr << "longest_path: ";
-    for (int i = 0; i < l_path.size(); i++)
-        cerr << l_path[i] << " ";
+    for (int i = 0; i < longest_seq_txn_order.size(); i++)
+        cerr << longest_seq_txn_order[i] << " ";
     cerr << endl;
     
     return false;
+}
+
+bool transaction_test::refine_txn_as_txn_order()
+{
+    set<int> seq_txn;
+    for (int i = 0; i < longest_seq_txn_order.size(); i++)
+        seq_txn.insert(longest_seq_txn_order[i]);
+    
+    bool is_refined = false;
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        auto stmt = print_stmt_to_string(stmt_queue[i]);
+
+        if (trans_arr[tid].status == TXN_ABORT)
+            continue;
+        if (seq_txn.count(tid) > 0)
+            continue;
+        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos) // it is not commit stmt
+            continue;
+
+        is_refined = true;
+        // should be change to abort
+        trans_arr[tid].status = TXN_ABORT;
+        trans_arr[tid].stmts.pop_back();
+        trans_arr[tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->abort_stmt()));
+        stmt_queue[i] = trans_arr[tid].stmts.back();
+    }
+
+    if (is_refined == false)
+        return false;
+    
+    for (int tid = 0; tid < trans_num; tid++) {
+        trans_arr[tid].stmt_err_info.clear();
+        trans_arr[tid].stmt_outputs.clear();
+    }
+    init_db_content.clear();
+    real_tid_queue.clear();
+    real_stmt_queue.clear();
+    real_output_queue.clear();
+    real_stmt_usage.clear();
+    trans_db_content.clear();
+    longest_seq_txn_order.clear();
+    return true;
 }
 
 // 2: fatal error (e.g. restart transaction, current transaction is aborted), skip the stmt
@@ -397,42 +441,6 @@ void transaction_test::trans_test()
     dut_get_content(test_dbms_info, trans_db_content);
 }
 
-
-bool transaction_test::check_one_order_result(int order_index)
-{
-    cerr << "check order: " << order_index << endl;
-    if (!compare_content(trans_db_content, possible_normal_db_content[order_index])) {
-        cerr << "trans_db_content is not equal to possible_normal_db_content[" << order_index << "]" << endl;
-        return false;
-    }
-
-    for (auto i = 0; i < trans_num; i++) {
-        if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
-            continue;
-        if (trans_arr[i].status != TXN_COMMIT) // donot check abort transaction
-            continue;
-        
-        if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].possible_normal_outputs[order_index])) {
-            cerr << "trans "<< i << " output is not equal to possible_normal " << order_index << endl;
-            return false;
-        }
-    }
-
-    return true;
-}
-
-// true; no bug
-// false: trigger a logic bug
-bool transaction_test::check_result()
-{
-    auto order_num = possible_normal_trans_order.size();
-    for (int index = 0; index < order_num; index++) {
-        if (check_one_order_result(index))
-            return true;
-    }
-    return false;
-}
-
 void transaction_test::save_test_case(string dir_name)
 {
     cerr << RED << "Saving test cases..." << RESET;
@@ -567,6 +575,82 @@ bool transaction_test::fork_if_server_closed()
     return server_restart;
 }
 
+void transaction_test::normal_test()
+{
+    // get normal execute statement
+    int real_stmt_num = real_tid_queue.size();
+    for (int i = 0; i < real_stmt_num; i++) {
+        auto real_tid = real_tid_queue[i];
+        if (trans_arr[real_tid].status != TXN_COMMIT)
+            continue;
+        
+        auto real_stmt = real_stmt_queue[i];
+        trans_arr[real_tid].normal_stmts.push_back(real_stmt);
+    }
+
+    for (int tid = 0; tid < trans_num; tid++) {
+        // if it is commit, erase "begin" and "commit"
+        if (trans_arr[tid].status == TXN_COMMIT) {
+            trans_arr[tid].normal_stmts.erase(trans_arr[tid].normal_stmts.begin());
+            trans_arr[tid].normal_stmts.pop_back();
+        }
+    }
+
+    dut_reset_to_backup(test_dbms_info);
+    auto normal_dut = dut_setup(test_dbms_info);
+
+    for (auto tid : longest_seq_txn_order) {
+        vector<vector<vector<string>>> normal_output;
+        vector<string> normal_err_info;
+
+        auto normal_stmt_num = trans_arr[tid].normal_stmts.size();
+        for (int i = 0; i < normal_stmt_num; i++) {
+            auto stmt = print_stmt_to_string(trans_arr[tid].normal_stmts[i]);
+            vector<vector<string>> output;
+             try {
+                normal_dut->test(stmt, &output);
+                normal_output.push_back(output);
+                    
+                cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+            } catch (exception &e) {
+                string err = e.what();
+                cerr << RED 
+                    << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+                    << err << RESET << endl;
+                normal_err_info.push_back(err);
+            }
+        }
+        vector<vector<string>> empty_output;
+        normal_output.insert(normal_output.begin(), empty_output); // for begin stmt
+        normal_output.push_back(empty_output); // for commit stmt
+        trans_arr[tid].normal_outputs = normal_output;
+        trans_arr[tid].normal_err_info =normal_err_info;
+    }
+    dut_get_content(test_dbms_info, normal_db_content);
+}
+
+bool transaction_test::check_txn_normal_result()
+{
+    if (!compare_content(trans_db_content, normal_db_content)) {
+        cerr << "trans_db_content is not equal to possible_normal_db_content" << endl;
+        return false;
+    }
+
+    for (auto i = 0; i < trans_num; i++) {
+        if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
+            continue;
+        if (trans_arr[i].status != TXN_COMMIT) // donot check abort transaction
+            continue;
+        
+        if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].normal_outputs)) {
+            cerr << "trans "<< i << " output is not equal to possible_normal " << endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 int transaction_test::test()
 {
     try {
@@ -598,12 +682,17 @@ int transaction_test::test()
     }
     
     try {
-        trans_test();
-        if (!analyze_txn_dependency()) 
+        while (1) {
+            trans_test();
+            if (analyze_txn_dependency()) 
+                throw runtime_error("BUG: found in analyze_txn_dependency()");
+            if (refine_txn_as_txn_order() == false)
+                break; // have been stable
+        }
+
+        normal_test();
+        if (check_txn_normal_result())
             return 0;
-        // normal_test();
-        // if (check_result())
-            // return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }

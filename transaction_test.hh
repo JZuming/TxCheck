@@ -21,6 +21,10 @@ struct transaction {
     vector<stmt_output> stmt_outputs;
     vector<string> stmt_err_info;
 
+    vector<shared_ptr<prod>> normal_stmts;
+    vector<stmt_output> normal_outputs;
+    vector<string> normal_err_info;
+
     transaction() {is_blocked = false; stmt_num = 0; status = NOT_DEFINED;}
 
     int stmt_num;
@@ -55,21 +59,28 @@ public:
     vector<stmt_usage> real_stmt_usage;
     map<string, vector<vector<string>>> trans_db_content;
 
+    vector<int> longest_seq_txn_order;
+
+    map<string, vector<vector<string>>> normal_db_content;
+
     void assign_txn_id();
     void assign_txn_status();
     void gen_txn_stmts();
     void instrument_txn_stmts();
 
     bool analyze_txn_dependency();
+    bool refine_txn_as_txn_order();
     
     bool check_commit_trans_blocked();
     void trans_test();
     void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue);
     int trans_test_unit(int stmt_pos, stmt_output& output);
 
-    bool check_result();
+    bool check_txn_normal_result();
 
     bool fork_if_server_closed();
+
+    void normal_test();
 
     transaction_test(dbms_info& d_info);
     ~transaction_test();

@@ -315,7 +315,7 @@ static bool nomoalize_content(vector<vector<string>> &content)
     auto size = content.size();
 
     for (int i = 0; i < size; i++) {
-        auto column_num = content.size();
+        auto column_num = content[i].size();
         for (int j = 0; j < column_num; j++) {
             auto str = content[i][j];
             double value = 0;
@@ -326,7 +326,7 @@ static bool nomoalize_content(vector<vector<string>> &content)
             // value is a float
             value = stod(str);
             value = round(value * 100) / 100; // keep 2 number after the point
-            content[i][j] = to_string(value);\
+            content[i][j] = to_string(value);
         }
     }
     return true;

@@ -226,8 +226,8 @@ f_txn_status(final_txn_status)
             tid_end_idx[tid] = i;
     }
     for (int i = 0; i < tid_num; i++) {
-        if (f_txn_status[i] != TXN_COMMIT)
-            continue;
+        // if (f_txn_status[i] != TXN_COMMIT)
+        //     continue;
         for (int j = 0; j < tid_num; j++) {
             if (i == j)
                 continue;
