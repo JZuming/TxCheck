@@ -139,16 +139,16 @@ bool transaction_test::analyze_txn_dependency()
     //     cerr << "check_G2_item violate!!" << endl;
     //     return true;
     // }
-    // cerr << "check_GSIa ...!!" << endl;
-    // if (da.check_GSIa() == true){
-    //     cerr << "check_GSIa violate!!" << endl;
-    //     return true;
-    // }
-    // cerr << "check_GSIb ...!!" << endl;
-    // if (da.check_GSIb() == true){
-    //     cerr << "check_GSIb violate!!" << endl;
-    //     return true;
-    // }
+    cerr << "check_GSIa ...!!" << endl;
+    if (da.check_GSIa() == true){
+        cerr << "check_GSIa violate!!" << endl;
+        return true;
+    }
+    cerr << "check_GSIb ...!!" << endl;
+    if (da.check_GSIb() == true){
+        cerr << "check_GSIb violate!!" << endl;
+        return true;
+    }
 
     auto l_path = da.PL2_longest_path();
     cerr << "longest_path: ";

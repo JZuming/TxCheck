@@ -690,13 +690,13 @@ bool dependency_analyzer::check_GSIb()
     return has_rw_cycle;
 }
 
-vector<int> dependency_analyzer::longest_path(int **direct_graph, int length)
+vector<int> dependency_analyzer::longest_path(int **dist_graph, int length)
 {
     auto dad_graph = new int [length];
-    auto dist_graph = new int [length];
+    auto path_graph = new int [length];
     for (int i = 0; i < length; i++)  {
         dad_graph[i] = -1;
-        dist_graph[i] = 0;
+        path_graph[i] = 0;
     }
 
     auto tmp_graph = new int* [length];
@@ -704,7 +704,7 @@ vector<int> dependency_analyzer::longest_path(int **direct_graph, int length)
         tmp_graph[i] = new int [length];
     for (int i = 0; i < length; i++) {
         for (int j = 0; j < length; j++)
-            tmp_graph[i][j] = direct_graph[i][j];
+            tmp_graph[i][j] = dist_graph[i][j];
     }
 
     set<int> deleted_nodes;
@@ -739,14 +739,14 @@ vector<int> dependency_analyzer::longest_path(int **direct_graph, int length)
         int max_length = 0;
         int max_dad = -1;
         for (int i = 0; i < length; i++) {
-            if (direct_graph[i][zero_indegree_idx] == 0)
+            if (dist_graph[i][zero_indegree_idx] == 0)
                 continue;
-            if (dist_graph[i] + 1 > max_length) {
-                max_length = dist_graph[i] + 1;
+            if (path_graph[i] + dist_graph[i][zero_indegree_idx] > max_length) {
+                max_length = path_graph[i] + dist_graph[i][zero_indegree_idx];
                 max_dad = i;
             }
         }
-        dist_graph[zero_indegree_idx] = max_length;
+        path_graph[zero_indegree_idx] = max_length;
         dad_graph[zero_indegree_idx] = max_dad;
         
         // delete the node and edge from node to other node
@@ -759,9 +759,9 @@ vector<int> dependency_analyzer::longest_path(int **direct_graph, int length)
     int longest_dist = 0;
     int longest_dist_idx = -1;
     for (int i = 0; i < length; i++) {
-        if (dist_graph[i] > longest_dist) {
+        if (path_graph[i] > longest_dist) {
             longest_dist_idx = i;
-            longest_dist = dist_graph[i];
+            longest_dist = path_graph[i];
         }
     }
     int idx = longest_dist_idx;
@@ -771,13 +771,14 @@ vector<int> dependency_analyzer::longest_path(int **direct_graph, int length)
         if (idx == -1)
             break;
     }
+    cerr << "path length: " << longest_dist << endl;
 
     for (int i = 0; i < length; i++)
         delete[] tmp_graph[i];
     delete[] tmp_graph;
 
     delete[] dad_graph;
-    delete[] dist_graph;
+    delete[] path_graph;
 
     return longest_path;
 }
@@ -812,8 +813,12 @@ vector<int> dependency_analyzer::PL3_longest_path()
                     inserter(res, res.begin()));
             
             // have needed edges
-            if (res.empty() == false)
+            if (res.count(START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
                 tmp_dgraph[i][j] = 1;
+            else if (res.count(START_DEPEND) > 0) // dependency has START_DEPEND and other
+                tmp_dgraph[i][j] = 10;
+            else if (res.empty() == false) // dependency has other but donot have START_DEPEND
+                tmp_dgraph[i][j] = 100;
         }
     }
 
@@ -855,8 +860,12 @@ vector<int> dependency_analyzer::PL2_longest_path()
                     inserter(res, res.begin()));
             
             // have needed edges
-            if (res.empty() == false)
+            if (res.count(START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
                 tmp_dgraph[i][j] = 1;
+            else if (res.count(START_DEPEND) > 0) // dependency has START_DEPEND and other
+                tmp_dgraph[i][j] = 10;
+            else if (res.empty() == false) // dependency has other but donot have START_DEPEND
+                tmp_dgraph[i][j] = 100;
         }
     }
 
