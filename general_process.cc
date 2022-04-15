@@ -435,7 +435,7 @@ int generate_database(dbms_info& d_info)
 
     // stage 2: basic DML stage (only insert),
     cerr << YELLOW << "stage 2: insert data into the database ..." << RESET;
-    auto basic_dml_stmt_num = 30 + d9(); // 11-20 statements to insert data
+    auto basic_dml_stmt_num = 10 + d9(); // 11-20 statements to insert data
     auto schema = get_schema(d_info); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) 
         normal_test(d_info, schema, &basic_dml_statement_factory, stage_2_rec, true);

@@ -689,3 +689,182 @@ bool dependency_analyzer::check_GSIb()
 
     return has_rw_cycle;
 }
+
+vector<int> dependency_analyzer::longest_path(int **direct_graph, int length)
+{
+    auto dad_graph = new int [length];
+    auto dist_graph = new int [length];
+    for (int i = 0; i < length; i++)  {
+        dad_graph[i] = -1;
+        dist_graph[i] = 0;
+    }
+
+    auto tmp_graph = new int* [length];
+    for (int i = 0; i < length; i++) 
+        tmp_graph[i] = new int [length];
+    for (int i = 0; i < length; i++) {
+        for (int j = 0; j < length; j++)
+            tmp_graph[i][j] = direct_graph[i][j];
+    }
+
+    set<int> deleted_nodes;
+    while (1) {
+        // check whether the graph is empty
+        if (deleted_nodes.size() == length)
+            break;
+        
+        // find a node whose in-degree is 0
+        int zero_indegree_idx = -1;
+        for (int i = 0; i < length; i++) {
+            if (deleted_nodes.count(i) > 0)
+                continue;
+            
+            bool has_indegree = false;
+            for (int j = 0; j < length; j++) {
+                if (tmp_graph[j][i] > 0) {
+                    has_indegree = true;
+                    break;
+                }
+            }
+            if (has_indegree == false) {
+                zero_indegree_idx = i;
+                break;
+            }
+        }
+        // if all nodes have indegree, there is a cycle
+        if (zero_indegree_idx == -1)
+            throw runtime_error("BUG: there is a cycle in longest_dependency_path()");
+        
+        // find its father of zero_indegree_idx
+        int max_length = 0;
+        int max_dad = -1;
+        for (int i = 0; i < length; i++) {
+            if (direct_graph[i][zero_indegree_idx] == 0)
+                continue;
+            if (dist_graph[i] + 1 > max_length) {
+                max_length = dist_graph[i] + 1;
+                max_dad = i;
+            }
+        }
+        dist_graph[zero_indegree_idx] = max_length;
+        dad_graph[zero_indegree_idx] = max_dad;
+        
+        // delete the node and edge from node to other node
+        deleted_nodes.insert(zero_indegree_idx);
+        for (int j = 0; j < length; j++)
+            tmp_graph[zero_indegree_idx][j] = 0; 
+    }
+
+    vector<int> longest_path;
+    int longest_dist = 0;
+    int longest_dist_idx = -1;
+    for (int i = 0; i < length; i++) {
+        if (dist_graph[i] > longest_dist) {
+            longest_dist_idx = i;
+            longest_dist = dist_graph[i];
+        }
+    }
+    int idx = longest_dist_idx;
+    while (1) {
+        longest_path.insert(longest_path.begin(), idx);
+        idx = dad_graph[idx];
+        if (idx == -1)
+            break;
+    }
+
+    for (int i = 0; i < length; i++)
+        delete[] tmp_graph[i];
+    delete[] tmp_graph;
+
+    delete[] dad_graph;
+    delete[] dist_graph;
+
+    return longest_path;
+}
+
+vector<int> dependency_analyzer::PL3_longest_path()
+{
+    set<dependency_type> used_dependency_set;
+    used_dependency_set.insert(WRITE_WRITE);
+    used_dependency_set.insert(WRITE_READ);
+    used_dependency_set.insert(READ_WRITE);
+    used_dependency_set.insert(START_DEPEND);
+
+    auto tmp_dgraph = new int* [tid_num];
+    for (int i = 0; i < tid_num; i++) 
+        tmp_dgraph[i] = new int [tid_num];
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            tmp_dgraph[i][j] = 0;
+        }
+    }
+    
+    // initialize tmp_dgraph
+    for (int i = 0; i < tid_num; i++) {
+        if (f_txn_status[i] != TXN_COMMIT)
+            continue;
+        for (int j = 0; j < tid_num; j++) {
+            if (f_txn_status[j] != TXN_COMMIT)
+                continue;
+            set<dependency_type> res;
+            set_intersection(used_dependency_set.begin(), used_dependency_set.end(), 
+                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
+                    inserter(res, res.begin()));
+            
+            // have needed edges
+            if (res.empty() == false)
+                tmp_dgraph[i][j] = 1;
+        }
+    }
+
+    auto l_path = longest_path(tmp_dgraph, tid_num);
+
+    for (int i = 0; i < tid_num; i++)
+        delete[] tmp_dgraph[i];
+    delete[] tmp_dgraph;
+
+    return l_path;
+}
+
+vector<int> dependency_analyzer::PL2_longest_path()
+{
+    set<dependency_type> used_dependency_set;
+    used_dependency_set.insert(WRITE_WRITE);
+    used_dependency_set.insert(WRITE_READ);
+    used_dependency_set.insert(START_DEPEND);
+
+    auto tmp_dgraph = new int* [tid_num];
+    for (int i = 0; i < tid_num; i++) 
+        tmp_dgraph[i] = new int [tid_num];
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            tmp_dgraph[i][j] = 0;
+        }
+    }
+    
+    // initialize tmp_dgraph
+    for (int i = 0; i < tid_num; i++) {
+        if (f_txn_status[i] != TXN_COMMIT)
+            continue;
+        for (int j = 0; j < tid_num; j++) {
+            if (f_txn_status[j] != TXN_COMMIT)
+                continue;
+            set<dependency_type> res;
+            set_intersection(used_dependency_set.begin(), used_dependency_set.end(), 
+                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
+                    inserter(res, res.begin()));
+            
+            // have needed edges
+            if (res.empty() == false)
+                tmp_dgraph[i][j] = 1;
+        }
+    }
+
+    auto l_path = longest_path(tmp_dgraph, tid_num);
+
+    for (int i = 0; i < tid_num; i++)
+        delete[] tmp_dgraph[i];
+    delete[] tmp_dgraph;
+
+    return l_path;
+}

@@ -89,6 +89,9 @@ struct dependency_analyzer
     bool check_cycle(set<dependency_type>& edge_types);
     static bool reduce_graph_indegree(int **direct_graph, int length);
     static bool reduce_graph_outdegree(int **direct_graph, int length);
+    vector<int> longest_path(int **direct_graph, int length);
+    vector<int> PL2_longest_path();
+    vector<int> PL3_longest_path();
 
     history h;
     int tid_num;

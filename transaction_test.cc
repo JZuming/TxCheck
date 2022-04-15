@@ -1,6 +1,6 @@
 #include "transaction_test.hh"
 
-#define MAX_CONCURRENT_TXN_NUM  5
+#define MAX_CONCURRENT_TXN_NUM  3
 
 void transaction_test::assign_txn_id()
 {
@@ -139,16 +139,22 @@ bool transaction_test::analyze_txn_dependency()
     //     cerr << "check_G2_item violate!!" << endl;
     //     return true;
     // }
-    cerr << "check_GSIa ...!!" << endl;
-    if (da.check_GSIa() == true){
-        cerr << "check_GSIa violate!!" << endl;
-        return true;
-    }
-    cerr << "check_GSIb ...!!" << endl;
-    if (da.check_GSIb() == true){
-        cerr << "check_GSIb violate!!" << endl;
-        return true;
-    }
+    // cerr << "check_GSIa ...!!" << endl;
+    // if (da.check_GSIa() == true){
+    //     cerr << "check_GSIa violate!!" << endl;
+    //     return true;
+    // }
+    // cerr << "check_GSIb ...!!" << endl;
+    // if (da.check_GSIb() == true){
+    //     cerr << "check_GSIb violate!!" << endl;
+    //     return true;
+    // }
+
+    auto l_path = da.PL2_longest_path();
+    cerr << "longest_path: ";
+    for (int i = 0; i < l_path.size(); i++)
+        cerr << l_path[i] << " ";
+    cerr << endl;
     
     return false;
 }
