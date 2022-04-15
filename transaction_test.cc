@@ -98,6 +98,9 @@ void transaction_test::instrument_txn_stmts()
         auto &stmt = stmt_queue[i];
         trans_arr[tid].stmts.push_back(stmt);
     }
+
+    for (int tid = 0; tid < trans_num; tid++) 
+        trans_arr[tid].stmt_num = trans_arr[tid].stmts.size();
 }
 
 bool transaction_test::analyze_txn_dependency()
@@ -394,114 +397,6 @@ void transaction_test::trans_test()
     dut_get_content(test_dbms_info, trans_db_content);
 }
 
-void transaction_test::get_possible_order()
-{
-    vector<int> most_possible_trans_order;
-    int real_stmt_num = real_tid_queue.size();
-    cout << "real_tid_queue: " << endl;
-    for (int i = 0; i < real_stmt_num; i++) {
-        cout << real_tid_queue[i] << " ";
-    }
-    cout << endl;
-    
-    for (int i = 0; i < real_stmt_num; i++) {
-        auto tid = real_tid_queue[i];
-
-        if (trans_arr[tid].status != TXN_COMMIT) // do not consider abort transaction
-            continue;
-        
-        // confirm their based on their commit order
-        auto stmt_str = print_stmt_to_string(real_stmt_queue[i]);
-        if (stmt_str.find(trans_arr[tid].dut->commit_stmt()) == string::npos &&
-                stmt_str.find(trans_arr[tid].dut->abort_stmt()) == string::npos)
-            continue;
-            
-        most_possible_trans_order.push_back(tid);
-    }
-    possible_normal_trans_order.push_back(most_possible_trans_order);
-
-    // for non-serilizable, the commit transaction does not interleave, so only one possible result
-    if (!test_dbms_info.serializable)
-        return;
-
-    // in serilized case, if commit num is not 2, it must be less than 2
-    // in trans_test, committed_trans may change to aborted trans, so cannot use commit_num
-    if (most_possible_trans_order.size() != 2)
-        return;
-    
-    vector<int> another_possible_trans_order;
-    another_possible_trans_order.push_back(most_possible_trans_order[1]);
-    another_possible_trans_order.push_back(most_possible_trans_order[0]);
-    possible_normal_trans_order.push_back(another_possible_trans_order);
-    return;
-}
-
-void transaction_test::execute_possible_order()
-{
-    // get normal execute statement
-    int real_stmt_num = real_tid_queue.size();
-    for (int i = 0; i < real_stmt_num; i++) {
-        auto real_tid = real_tid_queue[i];
-        auto real_stmt = real_stmt_queue[i];
-        trans_arr[real_tid].normal_stmts.push_back(real_stmt);
-    }
-
-    for (int tid = 0; tid < commit_num; tid++) {
-        // if it is commit, erase "begin" and "commit"
-        if (trans_arr[tid].status == TXN_COMMIT) {
-            trans_arr[tid].normal_stmts.erase(trans_arr[tid].normal_stmts.begin());
-            trans_arr[tid].normal_stmts.pop_back();
-        }
-    }
-
-    auto possible_order_num = possible_normal_trans_order.size();
-    for (int i = 0; i < possible_order_num; i++) {
-        auto trans_order = possible_normal_trans_order[i];   
-        dut_reset_to_backup(test_dbms_info);
-        auto normal_dut = dut_setup(test_dbms_info);
-        
-        for (auto tid : trans_order) {
-            vector<vector<vector<string>>> normal_output;
-            vector<string> normal_err_info;
-
-            auto normal_stmt_num = trans_arr[tid].normal_stmts.size();
-            for (int i = 0; i < normal_stmt_num; i++) {
-                auto stmt = print_stmt_to_string(trans_arr[tid].normal_stmts[i]);
-                vector<vector<string>> output;
-                try {
-                    normal_dut->test(stmt, &output);
-                    if (!output.empty())
-                        normal_output.push_back(output);
-                    
-                    cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
-                } catch (exception &e) {
-                    string err = e.what();
-                    cerr << RED 
-                        << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
-                        << err << RESET << endl;
-                    normal_err_info.push_back(err);
-                }
-            }
-
-            trans_arr[tid].possible_normal_outputs.push_back(normal_output);
-            trans_arr[tid].possible_normal_err_info.push_back(normal_err_info);
-        }
-        normal_dut.reset();
-        map<string, vector<vector<string>>> normal_db_content;
-        dut_get_content(test_dbms_info, normal_db_content);
-        possible_normal_db_content.push_back(normal_db_content);
-    }
-
-    return;
-}
-
-void transaction_test::normal_test()
-{
-    cerr << YELLOW << "normal test" << RESET << endl;
-    get_possible_order();
-    execute_possible_order();
-    return;
-}
 
 bool transaction_test::check_one_order_result(int order_index)
 {
@@ -567,64 +462,6 @@ void transaction_test::save_test_case(string dir_name)
     total_stmt_use_output.close();
 
     cerr << RED << "done" << RESET << endl;
-}
-
-int transaction_test::test()
-{
-    try {
-        assign_txn_id();
-        assign_txn_status();
-        gen_txn_stmts();
-        instrument_txn_stmts();
-    } catch(exception &e) {
-        cerr << "Trigger a normal bugs when inializing the stmts" << endl;
-        cerr << "Bug info: " << e.what() << endl;
-
-        string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_normal/"; 
-        record_bug_num++;
-
-        make_dir_error_exit(dir_name);
-        string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
-        if (system(cmd.c_str()) == -1) 
-        throw std::runtime_error(string("system() error, return -1") + " in transaction_test::test!");
-        
-        // check whether the server is still alive
-        fork_if_server_closed();
-
-        // save database
-        auto dut = dut_setup(test_dbms_info);
-        dut->save_backup_file(dir_name);
-
-        // exit(-1);
-        return 1; // not need to do other transaction thing
-    }
-    
-    try {
-        trans_test();
-        if (!analyze_txn_dependency()) 
-            return 0;
-        // normal_test();
-        // if (check_result())
-            // return 0;
-    } catch(exception &e) {
-        cerr << "error captured by test: " << e.what() << endl;
-    }
-
-    string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
-    record_bug_num++;
-    make_dir_error_exit(dir_name);
-
-    // check whether the server is still alive
-    fork_if_server_closed();
-
-    cerr << RED << "Saving database..." << RESET << endl;
-    auto dut = dut_setup(test_dbms_info);
-    dut->save_backup_file(dir_name);
-    
-    save_test_case(dir_name);
-    
-    // exit(-1);
-    return 1;
 }
 
 int transaction_test::record_bug_num = 0;
@@ -728,6 +565,64 @@ bool transaction_test::fork_if_server_closed()
     }
 
     return server_restart;
+}
+
+int transaction_test::test()
+{
+    try {
+        assign_txn_id();
+        assign_txn_status();
+        gen_txn_stmts();
+        instrument_txn_stmts();
+    } catch(exception &e) {
+        cerr << "Trigger a normal bugs when inializing the stmts" << endl;
+        cerr << "Bug info: " << e.what() << endl;
+
+        string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_normal/"; 
+        record_bug_num++;
+
+        make_dir_error_exit(dir_name);
+        string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
+        if (system(cmd.c_str()) == -1) 
+        throw std::runtime_error(string("system() error, return -1") + " in transaction_test::test!");
+        
+        // check whether the server is still alive
+        fork_if_server_closed();
+
+        // save database
+        auto dut = dut_setup(test_dbms_info);
+        dut->save_backup_file(dir_name);
+
+        // exit(-1);
+        return 1; // not need to do other transaction thing
+    }
+    
+    try {
+        trans_test();
+        if (!analyze_txn_dependency()) 
+            return 0;
+        // normal_test();
+        // if (check_result())
+            // return 0;
+    } catch(exception &e) {
+        cerr << "error captured by test: " << e.what() << endl;
+    }
+
+    string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
+    record_bug_num++;
+    make_dir_error_exit(dir_name);
+
+    // check whether the server is still alive
+    fork_if_server_closed();
+
+    cerr << RED << "Saving database..." << RESET << endl;
+    auto dut = dut_setup(test_dbms_info);
+    dut->save_backup_file(dir_name);
+    
+    save_test_case(dir_name);
+    
+    // exit(-1);
+    return 1;
 }
 
 transaction_test::transaction_test(dbms_info& d_info)

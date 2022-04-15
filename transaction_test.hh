@@ -21,10 +21,6 @@ struct transaction {
     vector<stmt_output> stmt_outputs;
     vector<string> stmt_err_info;
 
-    vector<shared_ptr<prod>> normal_stmts;
-    vector<vector<stmt_output>> possible_normal_outputs; // vector of txn output
-    vector<vector<string>> possible_normal_err_info;
-
     transaction() {is_blocked = false; stmt_num = 0; status = NOT_DEFINED;}
 
     int stmt_num;
@@ -59,9 +55,6 @@ public:
     vector<stmt_usage> real_stmt_usage;
     map<string, vector<vector<string>>> trans_db_content;
 
-    vector<vector<int>> possible_normal_trans_order;
-    vector<map<string, vector<vector<string>>>> possible_normal_db_content;
-
     void assign_txn_id();
     void assign_txn_status();
     void gen_txn_stmts();
@@ -74,7 +67,6 @@ public:
     void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue);
     int trans_test_unit(int stmt_pos, stmt_output& output);
 
-    void normal_test();
     bool check_result();
 
     bool fork_if_server_closed();
@@ -85,8 +77,6 @@ public:
     int test();
 
 private:
-    void get_possible_order();
-    void execute_possible_order();
     bool check_one_order_result(int order_index);
     void save_test_case(string dir_name);
 };
