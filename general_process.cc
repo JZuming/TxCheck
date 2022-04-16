@@ -727,8 +727,17 @@ bool reproduce_routine(dbms_info& d_info,
     }
     
     try {
-        re_test.trans_test();
-        if (re_test.analyze_txn_dependency()) {
+        while (1) {
+            re_test.trans_test();
+            if (re_test.analyze_txn_dependency()) {
+                cerr << RED << "Find Bugs!!" << RESET << endl;
+                return true;
+            }
+            if (re_test.refine_txn_as_txn_order() == false)
+                break; // have been stable
+        }
+        re_test.normal_test();
+        if (!re_test.check_txn_normal_result()) {
             cerr << RED << "Find Bugs!!" << RESET << endl;
             return true;
         }

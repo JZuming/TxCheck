@@ -206,9 +206,11 @@ f_txn_status(final_txn_status)
     // generate start dependency (for snapshot)
     // count the second stmt as begin stmt, because some dbms donot use snapshot unless it read or write something
     auto tid_has_used_begin = new bool[tid_num];
+    tid_strict_begin_idx = new int[tid_num];
     tid_begin_idx = new int[tid_num];
     tid_end_idx = new int[tid_num];
     for (int i = 0; i < tid_num; i++) {
+        tid_strict_begin_idx[i] = -1;
         tid_begin_idx[i] = -1;
         tid_end_idx[i] = -1;
         tid_has_used_begin[i] = false;
@@ -218,6 +220,7 @@ f_txn_status(final_txn_status)
         // skip the first stmt (i.e. start transaction)
         if (tid_has_used_begin[tid] == false) {
             tid_has_used_begin[tid] = true;
+            tid_strict_begin_idx[tid] = i;
             continue;
         }
         if (tid_begin_idx[tid] == -1)
@@ -233,6 +236,8 @@ f_txn_status(final_txn_status)
                 continue;
             if (tid_end_idx[i] < tid_begin_idx[j]) 
                 dependency_graph[i][j].insert(START_DEPEND);
+            if (tid_end_idx[i] < tid_strict_begin_idx[j])
+                dependency_graph[i][j].insert(STRICT_START_DEPEND);
         }
     }
     delete[] tid_has_used_begin;
@@ -265,7 +270,7 @@ f_txn_status(final_txn_status)
                 cerr << "2";
             else
                 cerr << " ";
-            if (dependency_graph[i][j].count(START_DEPEND))
+            if (dependency_graph[i][j].count(STRICT_START_DEPEND))
                 cerr << "3";
             else
                 cerr << " ";
@@ -278,6 +283,7 @@ dependency_analyzer::~dependency_analyzer()
 {
     delete[] tid_end_idx;
     delete[] tid_begin_idx;
+    delete[] tid_strict_begin_idx;
     
     for (int i = 0; i < tid_num; i++) 
         delete[] dependency_graph[i];
@@ -600,7 +606,7 @@ bool dependency_analyzer::check_GSIb()
     target_dependency_set.insert(WRITE_WRITE);
     target_dependency_set.insert(WRITE_READ);
     target_dependency_set.insert(READ_WRITE);
-    target_dependency_set.insert(START_DEPEND);
+    target_dependency_set.insert(STRICT_START_DEPEND);
     
     auto tmp_dgraph = new int* [tid_num];
     for (int i = 0; i < tid_num; i++) 
@@ -789,7 +795,7 @@ vector<int> dependency_analyzer::PL3_longest_path()
     used_dependency_set.insert(WRITE_WRITE);
     used_dependency_set.insert(WRITE_READ);
     used_dependency_set.insert(READ_WRITE);
-    used_dependency_set.insert(START_DEPEND);
+    used_dependency_set.insert(STRICT_START_DEPEND);
 
     auto tmp_dgraph = new int* [tid_num];
     for (int i = 0; i < tid_num; i++) 
@@ -813,9 +819,9 @@ vector<int> dependency_analyzer::PL3_longest_path()
                     inserter(res, res.begin()));
             
             // have needed edges
-            if (res.count(START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
+            if (res.count(STRICT_START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
                 tmp_dgraph[i][j] = 1;
-            else if (res.count(START_DEPEND) > 0) // dependency has START_DEPEND and other
+            else if (res.count(STRICT_START_DEPEND) > 0) // dependency has START_DEPEND and other
                 tmp_dgraph[i][j] = 10;
             else if (res.empty() == false) // dependency has other but donot have START_DEPEND
                 tmp_dgraph[i][j] = 100;
@@ -836,7 +842,7 @@ vector<int> dependency_analyzer::PL2_longest_path()
     set<dependency_type> used_dependency_set;
     used_dependency_set.insert(WRITE_WRITE);
     used_dependency_set.insert(WRITE_READ);
-    used_dependency_set.insert(START_DEPEND);
+    used_dependency_set.insert(STRICT_START_DEPEND);
 
     auto tmp_dgraph = new int* [tid_num];
     for (int i = 0; i < tid_num; i++) 
@@ -860,9 +866,9 @@ vector<int> dependency_analyzer::PL2_longest_path()
                     inserter(res, res.begin()));
             
             // have needed edges
-            if (res.count(START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
+            if (res.count(STRICT_START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
                 tmp_dgraph[i][j] = 1;
-            else if (res.count(START_DEPEND) > 0) // dependency has START_DEPEND and other
+            else if (res.count(STRICT_START_DEPEND) > 0) // dependency has START_DEPEND and other
                 tmp_dgraph[i][j] = 10;
             else if (res.empty() == false) // dependency has other but donot have START_DEPEND
                 tmp_dgraph[i][j] = 100;

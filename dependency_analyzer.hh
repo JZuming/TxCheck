@@ -17,7 +17,9 @@
 
 using namespace std;
 
-enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND};
+// START_DEPEND: the begin is count by first read or write
+// STRICT_START_DEPEND: the begin is count by begin statement
+enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND, STRICT_START_DEPEND};
 
 typedef vector<string> row_output; // a row consists of several field(string)
 typedef vector<row_output> stmt_output; // one output consits of several rows
@@ -96,6 +98,7 @@ struct dependency_analyzer
     history h;
     int tid_num;
     int* tid_begin_idx;
+    int* tid_strict_begin_idx;
     int* tid_end_idx;
     vector<txn_status> f_txn_status;
     map<int, row_output> hash_to_output;
