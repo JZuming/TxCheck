@@ -137,21 +137,21 @@ bool transaction_test::analyze_txn_dependency()
         cerr << "check_G1c violate!!" << endl;
         return true;
     }
-    // cerr << "check_G2_item ...!!" << endl;
-    // if (da.check_G2_item() == true){
-    //     cerr << "check_G2_item violate!!" << endl;
+    cerr << "check_G2_item ...!!" << endl;
+    if (da.check_G2_item() == true){
+        cerr << "check_G2_item violate!!" << endl;
+        return true;
+    }
+    // cerr << "check_GSIa ...!!" << endl;
+    // if (da.check_GSIa() == true){
+    //     cerr << "check_GSIa violate!!" << endl;
     //     return true;
     // }
-    cerr << "check_GSIa ...!!" << endl;
-    if (da.check_GSIa() == true){
-        cerr << "check_GSIa violate!!" << endl;
-        return true;
-    }
-    cerr << "check_GSIb ...!!" << endl;
-    if (da.check_GSIb() == true){
-        cerr << "check_GSIb violate!!" << endl;
-        return true;
-    }
+    // cerr << "check_GSIb ...!!" << endl;
+    // if (da.check_GSIb() == true){
+    //     cerr << "check_GSIb violate!!" << endl;
+    //     return true;
+    // }
 
     longest_seq_txn_order = da.PL2_longest_path();
     longest_seq_txn_order.erase(longest_seq_txn_order.begin());
@@ -195,6 +195,8 @@ bool transaction_test::refine_txn_as_txn_order()
     for (int tid = 0; tid < trans_num; tid++) {
         trans_arr[tid].stmt_err_info.clear();
         trans_arr[tid].stmt_outputs.clear();
+        trans_arr[tid].dut = dut_setup(test_dbms_info);
+        trans_arr[tid].is_blocked = false;
     }
     init_db_content.clear();
     real_tid_queue.clear();
@@ -659,7 +661,7 @@ int transaction_test::test()
         gen_txn_stmts();
         instrument_txn_stmts();
     } catch(exception &e) {
-        cerr << "Trigger a normal bugs when inializing the stmts" << endl;
+        cerr << RED << "Trigger a normal bugs when inializing the stmts" << RESET << endl;
         cerr << "Bug info: " << e.what() << endl;
 
         string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_normal/"; 
