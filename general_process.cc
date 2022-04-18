@@ -505,6 +505,10 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                     throw e;
                 }
                 cerr << "err: " << e.what() << ", try again" << endl;
+                if (err.find("syntax") != string::npos && err.find("error") != string::npos) {
+                    cerr << RED << "The error statement: " << RESET << endl;
+                    cerr << stmt << endl;
+                }
                 continue;
             }
         }

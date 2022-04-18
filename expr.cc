@@ -233,7 +233,7 @@ void exists_predicate::accept(prod_visitor *v)
 
 void exists_predicate::out(std::ostream &out)
 {
-  out << "EXISTS (";
+  out << "exists (";
   indent(out);
   out << *subquery << ")";
 }

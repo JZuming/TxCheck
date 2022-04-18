@@ -143,6 +143,8 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     BINOP(||, texttype, texttype, texttype);
     BINOP(*, inttype, inttype, inttype);
     BINOP(/, inttype, inttype, inttype);
+    BINOP(/, realtype, realtype, realtype);
+    BINOP(DIV, inttype, inttype, inttype);
     BINOP(%, inttype, inttype, inttype);
 
     BINOP(+, inttype, inttype, inttype);
@@ -159,11 +161,22 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     BINOP(>, inttype, inttype, booltype);
     BINOP(>=, inttype, inttype, booltype);
 
+    // BINOP(IS NOT, inttype, inttype, booltype);
+    // BINOP(IS NOT, realtype, realtype, booltype);
+    // BINOP(IS NOT, texttype, texttype, booltype);
+    // BINOP(IS NOT, booltype, booltype, booltype);
+
+    // BINOP(IS, inttype, inttype, booltype);
+    // BINOP(IS, realtype, realtype, booltype);
+    // BINOP(IS, texttype, texttype, booltype);
+    // BINOP(IS, booltype, booltype, booltype);
+
     BINOP(=, inttype, inttype, booltype);
     BINOP(<>, inttype, inttype, booltype);
 
     BINOP(and, booltype, booltype, booltype);
     BINOP(or, booltype, booltype, booltype);
+    BINOP(xor, booltype, booltype, booltype);
   
 #define FUNC(n, r) do {							\
     routine proc("", "", r, #n);				\
@@ -191,6 +204,25 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     register_routine(proc);						\
 } while(0)
 
+#define FUNC4(n, r, a, b, c, d) do {						\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
+    register_routine(proc);						\
+} while(0)
+
+#define FUNC5(n, r, a, b, c, d, e) do {						\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
+    proc.argtypes.push_back(e);				\
+    register_routine(proc);						\
+} while(0)
+
     FUNC1(abs, inttype, inttype);
     FUNC1(abs, realtype, realtype);
     FUNC1(hex, texttype, texttype);
@@ -202,13 +234,45 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     FUNC1(rtrim, texttype, texttype);
     FUNC1(trim, texttype, texttype);
     FUNC1(upper, texttype, texttype);
-
+    // add for tidb
+    FUNC1(ASCII, inttype, texttype);
+    FUNC1(BIN, texttype, inttype);
+    FUNC1(BIT_LENGTH, inttype, texttype);
+    FUNC1(CHAR, texttype, inttype);
+    FUNC1(CHAR_LENGTH, inttype, texttype);
+    FUNC1(SPACE, texttype, inttype);
+    FUNC1(REVERSE, texttype, texttype);
+    FUNC1(ORD, inttype, texttype);
+    FUNC1(OCT, texttype, inttype);
+    FUNC1(UNHEX, texttype, texttype);
+    
     FUNC2(instr, inttype, texttype, texttype);
     FUNC2(round, realtype, realtype, inttype);
     FUNC2(substr, texttype, texttype, inttype);
+    // add for tidb
+    FUNC2(INSTR, inttype, texttype, texttype);
+    FUNC2(LEFT, texttype, texttype, inttype);
+    FUNC2(RIGHT, texttype, texttype, inttype);
+    FUNC2(REPEAT, texttype, texttype, inttype);
+    FUNC2(STRCMP, inttype, texttype, texttype);
 
     FUNC3(substr, texttype, texttype, inttype, inttype);
     FUNC3(replace, texttype, texttype, texttype, texttype);
+    // add for tidb
+    FUNC3(CONCAT, texttype, texttype, texttype, texttype);
+    FUNC3(LPAD, texttype, texttype, inttype, texttype);
+    FUNC3(RPAD, texttype, texttype, inttype, texttype);
+    FUNC3(REPLACE, texttype, texttype, texttype, texttype);
+    FUNC3(SUBSTRING, texttype, texttype, inttype, inttype);
+
+
+    // add for tidb
+    FUNC4(CONCAT_WS, texttype, texttype, texttype, texttype, texttype);
+    FUNC4(ELT, texttype, inttype, texttype, texttype, texttype);
+    FUNC4(FIELD, inttype, texttype, texttype, texttype, texttype);
+    FUNC4(INSERT, texttype, texttype, inttype, inttype, texttype);
+
+    FUNC5(EXPORT_SET, texttype, inttype, texttype, texttype, texttype, inttype);
 
 #define AGG1(n, r, a) do {						\
     routine proc("", "", r, #n);				\

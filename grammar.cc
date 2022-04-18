@@ -368,7 +368,6 @@ void query_spec::out(std::ostream &out) {
 
     if (has_group) {
         indent(out);
-        out << "group by ";
         out << *group_clause;
     }
 
@@ -1279,11 +1278,27 @@ group_clause::group_clause(prod *p, struct scope *s,
         select_columns[i].type = new_expr->type;
     }
     use_group = tmp_group;
+
+    // build having clause
+    auto &idx = p->scope->schema->operators_returning_type;
+    auto iters = idx.equal_range(scope->schema->booltype);
+    auto oper = random_pick<>(iters)->second;
+    
+    shared_ptr<value_expr> lhs, rhs;
+    lhs = make_shared<funcall>(this, oper->left, true);
+    if (d6() <= 3)
+        rhs = make_shared<funcall>(this, oper->right, true);
+    else
+        rhs = make_shared<const_expr>(this, oper->right);
+
+    having_cond_search = make_shared<struct comparison_op>(this, oper, lhs, rhs);
 }
 
 void group_clause::out(std::ostream &out)
 {
-    out << target_ref;
+    out << "group by " << target_ref;
+    indent(out);
+    out << "having " << *having_cond_search;
 }
 
 alter_table_stmt::alter_table_stmt(prod *parent, struct scope *s):
