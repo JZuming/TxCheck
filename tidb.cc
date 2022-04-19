@@ -223,6 +223,9 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     register_routine(proc);						\
 } while(0)
 
+    // tidb numeric
+    FUNC(PI, realtype);
+
     FUNC1(abs, inttype, inttype);
     FUNC1(abs, realtype, realtype);
     FUNC1(hex, texttype, texttype);
@@ -234,7 +237,7 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     FUNC1(rtrim, texttype, texttype);
     FUNC1(trim, texttype, texttype);
     FUNC1(upper, texttype, texttype);
-    // add for tidb
+    // add for tidb string
     FUNC1(ASCII, inttype, texttype);
     FUNC1(BIN, texttype, inttype);
     FUNC1(BIT_LENGTH, inttype, texttype);
@@ -245,16 +248,42 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     FUNC1(ORD, inttype, texttype);
     FUNC1(OCT, texttype, inttype);
     FUNC1(UNHEX, texttype, texttype);
+    // tidb numeric
+    FUNC1(EXP, realtype, realtype);
+    FUNC1(SQRT, realtype, realtype);
+    FUNC1(LN, realtype, realtype);
+    FUNC1(LOG, realtype, realtype);
+    FUNC1(TAN, realtype, realtype);
+    FUNC1(COT, realtype, realtype);
+    FUNC1(SIN, realtype, realtype);
+    FUNC1(COS, realtype, realtype);
+    FUNC1(ATAN, realtype, realtype);
+    FUNC1(ASIN, realtype, realtype);
+    FUNC1(ACOS, realtype, realtype);
+    FUNC1(RADIANS, realtype, realtype);
+    FUNC1(DEGREES, realtype, realtype);
+    FUNC1(CEILING, inttype, realtype);
+    FUNC1(FLOOR, inttype, realtype);
+    FUNC1(ROUND, inttype, realtype);
+    FUNC1(SIGN, inttype, realtype);
+    FUNC1(SIGN, inttype, inttype);
+    FUNC1(CRC32, inttype, texttype);
     
     FUNC2(instr, inttype, texttype, texttype);
     FUNC2(round, realtype, realtype, inttype);
     FUNC2(substr, texttype, texttype, inttype);
-    // add for tidb
+    // tidb string
     FUNC2(INSTR, inttype, texttype, texttype);
     FUNC2(LEFT, texttype, texttype, inttype);
     FUNC2(RIGHT, texttype, texttype, inttype);
     FUNC2(REPEAT, texttype, texttype, inttype);
     FUNC2(STRCMP, inttype, texttype, texttype);
+    // tidb numeric
+    FUNC2(POW, realtype, realtype, realtype);
+    FUNC2(LOG, realtype, realtype, realtype);
+    FUNC2(MOD, inttype, inttype, inttype);
+    FUNC2(ROUND, realtype, realtype, inttype);
+    FUNC2(TRUNCATE, realtype, realtype, inttype);
 
     FUNC3(substr, texttype, texttype, inttype, inttype);
     FUNC3(replace, texttype, texttype, texttype, texttype);
@@ -264,7 +293,6 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     FUNC3(RPAD, texttype, texttype, inttype, texttype);
     FUNC3(REPLACE, texttype, texttype, texttype, texttype);
     FUNC3(SUBSTRING, texttype, texttype, inttype, inttype);
-
 
     // add for tidb
     FUNC4(CONCAT_WS, texttype, texttype, texttype, texttype, texttype);
