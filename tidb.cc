@@ -131,7 +131,7 @@ schema_tidb::schema_tidb(string db, unsigned int port)
     // cerr << "done." << endl;
 
     booltype = sqltype::get("tinyint");
-    inttype = sqltype::get("int");
+    inttype = sqltype::get("integer");
     realtype = sqltype::get("double");
     texttype = sqltype::get("text");
 

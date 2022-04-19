@@ -279,6 +279,7 @@ struct delete_returning : delete_stmt {
 struct insert_stmt : modifying_stmt {
     vector<vector<shared_ptr<value_expr> > > value_exprs_vector;
     // vector<shared_ptr<value_expr> > value_exprs;
+    vector<string> valued_column_name;
     insert_stmt(prod *p, struct scope *s, table *victim = 0, bool only_const = false);
     virtual ~insert_stmt() {  }
     virtual void out(std::ostream &out);

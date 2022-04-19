@@ -18,8 +18,8 @@ int in_in_clause = 0; // 0-> not in "in" clause, 1-> in "in" clause
 int in_check_clause = 0; // 0-> not in "check" clause, 1-> in "check" clause
 set<string> update_used_column_ref;
 
-int write_op_id = 0;
-static int row_id = 0;
+int write_op_id = 10000; // start from 10000
+static int row_id = 10000; // start from 10000
 
 static void exclude_tables(
     table *victim,
@@ -652,9 +652,17 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
                     excluded_t_with_c_of_type);
     
     auto insert_num = d6();
+    // select valued columns
+    for (auto& col : victim->columns()) {
+        if (col.name == "wkey" || col.name == "pkey" || d6() > 1) 
+            valued_column_name.push_back(col.name);
+    }
     for (auto i = 0; i < insert_num; i++) {
         vector<shared_ptr<value_expr> > value_exprs;
         for (auto col : victim->columns()) {
+            if (find(valued_column_name.begin(), valued_column_name.end(), col.name) == valued_column_name.end())
+                continue;
+
             if (col.name == "wkey") {
                 auto  expr = make_shared<const_expr>(this, col.type);
                 assert(expr->type == col.type);
@@ -664,7 +672,7 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
             }
 
             if (col.name == "pkey") {
-                row_id++;
+                row_id += 1000;
                 auto  expr = make_shared<const_expr>(this, col.type);
                 assert(expr->type == col.type);
                 expr->expr = to_string(row_id); // use write_op_id
@@ -694,7 +702,14 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
 
 void insert_stmt::out(std::ostream &out)
 {
-    out << "insert into " << victim->ident() << " ";
+    out << "insert into " << victim->ident() << " (";
+    auto col_num = valued_column_name.size(); 
+    for (int i = 0; i < col_num; i++) {
+        out << valued_column_name[i];
+        if (i + 1 < col_num)
+            out << ", ";
+    }
+    out << ") ";
 
     if (!value_exprs_vector.size()) {
         out << "default values";
@@ -1098,7 +1113,8 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     
     // generate primary_key (identify different rows)
     column primary_key("pkey", scope->schema->inttype);
-    constraints.push_back("PRIMARY KEY UNIQUE NOT NULL");
+    constraints.push_back("PRIMARY KEY AUTO_INCREMENT"); // for mysql class (mysql, mariadb, tidb)
+    // constraints.push_back("PRIMARY KEY"); // for postgress class
     created_table->columns().push_back(primary_key);
 
     // generate other columns
