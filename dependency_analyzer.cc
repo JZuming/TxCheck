@@ -789,14 +789,8 @@ vector<int> dependency_analyzer::longest_path(int **dist_graph, int length)
     return longest_path;
 }
 
-vector<int> dependency_analyzer::PL3_longest_path()
+vector<int>dependency_analyzer::longest_path(set<dependency_type>& used_dependency_set)
 {
-    set<dependency_type> used_dependency_set;
-    used_dependency_set.insert(WRITE_WRITE);
-    used_dependency_set.insert(WRITE_READ);
-    used_dependency_set.insert(READ_WRITE);
-    used_dependency_set.insert(STRICT_START_DEPEND);
-
     auto tmp_dgraph = new int* [tid_num];
     for (int i = 0; i < tid_num; i++) 
         tmp_dgraph[i] = new int [tid_num];
@@ -837,6 +831,18 @@ vector<int> dependency_analyzer::PL3_longest_path()
     return l_path;
 }
 
+vector<int> dependency_analyzer::PL3_longest_path()
+{
+    set<dependency_type> used_dependency_set;
+    used_dependency_set.insert(WRITE_WRITE);
+    used_dependency_set.insert(WRITE_READ);
+    used_dependency_set.insert(READ_WRITE);
+    used_dependency_set.insert(STRICT_START_DEPEND);
+
+    auto l_path = longest_path(used_dependency_set);
+    return l_path;
+}
+
 vector<int> dependency_analyzer::PL2_longest_path()
 {
     set<dependency_type> used_dependency_set;
@@ -844,42 +850,6 @@ vector<int> dependency_analyzer::PL2_longest_path()
     used_dependency_set.insert(WRITE_READ);
     used_dependency_set.insert(STRICT_START_DEPEND);
 
-    auto tmp_dgraph = new int* [tid_num];
-    for (int i = 0; i < tid_num; i++) 
-        tmp_dgraph[i] = new int [tid_num];
-    for (int i = 0; i < tid_num; i++) {
-        for (int j = 0; j < tid_num; j++) {
-            tmp_dgraph[i][j] = 0;
-        }
-    }
-    
-    // initialize tmp_dgraph
-    for (int i = 0; i < tid_num; i++) {
-        if (f_txn_status[i] != TXN_COMMIT)
-            continue;
-        for (int j = 0; j < tid_num; j++) {
-            if (f_txn_status[j] != TXN_COMMIT)
-                continue;
-            set<dependency_type> res;
-            set_intersection(used_dependency_set.begin(), used_dependency_set.end(), 
-                    dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
-                    inserter(res, res.begin()));
-            
-            // have needed edges
-            if (res.count(STRICT_START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
-                tmp_dgraph[i][j] = 1;
-            else if (res.count(STRICT_START_DEPEND) > 0) // dependency has START_DEPEND and other
-                tmp_dgraph[i][j] = 10;
-            else if (res.empty() == false) // dependency has other but donot have START_DEPEND
-                tmp_dgraph[i][j] = 100;
-        }
-    }
-
-    auto l_path = longest_path(tmp_dgraph, tid_num);
-
-    for (int i = 0; i < tid_num; i++)
-        delete[] tmp_dgraph[i];
-    delete[] tmp_dgraph;
-
+    auto l_path = longest_path(used_dependency_set);
     return l_path;
 }
