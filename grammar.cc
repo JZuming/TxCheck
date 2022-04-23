@@ -18,7 +18,7 @@ int in_in_clause = 0; // 0-> not in "in" clause, 1-> in "in" clause
 int in_check_clause = 0; // 0-> not in "check" clause, 1-> in "check" clause
 set<string> update_used_column_ref;
 
-int write_op_id = 10000; // start from 10000
+int write_op_id = 0; // start from 10000
 static int row_id = 10000; // start from 10000
 
 static void exclude_tables(
@@ -664,7 +664,7 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
                 continue;
 
             if (col.name == "wkey") {
-                auto  expr = make_shared<const_expr>(this, col.type);
+                auto expr = make_shared<const_expr>(this, col.type);
                 assert(expr->type == col.type);
                 expr->expr = to_string(write_op_id); // use write_op_id
                 value_exprs.push_back(expr);
@@ -1649,10 +1649,28 @@ insert_select_stmt::insert_select_stmt(prod *p, struct scope *s, table *v)
                     excluded_t_with_c_of_type);
     
     vector<sqltype *> pointed_type;
+    // select valued columns
+    valued_column_name.push_back("wkey"); // the first one should be "wkey"
+    for (auto& col : victim->columns()) {
+        if (col.name == "wkey" || col.name == "pkey") // pkey should be handled by auto_increment
+            continue;
+        if (d6() > 1) 
+            valued_column_name.push_back(col.name);
+    }
+
     for (auto &col : victim->columns()) {
+        if (find(valued_column_name.begin(), valued_column_name.end(), col.name) == valued_column_name.end())
+            continue;
         pointed_type.push_back(col.type);
     }
+
     target_subquery = make_shared<query_spec>(this, scope, false, &pointed_type);
+    auto &select_exprs = target_subquery->select_list->value_exprs;
+    auto wkey_expr = make_shared<const_expr>(this, select_exprs.front()->type);
+    wkey_expr->expr = to_string(write_op_id); // use write_op_id
+    select_exprs.erase(select_exprs.begin());
+    select_exprs.insert(select_exprs.begin(), wkey_expr);
+    select_exprs.front()->type = wkey_expr->type;
 
     recover_tables(scope->tables, 
                     scope->schema->tables_with_columns_of_type, 
@@ -1662,7 +1680,14 @@ insert_select_stmt::insert_select_stmt(prod *p, struct scope *s, table *v)
 
 void insert_select_stmt::out(std::ostream &out)
 {
-    out << "insert into " << victim->ident();
+    out << "insert into " << victim->ident()<< " (";
+    auto col_num = valued_column_name.size(); 
+    for (int i = 0; i < col_num; i++) {
+        out << valued_column_name[i];
+        if (i + 1 < col_num)
+            out << ", ";
+    }
+    out << ") ";
     indent(out);
     out << *target_subquery;
 }
@@ -1803,8 +1828,10 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
         if (choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif
-        if (choice == 4 || choice == 5 || choice == 6 || choice == 7)
+        if (choice == 4 || choice == 5)
             return make_shared<insert_stmt>((struct prod *)0, s);
+        if (choice == 6 || choice == 7)
+            return make_shared<insert_select_stmt>((struct prod *)0, s);
         if (choice == 2)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
         if (choice == 3)

@@ -155,6 +155,41 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             continue;
         }
 
+        auto insert_select_statement = dynamic_pointer_cast<insert_select_stmt>(stmt);
+        if (insert_select_statement) {
+            used_scope.new_stmt(); // for select_stmt
+            // get wkey value
+            auto& wkey_value = insert_select_statement->target_subquery->select_list->value_exprs.front();
+
+            // init compare op
+            op *equal_op = NULL;
+            for (auto& op : db_schema->operators) {
+                if (op.name == "=") {
+                    equal_op = &op;
+                    break;
+                }
+            }
+            if (equal_op == NULL) 
+                throw runtime_error("intrument insert statement: cannot find = operator");
+            
+            // init column reference
+            auto wkey_column = make_shared<column_reference>((struct prod *)0, wkey_value->type, "wkey", insert_select_statement->victim->name);
+            // init the select
+            auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, insert_select_statement->victim, equal_op, wkey_column, wkey_value);
+            
+            // item does not exist, so no need for ealier dependency
+            final_tid_queue.push_back(tid);
+            final_tid_queue.push_back(tid); // get the later value to build WR and WW dependency
+
+            final_stmt_queue.push_back(stmt);
+            final_stmt_queue.push_back(select_stmt);
+
+            final_stmt_usage.push_back(NORMAL);
+            final_stmt_usage.push_back(AFTER_WRITE_READ);
+
+            continue;
+        }
+
         // normal read query
         final_tid_queue.push_back(tid);
         final_stmt_queue.push_back(stmt);
