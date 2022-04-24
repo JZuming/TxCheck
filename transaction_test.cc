@@ -103,7 +103,54 @@ void transaction_test::instrument_txn_stmts()
         trans_arr[tid].stmt_num = trans_arr[tid].stmts.size();
 }
 
-bool transaction_test::analyze_txn_dependency()
+vector<int> transaction_test::get_longest_path_from_graph(shared_ptr<dependency_analyzer>& da)
+{
+    auto longest_path = da->PL2_longest_path();
+    longest_path.erase(longest_path.begin());
+    cerr << "longest_path: ";
+    for (int i = 0; i < longest_path.size(); i++)
+        cerr << longest_path[i] << " ";
+    cerr << endl;
+
+    return longest_path;
+}
+
+// true: changed
+// false: no need to change
+bool transaction_test::change_txn_status(int target_tid, txn_status final_status)
+{
+    if (final_status != TXN_ABORT && final_status != TXN_COMMIT) {
+        cerr << "[change_txn_status] illegal final_status: " << final_status << endl;
+        throw runtime_error("illegal final_status");
+    }
+    
+    if (trans_arr[target_tid].status == final_status) 
+        return false;
+    
+    trans_arr[target_tid].status = final_status;
+    trans_arr[target_tid].stmts.pop_back();
+    if (final_status == TXN_ABORT)
+        trans_arr[target_tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[target_tid].dut->abort_stmt()));
+    else if (final_status == TXN_COMMIT)
+        trans_arr[target_tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[target_tid].dut->commit_stmt()));
+    
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        auto stmt = print_stmt_to_string(stmt_queue[i]);
+
+        if (target_tid != tid)
+            continue;
+        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos &&
+                stmt.find(trans_arr[tid].dut->abort_stmt()) == string::npos)
+            continue;
+        
+        // find out the commit and abort stmt
+        stmt_queue[i] = trans_arr[tid].stmts.back();
+    }
+    return true;
+}
+
+bool transaction_test::analyze_txn_dependency(shared_ptr<dependency_analyzer>& da)
 {
     vector<stmt_output> init_content_vector;
     for (auto iter = init_db_content.begin(); iter != init_db_content.end(); iter++)
@@ -113,7 +160,7 @@ bool transaction_test::analyze_txn_dependency()
     for (int tid = 0; tid < trans_num; tid++) 
         real_txn_status.push_back(trans_arr[tid].status);
 
-    dependency_analyzer da(init_content_vector, // init_output 
+    da = make_shared<dependency_analyzer>(init_content_vector, // init_output 
                             real_output_queue, // total_output
                             real_tid_queue, // final_tid_queue
                             real_stmt_usage, // final_stmt_usage
@@ -121,29 +168,29 @@ bool transaction_test::analyze_txn_dependency()
                             trans_num, // t_num
                             1, // primary_key_idx
                             0); // write_op_key_idx
-    
+
     cerr << "check_G1a ...!!" << endl;
-    if (da.check_G1a() == true) {
+    if (da->check_G1a() == true) {
         cerr << "check_G1a violate!!" << endl;
         return true;
     }
     cerr << "check_G1b ...!!" << endl;
-    if (da.check_G1b() == true){
+    if (da->check_G1b() == true){
         cerr << "check_G1b violate!!" << endl;
         return true;
     }
     cerr << "check_G1c ...!!" << endl;
-    if (da.check_G1c() == true){
+    if (da->check_G1c() == true){
         cerr << "check_G1c violate!!" << endl;
         return true;
     }
     // cerr << "check_G2_item ...!!" << endl;
-    // if (da.check_G2_item() == true){
+    // if (da->check_G2_item() == true){
     //     cerr << "check_G2_item violate!!" << endl;
     //     return true;
     // }
     // cerr << "check_GSIa ...!!" << endl;
-    // if (da.check_GSIa() == true){
+    // if (da->check_GSIa() == true){
     //     cerr << "check_GSIa violate!!" << endl;
     //     return true;
     // }
@@ -153,14 +200,31 @@ bool transaction_test::analyze_txn_dependency()
     //     return true;
     // }
 
-    longest_seq_txn_order = da.PL2_longest_path();
-    longest_seq_txn_order.erase(longest_seq_txn_order.begin());
-    cerr << "longest_path: ";
-    for (int i = 0; i < longest_seq_txn_order.size(); i++)
-        cerr << longest_seq_txn_order[i] << " ";
-    cerr << endl;
+    longest_seq_txn_order = get_longest_path_from_graph(da);
     
     return false;
+}
+
+void transaction_test::clear_execution_status()
+{
+    for (int tid = 0; tid < trans_num; tid++) {
+        trans_arr[tid].stmt_err_info.clear();
+        trans_arr[tid].stmt_outputs.clear();
+        trans_arr[tid].dut = dut_setup(test_dbms_info);
+        trans_arr[tid].is_blocked = false;
+
+        // clear the normal execution result
+        trans_arr[tid].normal_stmts.clear();
+        trans_arr[tid].normal_outputs.clear();
+        trans_arr[tid].normal_err_info.clear();
+    }
+    init_db_content.clear();
+    real_tid_queue.clear();
+    real_stmt_queue.clear();
+    real_output_queue.clear();
+    real_stmt_usage.clear();
+    trans_db_content.clear();
+    longest_seq_txn_order.clear();
 }
 
 bool transaction_test::refine_txn_as_txn_order()
@@ -192,19 +256,7 @@ bool transaction_test::refine_txn_as_txn_order()
     if (is_refined == false)
         return false;
     
-    for (int tid = 0; tid < trans_num; tid++) {
-        trans_arr[tid].stmt_err_info.clear();
-        trans_arr[tid].stmt_outputs.clear();
-        trans_arr[tid].dut = dut_setup(test_dbms_info);
-        trans_arr[tid].is_blocked = false;
-    }
-    init_db_content.clear();
-    real_tid_queue.clear();
-    real_stmt_queue.clear();
-    real_output_queue.clear();
-    real_stmt_usage.clear();
-    trans_db_content.clear();
-    longest_seq_txn_order.clear();
+    clear_execution_status();
     return true;
 }
 
@@ -653,6 +705,96 @@ bool transaction_test::check_txn_normal_result()
     return true;
 }
 
+bool transaction_test::multi_round_test()
+{
+    trans_test(); // first run, get all dependency information
+    shared_ptr<dependency_analyzer> init_da;
+    if (analyze_txn_dependency(init_da)) 
+        throw runtime_error("BUG: found in analyze_txn_dependency()");
+    txn_status init_status[trans_num];
+    for (int tid = 0; tid < trans_num; tid++) 
+        init_status[tid] = trans_arr[tid].status;
+    
+    while (1) {
+        // use the longest path to refine
+        cerr << "\n\n";
+        cerr << RED << "one round test" << RESET << endl;
+        cerr << "ideal test path: ";
+        for (auto i:longest_seq_txn_order) 
+            cerr << i << " ";
+        cerr << endl;
+        auto ideal_test_path = longest_seq_txn_order;
+
+        shared_ptr<dependency_analyzer> tmp_da;
+        while (refine_txn_as_txn_order() == true) { // if not stable
+            trans_test();
+            if (analyze_txn_dependency(tmp_da)) 
+                throw runtime_error("BUG: found in analyze_txn_dependency()");
+        }
+
+        cerr << "real test path: ";
+        for (auto i:longest_seq_txn_order) 
+            cerr << i << " ";
+        cerr << endl;
+        auto real_test_path = longest_seq_txn_order;
+        
+        normal_test();
+        if (check_txn_normal_result() == false)
+            return true;
+        
+        // after executing the possible longest path, delete the edge in init_da
+        auto& graph = init_da->dependency_graph;
+        // delete the real test one
+        int path_length = real_test_path.size();
+        for (int i = 0; i + 1 < path_length; i++) {
+            auto cur_tid = real_test_path[i];
+            auto next_tid = real_test_path[i + 1];
+
+            // delete all the dependency edges except START_DEPEND or STRICT_START_DEPEND
+            graph[cur_tid][next_tid].erase(WRITE_READ);
+            graph[cur_tid][next_tid].erase(WRITE_WRITE);
+            graph[cur_tid][next_tid].erase(READ_WRITE);
+        }
+        // delete the ideal test one, so that will not choose this path again
+        path_length = ideal_test_path.size();
+        for (int i = 0; i + 1 < path_length; i++) {
+            auto cur_tid = ideal_test_path[i];
+            auto next_tid = ideal_test_path[i + 1];
+
+            // delete all the dependency edges except START_DEPEND or STRICT_START_DEPEND
+            graph[cur_tid][next_tid].erase(WRITE_READ);
+            graph[cur_tid][next_tid].erase(WRITE_WRITE);
+            graph[cur_tid][next_tid].erase(READ_WRITE);
+        }
+
+        // after deleting, get another longest path
+        longest_seq_txn_order = get_longest_path_from_graph(init_da);
+        // check whether the path contains conflict depend
+        path_length = longest_seq_txn_order.size();
+        bool has_conflict_depend = false;
+        for (int i = 0; i + 1 < path_length; i++) {
+            auto cur_tid = longest_seq_txn_order[i];
+            auto next_tid = longest_seq_txn_order[i + 1];
+
+            if (graph[cur_tid][next_tid].count(WRITE_READ) || 
+                    graph[cur_tid][next_tid].count(WRITE_WRITE) ||
+                    graph[cur_tid][next_tid].count(READ_WRITE)) {
+                
+                has_conflict_depend = true;
+                break;
+            }
+        }
+        // if there is not conflict depend on longest path, stop test
+        if (has_conflict_depend == false)
+            break;
+        
+        // change back the txn status to init one
+        for (int tid = 0; tid < trans_num; tid++) 
+            change_txn_status(tid, init_status[tid]);
+    }
+    return false;
+}
+
 int transaction_test::test()
 {
     try {
@@ -684,17 +826,20 @@ int transaction_test::test()
     }
     
     try {
-        while (1) {
-            trans_test();
-            if (analyze_txn_dependency()) 
-                throw runtime_error("BUG: found in analyze_txn_dependency()");
-            if (refine_txn_as_txn_order() == false)
-                break; // have been stable
-        }
-
-        normal_test();
-        if (check_txn_normal_result())
+        if (multi_round_test() == false)
             return 0;
+        // while (1) {
+        //     trans_test();
+        //     shared_ptr<dependency_analyzer> da;
+        //     if (analyze_txn_dependency(da)) 
+        //         throw runtime_error("BUG: found in analyze_txn_dependency()");
+        //     if (refine_txn_as_txn_order() == false)
+        //         break; // have been stable
+        // }
+
+        // normal_test();
+        // if (check_txn_normal_result())
+        //     return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }

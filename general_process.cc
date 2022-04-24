@@ -733,7 +733,8 @@ bool reproduce_routine(dbms_info& d_info,
     try {
         while (1) {
             re_test.trans_test();
-            if (re_test.analyze_txn_dependency()) {
+            shared_ptr<dependency_analyzer> tmp_da;
+            if (re_test.analyze_txn_dependency(tmp_da)) {
                 cerr << RED << "Find Bugs!!" << RESET << endl;
                 return true;
             }

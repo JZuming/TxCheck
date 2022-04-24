@@ -68,8 +68,12 @@ public:
     void gen_txn_stmts();
     void instrument_txn_stmts();
 
-    bool analyze_txn_dependency();
+    static vector<int> get_longest_path_from_graph(shared_ptr<dependency_analyzer>& da);
+    bool change_txn_status(int tid, txn_status final_status);
+    bool analyze_txn_dependency(shared_ptr<dependency_analyzer>& da); // input da is empty; output the analyzed da
     bool refine_txn_as_txn_order();
+    void clear_execution_status();
+    bool multi_round_test(); // true: find bugs; false: no bug
     
     bool check_commit_trans_blocked();
     void trans_test();

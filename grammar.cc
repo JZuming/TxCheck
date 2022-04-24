@@ -1113,8 +1113,8 @@ create_table_stmt::create_table_stmt(prod *parent, struct scope *s)
     
     // generate primary_key (identify different rows)
     column primary_key("pkey", scope->schema->inttype);
-    constraints.push_back("PRIMARY KEY AUTO_INCREMENT"); // for mysql class (mysql, mariadb, tidb)
-    // constraints.push_back("PRIMARY KEY"); // for postgress class
+    // constraints.push_back("PRIMARY KEY AUTO_INCREMENT"); // for mysql class (mysql, mariadb, tidb)
+    constraints.push_back("PRIMARY KEY"); // for postgress class
     created_table->columns().push_back(primary_key);
 
     // generate other columns
@@ -1828,10 +1828,10 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
         if (choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif
-        if (choice == 4 || choice == 5)
+        if (choice == 4 || choice == 5 || choice == 6 || choice == 7)
             return make_shared<insert_stmt>((struct prod *)0, s);
-        if (choice == 6 || choice == 7)
-            return make_shared<insert_select_stmt>((struct prod *)0, s);
+        // if (choice == 6 || choice == 7)
+        //     return make_shared<insert_select_stmt>((struct prod *)0, s);
         if (choice == 2)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
         if (choice == 3)
