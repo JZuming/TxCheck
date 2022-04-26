@@ -93,6 +93,7 @@ struct dependency_analyzer
     static bool reduce_graph_outdegree(int **direct_graph, int length);
     vector<int> PL2_longest_path();
     vector<int> PL3_longest_path();
+    vector<int> SI_longest_path();
     vector<int> longest_path(set<dependency_type>& used_dependency_set);
     vector<int> longest_path(int **direct_graph, int length);
 

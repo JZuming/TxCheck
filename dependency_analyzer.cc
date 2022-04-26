@@ -837,13 +837,22 @@ vector<int> dependency_analyzer::PL3_longest_path()
     used_dependency_set.insert(WRITE_WRITE);
     used_dependency_set.insert(WRITE_READ);
     used_dependency_set.insert(READ_WRITE);
-    used_dependency_set.insert(STRICT_START_DEPEND);
 
     auto l_path = longest_path(used_dependency_set);
     return l_path;
 }
 
 vector<int> dependency_analyzer::PL2_longest_path()
+{
+    set<dependency_type> used_dependency_set;
+    used_dependency_set.insert(WRITE_WRITE);
+    used_dependency_set.insert(WRITE_READ);
+
+    auto l_path = longest_path(used_dependency_set);
+    return l_path;
+}
+
+vector<int> dependency_analyzer::SI_longest_path()
 {
     set<dependency_type> used_dependency_set;
     used_dependency_set.insert(WRITE_WRITE);
