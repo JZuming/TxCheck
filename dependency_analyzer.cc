@@ -90,7 +90,8 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
     if (target_op.stmt_u != BEFORE_WRITE_READ)
         throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_RW_dependency");
 
-    for (int i = op_idx - 1; i >= 0; i--) {
+    auto list_size = op_list.size();
+    for (int i = list_size - 1; i >= 0; i--) {
         // need eazier compare to build more edge
         if (op_list[i].write_op_id != target_op.write_op_id)
             continue;
