@@ -106,7 +106,9 @@ void transaction_test::instrument_txn_stmts()
 vector<int> transaction_test::get_longest_path_from_graph(shared_ptr<dependency_analyzer>& da)
 {
     auto longest_path = da->PL2_longest_path();
-    longest_path.erase(longest_path.begin());
+    if (longest_path.empty() == false)
+        longest_path.erase(longest_path.begin());
+    
     cerr << "longest_path: ";
     for (int i = 0; i < longest_path.size(); i++)
         cerr << longest_path[i] << " ";
@@ -863,12 +865,12 @@ int transaction_test::test()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = 10 + d9(); // 11 - 19
+    trans_num = 12; // 12
     // trans_num = 4;
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];
-    commit_num = trans_num * 3 / 4;
+    commit_num = trans_num; // all commit
     stmt_num = 0;
     for (int i = 0; i < trans_num; i++) {
         trans_arr[i].stmt_num = 2 + d6(); // 3 - 8

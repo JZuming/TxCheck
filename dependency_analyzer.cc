@@ -771,11 +771,9 @@ vector<int> dependency_analyzer::longest_path(int **dist_graph, int length)
         }
     }
     int idx = longest_dist_idx;
-    while (1) {
+    while (idx != -1) {
         longest_path.insert(longest_path.begin(), idx);
         idx = dad_graph[idx];
-        if (idx == -1)
-            break;
     }
     cerr << "path length: " << longest_dist << endl;
 
@@ -812,13 +810,16 @@ vector<int>dependency_analyzer::longest_path(set<dependency_type>& used_dependen
                     dependency_graph[i][j].begin(), dependency_graph[i][j].end(),
                     inserter(res, res.begin()));
             
-            // have needed edges
-            if (res.count(STRICT_START_DEPEND) > 0 && res.size() == 1) // dependency has only START_DEPEND
-                tmp_dgraph[i][j] = 1;
-            else if (res.count(STRICT_START_DEPEND) > 0) // dependency has START_DEPEND and other
-                tmp_dgraph[i][j] = 10;
-            else if (res.empty() == false) // dependency has other but donot have START_DEPEND
-                tmp_dgraph[i][j] = 100;
+            if (res.empty())
+                continue;
+
+            // check whether has STRICT_START_DEPEND
+            if (dependency_graph[i][j].count(STRICT_START_DEPEND) > 0 && dependency_graph[i][j].size() == 1) // dependency has only START_DEPEND
+                tmp_dgraph[i][j] = 1; // do not interleaved and do not depend
+            else if (dependency_graph[i][j].count(STRICT_START_DEPEND) > 0) // dependency has START_DEPEND and other
+                tmp_dgraph[i][j] = 10; // do not interleaved
+            else // dependency has other but donot have START_DEPEND
+                tmp_dgraph[i][j] = 100; // interleaved, has more score
         }
     }
 
