@@ -828,6 +828,7 @@ int transaction_test::test()
     }
     
     try {
+        throw runtime_error("testing instrument");
         if (multi_round_test() == false)
             return 0;
         // while (1) {

@@ -242,7 +242,7 @@ struct prepare_stmt : prod {
 struct modifying_stmt : prod {
     table *victim;
     struct scope myscope;
-    modifying_stmt(prod *p, struct scope *s, struct table *victim = 0);
+    modifying_stmt(prod *p, struct scope *s, struct table *v = 0);
 //   shared_ptr<modifying_stmt> modifying_stmt::factory(prod *p, struct scope *s);
     virtual void pick_victim();
 };

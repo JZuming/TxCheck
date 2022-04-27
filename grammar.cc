@@ -599,14 +599,16 @@ void modifying_stmt::pick_victim()
 	   || !victim->columns().size());
 }
 
-modifying_stmt::modifying_stmt(prod *p, struct scope *s, table *victim)
+modifying_stmt::modifying_stmt(prod *p, struct scope *s, table *v)
   : prod(p), myscope(s)
 {
     scope = &myscope;
     scope->tables = s->tables;
 
-    if (!victim)
+    if (!v)
         pick_victim();
+    else
+        victim = v;
 }
 
 
