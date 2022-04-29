@@ -189,6 +189,28 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     register_routine(proc);						\
 } while(0)
 
+#define FUNC4(n, r, a, b, c, d) do {						\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
+    register_routine(proc);						\
+} while(0)
+
+#define FUNC5(n, r, a, b, c, d, e) do {						\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
+    proc.argtypes.push_back(e);				\
+    register_routine(proc);						\
+} while(0)
+
+    // tidb numeric
+    FUNC(PI, realtype);
+
     FUNC1(abs, inttype, inttype);
     FUNC1(abs, realtype, realtype);
     FUNC1(hex, texttype, texttype);
@@ -200,13 +222,70 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     FUNC1(rtrim, texttype, texttype);
     FUNC1(trim, texttype, texttype);
     FUNC1(upper, texttype, texttype);
-
+    // add for tidb string
+    FUNC1(ASCII, inttype, texttype);
+    FUNC1(BIN, texttype, inttype);
+    FUNC1(BIT_LENGTH, inttype, texttype);
+    FUNC1(CHAR, texttype, inttype);
+    FUNC1(CHAR_LENGTH, inttype, texttype);
+    FUNC1(SPACE, texttype, inttype);
+    FUNC1(REVERSE, texttype, texttype);
+    FUNC1(ORD, inttype, texttype);
+    FUNC1(OCT, texttype, inttype);
+    FUNC1(UNHEX, texttype, texttype);
+    // tidb numeric
+    FUNC1(EXP, realtype, realtype);
+    FUNC1(SQRT, realtype, realtype);
+    FUNC1(LN, realtype, realtype);
+    FUNC1(LOG, realtype, realtype);
+    FUNC1(TAN, realtype, realtype);
+    FUNC1(COT, realtype, realtype);
+    FUNC1(SIN, realtype, realtype);
+    FUNC1(COS, realtype, realtype);
+    FUNC1(ATAN, realtype, realtype);
+    FUNC1(ASIN, realtype, realtype);
+    FUNC1(ACOS, realtype, realtype);
+    FUNC1(RADIANS, realtype, realtype);
+    FUNC1(DEGREES, realtype, realtype);
+    FUNC1(CEILING, inttype, realtype);
+    FUNC1(FLOOR, inttype, realtype);
+    FUNC1(ROUND, inttype, realtype);
+    FUNC1(SIGN, inttype, realtype);
+    FUNC1(SIGN, inttype, inttype);
+    FUNC1(CRC32, inttype, texttype);
+    
     FUNC2(instr, inttype, texttype, texttype);
     FUNC2(round, realtype, realtype, inttype);
     FUNC2(substr, texttype, texttype, inttype);
+    // tidb string
+    FUNC2(INSTR, inttype, texttype, texttype);
+    FUNC2(LEFT, texttype, texttype, inttype);
+    FUNC2(RIGHT, texttype, texttype, inttype);
+    FUNC2(REPEAT, texttype, texttype, inttype);
+    FUNC2(STRCMP, inttype, texttype, texttype);
+    // tidb numeric
+    FUNC2(POW, realtype, realtype, realtype);
+    FUNC2(LOG, realtype, realtype, realtype);
+    FUNC2(MOD, inttype, inttype, inttype);
+    FUNC2(ROUND, realtype, realtype, inttype);
+    FUNC2(TRUNCATE, realtype, realtype, inttype);
 
     FUNC3(substr, texttype, texttype, inttype, inttype);
     FUNC3(replace, texttype, texttype, texttype, texttype);
+    // add for tidb
+    FUNC3(CONCAT, texttype, texttype, texttype, texttype);
+    FUNC3(LPAD, texttype, texttype, inttype, texttype);
+    FUNC3(RPAD, texttype, texttype, inttype, texttype);
+    FUNC3(REPLACE, texttype, texttype, texttype, texttype);
+    FUNC3(SUBSTRING, texttype, texttype, inttype, inttype);
+
+    // add for tidb
+    FUNC4(CONCAT_WS, texttype, texttype, texttype, texttype, texttype);
+    FUNC4(ELT, texttype, inttype, texttype, texttype, texttype);
+    FUNC4(FIELD, inttype, texttype, texttype, texttype, texttype);
+    FUNC4(INSERT, texttype, texttype, inttype, inttype, texttype);
+
+    FUNC5(EXPORT_SET, texttype, inttype, texttype, texttype, texttype, inttype);
 
 #define AGG1(n, r, a) do {						\
     routine proc("", "", r, #n);				\
@@ -338,7 +417,7 @@ dut_mysql::dut_mysql(string db, unsigned int port)
     has_sent_sql = false;
     txn_abort = false;
     thread_id = mysql_thread_id(&mysql);
-    block_test("SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED;");
+    // block_test("SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED;");
 }
 
 static unsigned long long get_cur_time_ms(void) {
