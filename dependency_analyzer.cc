@@ -135,6 +135,44 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
     return;
 }
 
+void dependency_analyzer::print_dependency_graph()
+{
+    cerr << "  ";
+    for (int i = 0; i < tid_num; i++) {
+        if (i < 10)
+            cerr << "|   " << i;
+        else
+            cerr << "|  " << i;
+    }
+    cerr << "|" << endl;
+    for (int i = 0; i < tid_num; i++) {
+        if (i < 10)
+            cerr << " " << i;
+        else
+            cerr << i;
+        for (int j = 0; j < tid_num; j++) {
+            cerr << "|";
+            if (dependency_graph[i][j].count(WRITE_READ))
+                cerr << "0";
+            else
+                cerr << " ";
+            if (dependency_graph[i][j].count(WRITE_WRITE))
+                cerr << "1";
+            else
+                cerr << " ";
+            if (dependency_graph[i][j].count(READ_WRITE))
+                cerr << "2";
+            else
+                cerr << " ";
+            if (dependency_graph[i][j].count(STRICT_START_DEPEND))
+                cerr << "3";
+            else
+                cerr << " ";
+        }
+        cerr << "|" << endl;
+    }
+}
+
 dependency_analyzer::dependency_analyzer(vector<stmt_output>& init_output,
                         vector<stmt_output>& total_output,
                         vector<int>& final_tid_queue,
@@ -244,40 +282,7 @@ f_txn_status(final_txn_status)
     delete[] tid_has_used_begin;
 
     // print dependency graph
-    cerr << "  ";
-    for (int i = 0; i < tid_num; i++) {
-        if (i < 10)
-            cerr << "|   " << i;
-        else
-            cerr << "|  " << i;
-    }
-    cerr << "|" << endl;
-    for (int i = 0; i < tid_num; i++) {
-        if (i < 10)
-            cerr << " " << i;
-        else
-            cerr << i;
-        for (int j = 0; j < tid_num; j++) {
-            cerr << "|";
-            if (dependency_graph[i][j].count(WRITE_READ))
-                cerr << "0";
-            else
-                cerr << " ";
-            if (dependency_graph[i][j].count(WRITE_WRITE))
-                cerr << "1";
-            else
-                cerr << " ";
-            if (dependency_graph[i][j].count(READ_WRITE))
-                cerr << "2";
-            else
-                cerr << " ";
-            if (dependency_graph[i][j].count(STRICT_START_DEPEND))
-                cerr << "3";
-            else
-                cerr << " ";
-        }
-        cerr << "|" << endl;
-    }
+    print_dependency_graph();
 }
 
 dependency_analyzer::~dependency_analyzer()

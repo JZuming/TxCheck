@@ -63,6 +63,8 @@ struct dependency_analyzer
     void build_WR_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_RW_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_WW_dependency(vector<operate_unit>& op_list, int op_idx);
+
+    void print_dependency_graph();
     
     // G1a: Aborted Reads. A history H exhibits phenomenon G1a if it contains an aborted
     // transaction Ti and a committed transaction Tj such that Tj has read some object
