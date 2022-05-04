@@ -19,7 +19,7 @@ using namespace std;
 
 // START_DEPEND: the begin is count by first read or write
 // STRICT_START_DEPEND: the begin is count by begin statement
-enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND, STRICT_START_DEPEND};
+enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND, STRICT_START_DEPEND, INNER_DEPEND};
 
 typedef vector<string> row_output; // a row consists of several field(string)
 typedef vector<row_output> stmt_output; // one output consits of several rows
@@ -47,6 +47,17 @@ struct history {
     void insert_to_history(operate_unit& oper_unit);
 };
 
+struct stmt_id {
+    int txn_id;
+    int stmt_idx_in_txn;
+    bool operator==(const stmt_id& other_id) {
+        return this->txn_id == other_id.txn_id && 
+                this->stmt_idx_in_txn == other_id.stmt_idx_in_txn;
+    }
+
+    stmt_id(vector<int>& final_tid_queue, int stmt_idx);
+};
+
 struct dependency_analyzer
 {
     dependency_analyzer(vector<stmt_output>& init_output,
@@ -63,6 +74,10 @@ struct dependency_analyzer
     void build_WR_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_RW_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_WW_dependency(vector<operate_unit>& op_list, int op_idx);
+    
+    void build_start_dependency();
+    void build_stmt_inner_dependency();
+    void build_stmt_start_dependency(int prev_tid, int later_tid, dependency_type dt);
 
     void print_dependency_graph();
     
@@ -101,12 +116,18 @@ struct dependency_analyzer
 
     history h;
     int tid_num;
+    int stmt_num;
     int* tid_begin_idx;
     int* tid_strict_begin_idx;
     int* tid_end_idx;
     vector<txn_status> f_txn_status;
+    vector<int> f_txn_id_queue;
     map<int, row_output> hash_to_output;
     set<dependency_type> **dependency_graph;
+
+    map<pair<stmt_id, stmt_id>, set<dependency_type>> stmt_dependency_graph;
+    void build_stmt_depend_from_stmt_idx(int stmt_idx1, int stmt_idx2, dependency_type dt);
+    // set<dependency_type> **stmt_dependency_graph;
 };
 
 #endif

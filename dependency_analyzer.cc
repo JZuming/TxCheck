@@ -26,6 +26,30 @@ void history::insert_to_history(operate_unit& oper_unit)
     return;
 }
 
+stmt_id::stmt_id(vector<int>& final_tid_queue, int stmt_idx)
+{
+    txn_id = final_tid_queue[stmt_idx];
+    stmt_idx_in_txn = -1;
+    for (int i = 0; i <= stmt_idx; i++) {
+        if (final_tid_queue[i] == txn_id)
+            stmt_idx_in_txn++;
+    }
+}
+
+void dependency_analyzer::build_stmt_depend_from_stmt_idx(int stmt_idx1, int stmt_idx2, dependency_type dt)
+{
+    auto stmt_id1 = stmt_id(f_txn_id_queue, stmt_idx1);
+    auto stmt_id2 = stmt_id(f_txn_id_queue, stmt_idx2);
+    auto stmt_pair = make_pair(stmt_id1, stmt_id2);
+    if (stmt_dependency_graph.count(stmt_pair) > 0)
+        stmt_dependency_graph[stmt_pair].insert(dt);
+    else {
+        set<dependency_type> d_set;
+        d_set.insert(dt);
+        stmt_dependency_graph[stmt_pair] = d_set;
+    }
+}
+
 size_t dependency_analyzer::hash_output(row_output& row)
 {
     register size_t hash = 0; 
@@ -53,8 +77,11 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
         
         find_the_write = true;
 
-        if (op_list[i].tid != target_op.tid) 
+        if (op_list[i].tid != target_op.tid) {
             dependency_graph[op_list[i].tid][target_op.tid].insert(WRITE_READ);
+            if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) 
+                build_stmt_depend_from_stmt_idx(op_list[i].stmt_idx, target_op.stmt_idx, WRITE_READ);
+        }
         
         break; // only find the nearest write
     }
@@ -100,6 +127,8 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
             continue;
 
         dependency_graph[op_list[i].tid][target_op.tid].insert(READ_WRITE);
+        if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) 
+            build_stmt_depend_from_stmt_idx(op_list[i].stmt_idx, target_op.stmt_idx, READ_WRITE);
 
         // do not break, because need to find all the read
     }
@@ -124,8 +153,11 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
         
         find_the_write = true;
 
-        if (op_list[i].tid != target_op.tid)
+        if (op_list[i].tid != target_op.tid) {
             dependency_graph[op_list[i].tid][target_op.tid].insert(WRITE_WRITE);
+            if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) 
+                build_stmt_depend_from_stmt_idx(op_list[i].stmt_idx, target_op.stmt_idx, WRITE_WRITE);
+        }
 
         break; // only find the nearest write
     }
@@ -133,6 +165,77 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
         throw runtime_error("BUG: Cannot find the corresponding write");
     
     return;
+}
+
+void dependency_analyzer::build_start_dependency()
+{
+    // count the second stmt as begin stmt, because some dbms donot use snapshot unless it read or write something
+    auto tid_has_used_begin = new bool[tid_num];
+    tid_strict_begin_idx = new int[tid_num];
+    tid_begin_idx = new int[tid_num];
+    tid_end_idx = new int[tid_num];
+    for (int i = 0; i < tid_num; i++) {
+        tid_strict_begin_idx[i] = -1;
+        tid_begin_idx[i] = -1;
+        tid_end_idx[i] = -1;
+        tid_has_used_begin[i] = false;
+    }
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = f_txn_id_queue[i];
+        // skip the first stmt (i.e. start transaction)
+        if (tid_has_used_begin[tid] == false) {
+            tid_has_used_begin[tid] = true;
+            tid_strict_begin_idx[tid] = i;
+            continue;
+        }
+        if (tid_begin_idx[tid] == -1)
+            tid_begin_idx[tid] = i;
+        if (tid_end_idx[tid] < i)
+            tid_end_idx[tid] = i;
+    }
+    for (int i = 0; i < tid_num; i++) {
+        for (int j = 0; j < tid_num; j++) {
+            if (i == j)
+                continue;
+            if (tid_end_idx[i] < tid_begin_idx[j]) {
+                dependency_graph[i][j].insert(START_DEPEND);
+                build_stmt_start_dependency(i, j, START_DEPEND);
+            }
+            if (tid_end_idx[i] < tid_strict_begin_idx[j]) {
+                dependency_graph[i][j].insert(STRICT_START_DEPEND);
+                build_stmt_start_dependency(i, j, STRICT_START_DEPEND);
+            }
+        }
+    }
+    delete[] tid_has_used_begin;
+}
+
+void dependency_analyzer::build_stmt_inner_dependency()
+{
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = f_txn_id_queue[i];
+        for (int j = 0; j < i; j++) {
+            auto prev_tid = f_txn_id_queue[j];
+            if (prev_tid == tid) 
+                build_stmt_depend_from_stmt_idx(j, i, INNER_DEPEND);
+        }
+    }
+}
+
+void dependency_analyzer::build_stmt_start_dependency(int prev_tid, int later_tid, dependency_type dt)
+{
+    for (int i = 0; i < stmt_num; i++) {
+        auto i_tid = f_txn_id_queue[i];
+        if (i_tid != prev_tid)
+            continue;
+        for (int j = i + 1; j < stmt_num; j++) {
+            auto j_tid = f_txn_id_queue[j];
+            if (j_tid != later_tid)
+                continue;
+            
+            build_stmt_depend_from_stmt_idx(i, j, dt);
+        }
+    }
 }
 
 void dependency_analyzer::print_dependency_graph()
@@ -182,14 +285,21 @@ dependency_analyzer::dependency_analyzer(vector<stmt_output>& init_output,
                         int primary_key_idx,
                         int write_op_key_idx):
 tid_num(t_num + 1),  // add 1 for init txn
-f_txn_status(final_txn_status)
+f_txn_status(final_txn_status),
+f_txn_id_queue(final_tid_queue)
 {   
+    if (total_output.size() != f_txn_id_queue.size() || total_output.size() != final_stmt_usage.size()) {
+        cerr << "dependency_analyzer: total_output, final_tid_queue and final_stmt_usage size are not equal" << endl;
+        throw runtime_error("dependency_analyzer: total_output, final_tid_queue and final_stmt_usage size are not equal");
+    }
+    stmt_num = total_output.size();
+    
     f_txn_status.push_back(TXN_COMMIT); // for init txn;
     
     dependency_graph = new set<dependency_type>* [tid_num];
     for (int i = 0; i < tid_num; i++) 
         dependency_graph[i] = new set<dependency_type> [tid_num];
-
+    
     for (auto& each_output : init_output) {
         if (each_output.empty())
             continue;
@@ -203,10 +313,9 @@ f_txn_status(final_txn_status)
         }
     }
     
-    auto stmt_num = final_tid_queue.size();
     for (int i = 0; i < stmt_num; i++) {
         auto& each_output = total_output[i];
-        auto tid = final_tid_queue[i];
+        auto tid = f_txn_id_queue[i];
         auto stmt_u = final_stmt_usage[i];
 
         // do not analyze empty output select read;
@@ -243,44 +352,11 @@ f_txn_status(final_txn_status)
     }
 
     // generate start dependency (for snapshot)
-    // count the second stmt as begin stmt, because some dbms donot use snapshot unless it read or write something
-    auto tid_has_used_begin = new bool[tid_num];
-    tid_strict_begin_idx = new int[tid_num];
-    tid_begin_idx = new int[tid_num];
-    tid_end_idx = new int[tid_num];
-    for (int i = 0; i < tid_num; i++) {
-        tid_strict_begin_idx[i] = -1;
-        tid_begin_idx[i] = -1;
-        tid_end_idx[i] = -1;
-        tid_has_used_begin[i] = false;
-    }
-    for (int i = 0; i < stmt_num; i++) {
-        auto tid = final_tid_queue[i];
-        // skip the first stmt (i.e. start transaction)
-        if (tid_has_used_begin[tid] == false) {
-            tid_has_used_begin[tid] = true;
-            tid_strict_begin_idx[tid] = i;
-            continue;
-        }
-        if (tid_begin_idx[tid] == -1)
-            tid_begin_idx[tid] = i;
-        if (tid_end_idx[tid] < i)
-            tid_end_idx[tid] = i;
-    }
-    for (int i = 0; i < tid_num; i++) {
-        // if (f_txn_status[i] != TXN_COMMIT)
-        //     continue;
-        for (int j = 0; j < tid_num; j++) {
-            if (i == j)
-                continue;
-            if (tid_end_idx[i] < tid_begin_idx[j]) 
-                dependency_graph[i][j].insert(START_DEPEND);
-            if (tid_end_idx[i] < tid_strict_begin_idx[j])
-                dependency_graph[i][j].insert(STRICT_START_DEPEND);
-        }
-    }
-    delete[] tid_has_used_begin;
+    build_start_dependency();
 
+    // generate stmt inner depend
+    build_stmt_inner_dependency();
+    
     // print dependency graph
     print_dependency_graph();
 }
@@ -290,7 +366,7 @@ dependency_analyzer::~dependency_analyzer()
     delete[] tid_end_idx;
     delete[] tid_begin_idx;
     delete[] tid_strict_begin_idx;
-    
+
     for (int i = 0; i < tid_num; i++) 
         delete[] dependency_graph[i];
     delete[] dependency_graph;
