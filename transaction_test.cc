@@ -288,8 +288,13 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
             throw e;
         if (err.find("blocked") != string::npos)
             return 0;
-        if (err.find("skipped") != string::npos)
+        if (err.find("skipped") != string::npos) {
+            stmt_output empty_output;
+            output = empty_output;
+            trans_arr[tid].stmt_outputs.push_back(empty_output);
             return 2;
+        }
+            
         if (err.find("sent sql stmt changed") != string::npos) 
             exit(-1);
         
@@ -368,6 +373,11 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             real_stmt_usage.push_back(stmt_use[i]);
         } else if (is_executed == 2) { // skipped
             trans_arr[tid].is_blocked = false;
+            
+            real_tid_queue.push_back(tid);
+            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE"));
+            real_output_queue.push_back(output);
+            real_stmt_usage.push_back(NORMAL);
             status_queue[i] = 1;
         } else {// blocked
             trans_arr[tid].is_blocked = true;
@@ -409,6 +419,11 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         } else if (is_executed == 2) { // skipped
             trans_arr[tid].is_blocked = false;
             status_queue[stmt_pos] = 1;
+
+            real_tid_queue.push_back(tid);
+            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE"));
+            real_output_queue.push_back(output);
+            real_stmt_usage.push_back(NORMAL);
         }
         else { // still blocked
             trans_arr[tid].is_blocked = true;
@@ -452,6 +467,10 @@ void transaction_test::trans_test()
         }
         if (is_executed == 2) { // the executed stmt fail
             status_queue[stmt_index] = 1;
+            real_tid_queue.push_back(tid);
+            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE"));
+            real_output_queue.push_back(output);
+            real_stmt_usage.push_back(NORMAL);
             continue;
         }
         status_queue[stmt_index] = 1;
@@ -493,6 +512,11 @@ void transaction_test::trans_test()
         
         cerr << RED << "something error, some stmt is still not executed" << RESET << endl;
         throw runtime_error("some stmt is still not executed");
+    }
+
+    if (real_stmt_queue.size() != stmt_queue.size()) {
+        cerr << "real_stmt_queue size is not equal to stmt_queue size, something wrong" << endl;
+        throw runtime_error("real_stmt_queue size is not equal to stmt_queue size, something wrong");
     }
 
     // collect database information
