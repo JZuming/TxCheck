@@ -50,9 +50,16 @@ struct history {
 struct stmt_id {
     int txn_id;
     int stmt_idx_in_txn;
-    bool operator==(const stmt_id& other_id) {
+    bool operator==(const stmt_id& other_id) const {
         return this->txn_id == other_id.txn_id && 
                 this->stmt_idx_in_txn == other_id.stmt_idx_in_txn;
+    }
+
+    bool operator<(const stmt_id& other_id) const {
+        if (this->txn_id == other_id.txn_id) 
+            return this->stmt_idx_in_txn < other_id.stmt_idx_in_txn;
+        else 
+            return this->txn_id < other_id.txn_id;
     }
 
     stmt_id(vector<int>& final_tid_queue, int stmt_idx);

@@ -974,7 +974,7 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
                 }
             }
 
-            if (has_indegree = false) {
+            if (has_indegree == false) {
                 zero_indegree_idx = i;
                 break;
             }
@@ -984,7 +984,7 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
             throw runtime_error("BUG: there is a cycle in longest_stmt_path()");
         
         int cur_max_length = 0;
-        stmt_id max_dad;
+        stmt_id cur_max_dad;
         auto stmt_zero_idx = stmt_id(f_txn_id_queue, zero_indegree_idx);
         for (int i = 0; i < stmt_num; i++) {
             auto stmt_i = stmt_id(f_txn_id_queue, i);
@@ -993,11 +993,11 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
                 continue;
             if (dist_length[stmt_i] + stmt_dist_graph[branch] > cur_max_length) {
                 cur_max_length = dist_length[stmt_i] + stmt_dist_graph[branch];
-                max_dad = stmt_i;
+                cur_max_dad = stmt_i;
             }
         }
         dist_length[stmt_zero_idx] = cur_max_length;
-        dad_stmt[stmt_zero_idx] = max_dad;
+        dad_stmt[stmt_zero_idx] = cur_max_dad;
 
         delete_node.insert(stmt_zero_idx);
         for (int j = 0; j < stmt_num; j++) {
