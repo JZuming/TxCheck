@@ -945,3 +945,116 @@ vector<int> dependency_analyzer::SI_longest_path()
     auto l_path = longest_path(used_dependency_set);
     return l_path;
 }
+
+vector<stmt_id> dependency_analyzer::longest_stmt_path(
+    map<pair<stmt_id, stmt_id>, int>& stmt_dist_graph)
+{
+    map<stmt_id, stmt_id> dad_stmt;
+    map<stmt_id, int> dist_length;
+    for (int i = 0; i < stmt_num; i++) {
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        dist_length[stmt_i] = 0;
+    }
+
+    auto tmp_stmt_graph = stmt_dist_graph;
+    set<stmt_id> delete_node;
+    while (delete_node.size() < stmt_num) {
+        int zero_indegree_idx = -1;
+        for (int i = 0; i < stmt_num; i++) {
+            auto stmt_i = stmt_id(f_txn_id_queue, i);
+            if (delete_node.count(stmt_i) > 0)
+                continue;
+            
+            bool has_indegree = false;
+            for (int j = 0; j < stmt_num; j++) {
+                auto stmt_j = stmt_id(f_txn_id_queue, j);
+                if (tmp_stmt_graph.count(make_pair(stmt_j, stmt_i)) > 0) {
+                    has_indegree = true;
+                    break;
+                }
+            }
+
+            if (has_indegree = false) {
+                zero_indegree_idx = i;
+                break;
+            }
+        }
+
+        if (zero_indegree_idx == -1)
+            throw runtime_error("BUG: there is a cycle in longest_stmt_path()");
+        
+        int cur_max_length = 0;
+        stmt_id max_dad;
+        auto stmt_zero_idx = stmt_id(f_txn_id_queue, zero_indegree_idx);
+        for (int i = 0; i < stmt_num; i++) {
+            auto stmt_i = stmt_id(f_txn_id_queue, i);
+            auto branch = make_pair(stmt_i, stmt_zero_idx);
+            if (stmt_dist_graph.count(branch) == 0)
+                continue;
+            if (dist_length[stmt_i] + stmt_dist_graph[branch] > cur_max_length) {
+                cur_max_length = dist_length[stmt_i] + stmt_dist_graph[branch];
+                max_dad = stmt_i;
+            }
+        }
+        dist_length[stmt_zero_idx] = cur_max_length;
+        dad_stmt[stmt_zero_idx] = max_dad;
+
+        delete_node.insert(stmt_zero_idx);
+        for (int j = 0; j < stmt_num; j++) {
+            auto branch = make_pair(stmt_zero_idx, stmt_id(f_txn_id_queue, j));
+            if (tmp_stmt_graph.count(branch))
+                tmp_stmt_graph.erase(branch);
+        }
+    }
+
+    vector<stmt_id> longest_path;
+    int longest_dist = 0;
+    stmt_id longest_dist_stmt;
+    for (int i = 0; i < stmt_num; i++) {
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        auto path_length = dist_length[stmt_i];
+        if (path_length > longest_dist) {
+            longest_dist = path_length;
+            longest_dist_stmt = stmt_i;
+        }
+    }
+
+    while (longest_dist_stmt.txn_id != -1) { // default
+        longest_path.insert(longest_path.begin(), longest_dist_stmt);
+        longest_dist_stmt = dad_stmt[longest_dist_stmt];
+    }
+
+    cerr << "stmt path length: " << longest_dist << endl;
+    return longest_path;
+}
+
+vector<stmt_id> dependency_analyzer::longest_stmt_path()
+{
+    map<pair<stmt_id, stmt_id>, int> stmt_dist_graph;
+    for (int i = 0; i < stmt_num; i++) {
+        if (f_txn_status[f_txn_id_queue[i]] != TXN_COMMIT)
+            continue;
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        for (int j = 0; j < stmt_num; j++) {
+            if (f_txn_status[f_txn_id_queue[j]] != TXN_COMMIT)
+                continue;
+            auto stmt_j = stmt_id(f_txn_id_queue, j);
+            auto branch = make_pair(stmt_i, stmt_j);
+            if (stmt_dependency_graph.count(branch) == 0)
+                continue;
+            auto& depend_set = stmt_dependency_graph[branch];
+            if (depend_set.count(INNER_DEPEND) > 0 && depend_set.size() == 1)
+                stmt_dist_graph[branch] = 1;
+            else if (depend_set.count(STRICT_START_DEPEND) > 0 && depend_set.size() == 1)
+                stmt_dist_graph[branch] = 10;
+            else if (depend_set.count(INNER_DEPEND) > 0)
+                stmt_dist_graph[branch] = 100;
+            else if (depend_set.count(STRICT_START_DEPEND) > 0)
+                stmt_dist_graph[branch] = 1000;
+            else
+                stmt_dist_graph[branch] = 10000;
+        }
+    }
+
+    return longest_stmt_path(stmt_dist_graph);
+}

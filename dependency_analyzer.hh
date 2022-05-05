@@ -56,6 +56,7 @@ struct stmt_id {
     }
 
     stmt_id(vector<int>& final_tid_queue, int stmt_idx);
+    stmt_id() {txn_id = -1; stmt_idx_in_txn = -1;}
 };
 
 struct dependency_analyzer
@@ -127,7 +128,8 @@ struct dependency_analyzer
 
     map<pair<stmt_id, stmt_id>, set<dependency_type>> stmt_dependency_graph;
     void build_stmt_depend_from_stmt_idx(int stmt_idx1, int stmt_idx2, dependency_type dt);
-    // set<dependency_type> **stmt_dependency_graph;
+    vector<stmt_id> longest_stmt_path(map<pair<stmt_id, stmt_id>, int>& stmt_dist_graph);
+    vector<stmt_id> longest_stmt_path();
 };
 
 #endif
