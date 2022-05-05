@@ -267,19 +267,22 @@ bool transaction_test::refine_txn_as_txn_order()
 // 0: blocked, not executed
 int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
 {
+#define SHOW_CHARACTERS 30
+    
     auto tid = tid_queue[stmt_pos];
     auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
 
+    auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+    replace(show_str.begin(), show_str.end(), '\n', ' ');
+    
     try {
         trans_arr[tid].dut->test(stmt, &output);
         trans_arr[tid].stmt_outputs.push_back(output);
-        cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+        cerr << "S" << stmt_pos << " T" << tid << ": " << show_str << endl;
         return 1;
     } catch(exception &e) {
         string err = e.what();
-        cerr << RED 
-            << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
-            << err << RESET << endl;
+        cerr << RED << "S" << stmt_pos << " T" << tid << ": " << show_str << ": fail, err: " << err << RESET << endl;
 
         if (err.find("ost connection") != string::npos) // lost connection
             throw e;
@@ -291,17 +294,15 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
             exit(-1);
         
         // store the error info of non-commit statement
-        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos &&
-            stmt.find(trans_arr[tid].dut->abort_stmt()) == string::npos) {
-
+        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos) {
+            stmt_output empty_output;
+            output = empty_output;
+            trans_arr[tid].stmt_outputs.push_back(empty_output);
             trans_arr[tid].stmt_err_info.push_back(err);
             return 1;
         }
         
-        // abort fail, just do nothing, return executed (i.e. 1)
-        if (trans_arr[tid].status == TXN_ABORT)
-            return 1;
-        
+        // is commit stmt   
         // if commit fail, just abort
         trans_arr[tid].status = TXN_ABORT;
         trans_arr[tid].stmts.pop_back();
@@ -311,13 +312,14 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
         stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
         try {
             trans_arr[tid].dut->test(stmt);
-            cerr << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+            stmt_output empty_output;
+            output = empty_output;
+            trans_arr[tid].stmt_outputs.push_back(empty_output);
+            cerr << "S" << stmt_pos << " T" << tid << ": " << show_str << endl;
             return 1;
         } catch(exception &e2) {
             err = e2.what();
-            cerr << RED 
-            << "S" << stmt_pos << " T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
-            << err << RESET << endl;
+            cerr << RED << "S" << stmt_pos << " T" << tid << ": " << show_str << ": fail, err: " << err << RESET << endl;
         }
     }
 
@@ -673,6 +675,8 @@ void transaction_test::normal_test()
                 cerr << RED 
                     << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
                     << err << RESET << endl;
+                stmt_output empty_output;
+                normal_output.push_back(empty_output);
                 normal_err_info.push_back(err);
             }
         }
@@ -680,7 +684,7 @@ void transaction_test::normal_test()
         normal_output.insert(normal_output.begin(), empty_output); // for begin stmt
         normal_output.push_back(empty_output); // for commit stmt
         trans_arr[tid].normal_outputs = normal_output;
-        trans_arr[tid].normal_err_info =normal_err_info;
+        trans_arr[tid].normal_err_info = normal_err_info;
     }
     dut_get_content(test_dbms_info, normal_db_content);
 }
@@ -688,7 +692,7 @@ void transaction_test::normal_test()
 bool transaction_test::check_txn_normal_result()
 {
     if (!compare_content(trans_db_content, normal_db_content)) {
-        cerr << "trans_db_content is not equal to possible_normal_db_content" << endl;
+        cerr << "trans_db_content is not equal to normal_db_content" << endl;
         return false;
     }
 
@@ -699,7 +703,12 @@ bool transaction_test::check_txn_normal_result()
             continue;
         
         if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].normal_outputs)) {
-            cerr << "trans "<< i << " output is not equal to possible_normal " << endl;
+            cerr << "trans "<< i << " output is not equal to normal one" << endl;
+            return false;
+        }
+
+        if (trans_arr[i].stmt_err_info.size() != trans_arr[i].normal_err_info.size()) {
+            cerr << "trans "<< i << " error num is not equal to normal one" << endl;
             return false;
         }
     }
