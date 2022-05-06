@@ -74,6 +74,8 @@ public:
     bool refine_txn_as_txn_order();
     void clear_execution_status();
     bool multi_round_test(); // true: find bugs; false: no bug
+    bool multi_stmt_round_test(); // true: find bugs; false: no bug
+    bool refine_stmt_queue(vector<stmt_id>& stmt_path);
     
     bool check_commit_trans_blocked();
     void trans_test();

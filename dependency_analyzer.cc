@@ -119,6 +119,11 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
 
     auto list_size = op_list.size();
     for (int i = list_size - 1; i >= 0; i--) {
+        // could not build BWR -> BWR ()
+        // if BWR -> BWR is build (RW), then AWR -> BWR is also built (WW), so missing it is fine
+        if (op_list[i].stmt_u == BEFORE_WRITE_READ) 
+            continue;
+
         // need eazier compare to build more edge
         if (op_list[i].write_op_id != target_op.write_op_id)
             continue;

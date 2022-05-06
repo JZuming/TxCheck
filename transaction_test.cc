@@ -514,7 +514,7 @@ void transaction_test::trans_test()
         throw runtime_error("some stmt is still not executed");
     }
 
-    if (real_stmt_queue.size() != stmt_queue.size()) {
+    if (real_stmt_queue.size() != stmt_num) {
         cerr << "real_stmt_queue size is not equal to stmt_queue size, something wrong" << endl;
         throw runtime_error("real_stmt_queue size is not equal to stmt_queue size, something wrong");
     }
@@ -828,6 +828,90 @@ bool transaction_test::multi_round_test()
             change_txn_status(tid, init_status[tid]);
     }
     return false;
+}
+
+bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
+{
+    // use real one to replace 
+    stmt_queue = real_stmt_queue;
+    tid_queue = real_tid_queue;
+    stmt_use = real_stmt_usage;
+
+    // refine txn_stmt because the skipped stmt has been changed
+    int stmt_pos_of_txn[trans_num];
+    for (int i = 0; i < trans_num; i++) 
+        stmt_pos_of_txn[i] = 0;
+    for (int i = 0; i < stmt_num; i++) {
+        auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
+        if (casted.use_count() > 0) {
+            auto tid = tid_queue[i];
+            trans_arr[tid].stmts[stmt_pos_of_txn[tid]] = casted;
+        }
+        stmt_pos_of_txn[i]++;
+    }
+    
+    bool is_refined = false;
+    // change txns that are not in the path to abort
+    auto path_length = stmt_path.size();
+    set<int> exist_tid;
+    set<stmt_id> exist_stmt;
+    for (int i = 0; i < path_length; i++) {
+        exist_tid.insert(stmt_path[i].txn_id);
+        exist_stmt.insert(stmt_path[i]);
+    }
+    for (int i = 0; i < trans_num; i++) {
+        if (exist_tid.count(i) > 0)
+            continue;
+        if (change_txn_status(i, TXN_ABORT))
+            is_refined = true;
+    }
+
+    for (int i = 0; i < trans_num; i++) 
+        stmt_pos_of_txn[i] = 0;
+    int stmt_pos_of_path = 0;
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        auto& target_stmt = stmt_path[stmt_pos_of_path];
+        if (target_stmt.txn_id != tid) { // txn not in the path, is abort
+            stmt_pos_of_txn[tid]++;
+            continue;
+        }
+        if (target_stmt.stmt_idx_in_txn == stmt_pos_of_txn[tid]) { // the stmt in the path
+            stmt_pos_of_txn[tid]++;
+            stmt_pos_of_path++; // matched
+            continue;
+        }
+        auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
+        if (casted.use_count() > 0) { // already been replaced
+            stmt_pos_of_txn[tid]++;
+            continue;
+        }
+        is_refined = true;
+        // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
+        stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE");
+        stmt_use[i] = NORMAL;
+    }
+    
+    if (is_refined == false)
+        return false;
+    
+    clear_execution_status();
+    return true;
+}
+
+bool transaction_test::multi_stmt_round_test()
+{
+    trans_test(); // first run, get all dependency information
+    shared_ptr<dependency_analyzer> init_da;
+    if (analyze_txn_dependency(init_da)) 
+        throw runtime_error("BUG: found in analyze_txn_dependency()");
+    auto longest_stmt_path = init_da->longest_stmt_path();
+    auto init_stmt_queue = real_stmt_queue;
+
+    while (1) {
+        // use the longest path to refine
+
+    }
 }
 
 int transaction_test::test()
