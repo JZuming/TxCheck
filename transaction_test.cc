@@ -221,12 +221,20 @@ void transaction_test::clear_execution_status()
         trans_arr[tid].normal_err_info.clear();
     }
     init_db_content.clear();
+
     real_tid_queue.clear();
     real_stmt_queue.clear();
     real_output_queue.clear();
     real_stmt_usage.clear();
     trans_db_content.clear();
+
     longest_seq_txn_order.clear();
+    normal_db_content.clear();
+
+    // normal test related
+    normal_stmt_output.clear();
+    normal_stmt_err_info.clear();
+    normal_stmt_db_content.clear();
 }
 
 bool transaction_test::refine_txn_as_txn_order()
@@ -267,8 +275,6 @@ bool transaction_test::refine_txn_as_txn_order()
 // 0: blocked, not executed
 int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
 {
-#define SHOW_CHARACTERS 30
-    
     auto tid = tid_queue[stmt_pos];
     auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
 
@@ -278,6 +284,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
     try {
         trans_arr[tid].dut->test(stmt, &output);
         trans_arr[tid].stmt_outputs.push_back(output);
+        trans_arr[tid].stmt_err_info.push_back("");
         cerr << "S" << stmt_pos << " T" << tid << ": " << show_str << endl;
         return 1;
     } catch(exception &e) {
@@ -292,6 +299,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
             stmt_output empty_output;
             output = empty_output;
             trans_arr[tid].stmt_outputs.push_back(empty_output);
+            trans_arr[tid].stmt_err_info.push_back("");
             return 2;
         }
             
@@ -320,6 +328,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output)
             stmt_output empty_output;
             output = empty_output;
             trans_arr[tid].stmt_outputs.push_back(empty_output);
+            trans_arr[tid].stmt_err_info.push_back("");
             cerr << "S" << stmt_pos << " T" << tid << ": " << show_str << endl;
             return 1;
         } catch(exception &e2) {
@@ -688,16 +697,17 @@ void transaction_test::normal_test()
         auto normal_stmt_num = trans_arr[tid].normal_stmts.size();
         for (int i = 0; i < normal_stmt_num; i++) {
             auto stmt = print_stmt_to_string(trans_arr[tid].normal_stmts[i]);
+            auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+            replace(show_str.begin(), show_str.end(), '\n', ' ');
             vector<vector<string>> output;
-             try {
+            try {
                 normal_dut->test(stmt, &output);
                 normal_output.push_back(output);
-                    
-                cerr << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << endl;
+                cerr << "T" << tid << ": " << show_str << endl;
             } catch (exception &e) {
                 string err = e.what();
                 cerr << RED 
-                    << "T" << tid << ": " << stmt.substr(0, stmt.size() > 20 ? 20 : stmt.size()) << ": fail, err: " 
+                    << "T" << tid << ": " << show_str << ": fail, err: " 
                     << err << RESET << endl;
                 stmt_output empty_output;
                 normal_output.push_back(empty_output);
@@ -899,6 +909,74 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
     return true;
 }
 
+void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
+{
+    dut_reset_to_backup(test_dbms_info);
+    auto normal_dut = dut_setup(test_dbms_info);
+    for (auto& stmt_id : stmt_path) {
+        auto tid = stmt_id.txn_id;
+        auto stmt_pos = stmt_id.stmt_idx_in_txn;
+        auto stmt = print_stmt_to_string(trans_arr[tid].stmts[stmt_pos]);
+        auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+        replace(show_str.begin(), show_str.end(), '\n', ' ');
+        stmt_output output;
+        try {
+            normal_dut->test(stmt, &output);
+            normal_stmt_output.push_back(output);
+            normal_stmt_err_info.push_back("");
+            cerr << "T" << tid << "P" << stmt_pos << ": " << show_str << endl;
+        } catch (exception &e) {
+            string err = e.what();
+            cerr << RED 
+                << "T" << tid << "P" << stmt_pos << ": " << show_str << ": fail, err: " 
+                << err << RESET << endl;
+            stmt_output empty_output;
+            normal_stmt_output.push_back(empty_output);
+            normal_stmt_err_info.push_back(err);
+        }
+    }
+    dut_get_content(test_dbms_info, normal_stmt_db_content);
+}
+
+bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
+{
+    if (!compare_content(trans_db_content, normal_stmt_db_content)) {
+        cerr << "trans_db_content is not equal to normal_stmt_db_content" << endl;
+        return false;
+    }
+
+    vector<stmt_output> path_txn_output;
+    vector<string> path_txn_err_info;
+
+    auto path_length = stmt_path.size();
+    for (int i = 0; i < path_length; i++) {
+        auto tid = stmt_path[i].txn_id;
+        auto stmt_pos = stmt_path[i].stmt_idx_in_txn;
+        path_txn_output.push_back(trans_arr[tid].stmt_outputs[stmt_pos]);
+        path_txn_err_info.push_back(trans_arr[tid].stmt_err_info[stmt_pos]);
+    }
+
+    if (!compare_output(path_txn_output, normal_stmt_output)) {
+        cerr << "txn output is not equal to normal stmt one" << endl;
+        return false;
+    }
+
+    auto err_info_size = path_txn_err_info.size();
+    if (err_info_size != normal_stmt_err_info.size()) {
+        cerr << "txn error info size is not equal to normal stmt one" << endl;
+        cerr << "path_txn_err_info: " << err_info_size << ", normal_stmt_err_info" << normal_stmt_err_info.size() << endl;
+        return false;
+    }
+    for (int i = 0; i < err_info_size; i++) {
+        if (path_txn_err_info[i] != normal_stmt_err_info[i]) {
+            cerr << "txn error info is not equal to normal stmt one, idx: " << i << endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool transaction_test::multi_stmt_round_test()
 {
     trans_test(); // first run, get all dependency information
@@ -906,12 +984,99 @@ bool transaction_test::multi_stmt_round_test()
     if (analyze_txn_dependency(init_da)) 
         throw runtime_error("BUG: found in analyze_txn_dependency()");
     auto longest_stmt_path = init_da->longest_stmt_path();
+    
+    // record init status
     auto init_stmt_queue = real_stmt_queue;
+    auto init_tid_queue = real_tid_queue;
+    auto init_stmt_usage = real_stmt_usage;
+    txn_status init_txn_status[trans_num];
+    vector<shared_ptr<prod>> init_txn_stmt[trans_num];
+    for (int tid = 0; tid < trans_num; tid++) {
+        init_txn_status[tid] = trans_arr[tid].status;
+        init_txn_stmt[tid] = trans_arr[tid].stmts;
+    }
 
     while (1) {
-        // use the longest path to refine
+        cerr << "\n\n";
+        cerr << RED << "one round test" << RESET << endl;
+        cerr << "ideal test stmt path: ";
+        for (auto& sid:longest_stmt_path) 
+            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn;
+        cerr << endl;
+        auto ideal_test_path = longest_stmt_path;
 
+        // use the longest path to refine
+        shared_ptr<dependency_analyzer> tmp_da;
+        while (refine_stmt_queue(longest_stmt_path) == true) {
+            trans_test();
+            if (analyze_txn_dependency(tmp_da)) 
+                throw runtime_error("BUG: found in analyze_txn_dependency()");
+            longest_stmt_path = tmp_da->longest_stmt_path();
+        }
+
+        cerr << "real test path: ";
+        for (auto& sid : longest_stmt_path) 
+            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn;
+        cerr << endl;
+
+        // normal test and check
+        normal_stmt_test(longest_stmt_path);
+        if (check_normal_stmt_result(longest_stmt_path) == false)
+            return true;
+        
+        auto stmt_graph = init_da->stmt_dependency_graph;
+        auto path_length = longest_stmt_path.size();
+        for (int i = 0; i + 1 < path_length; i++) {
+            auto& cur_sid = longest_stmt_path[i];
+            auto& next_sid = longest_stmt_path[i + 1];
+            auto branch = make_pair(cur_sid, next_sid);
+            if (stmt_graph.count(branch) == 0)
+                continue;
+            stmt_graph[branch].erase(WRITE_READ);
+            stmt_graph[branch].erase(WRITE_WRITE);
+            stmt_graph[branch].erase(READ_WRITE);
+        }
+
+        auto ideal_path_length = ideal_test_path.size();
+        for (int i = 0; i + 1 < ideal_path_length; i++) {
+            auto& cur_sid = ideal_test_path[i];
+            auto& next_sid = ideal_test_path[i + 1];
+            auto branch = make_pair(cur_sid, next_sid);
+            if (stmt_graph.count(branch) == 0)
+                continue;
+            stmt_graph[branch].erase(WRITE_READ);
+            stmt_graph[branch].erase(WRITE_WRITE);
+            stmt_graph[branch].erase(READ_WRITE);
+        }
+
+        longest_stmt_path = tmp_da->longest_stmt_path();
+        auto new_path_length = longest_stmt_path.size();
+        bool has_conflict_depend = false;
+        for (int i = 0; i + 1 < new_path_length; i++) {
+            auto& cur_sid = longest_stmt_path[i];
+            auto& next_sid = longest_stmt_path[i + 1];
+            auto branch = make_pair(cur_sid, next_sid);
+
+            if (stmt_graph[branch].count(WRITE_READ) ||
+                    stmt_graph[branch].count(WRITE_WRITE) ||
+                    stmt_graph[branch].count(READ_WRITE)) {
+            
+                has_conflict_depend = true; 
+                break;   
+            }
+        }
+        if (has_conflict_depend == false)
+            break;
+        
+        real_stmt_queue = init_stmt_queue;
+        real_stmt_usage = init_stmt_usage;
+        real_tid_queue = init_tid_queue;
+        for (int tid = 0; tid < trans_num; tid++) {
+            trans_arr[tid].stmts = init_txn_stmt[tid];
+            change_txn_status(tid, init_txn_status[tid]);
+        }
     }
+    return false;
 }
 
 int transaction_test::test()

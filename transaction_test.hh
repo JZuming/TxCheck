@@ -13,6 +13,8 @@
 
 using namespace std;
 
+#define SHOW_CHARACTERS 30
+
 struct transaction {
     shared_ptr<dut_base> dut;
     bool is_blocked;
@@ -59,6 +61,11 @@ public:
     vector<stmt_usage> real_stmt_usage;
     map<string, vector<vector<string>>> trans_db_content;
 
+    // normal stmt test related
+    vector<stmt_output> normal_stmt_output;
+    vector<string> normal_stmt_err_info;
+    map<string, vector<vector<string>>> normal_stmt_db_content;
+
     vector<int> longest_seq_txn_order;
 
     map<string, vector<vector<string>>> normal_db_content;
@@ -76,6 +83,8 @@ public:
     bool multi_round_test(); // true: find bugs; false: no bug
     bool multi_stmt_round_test(); // true: find bugs; false: no bug
     bool refine_stmt_queue(vector<stmt_id>& stmt_path);
+    void normal_stmt_test(vector<stmt_id>& stmt_path);
+    bool check_normal_stmt_result(vector<stmt_id>& stmt_path);
     
     bool check_commit_trans_blocked();
     void trans_test();
