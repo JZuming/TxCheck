@@ -300,6 +300,15 @@ f_txn_id_queue(final_tid_queue)
     stmt_num = total_output.size();
     
     f_txn_status.push_back(TXN_COMMIT); // for init txn;
+
+    for (int txn_id = 0; txn_id < tid_num; txn_id++) {
+        int txn_stmt_num = 0;
+        for (int i = 0; i < stmt_num; i++) {
+            if (f_txn_id_queue[i] == txn_id)
+                txn_stmt_num++;
+        }
+        f_txn_size.push_back(txn_stmt_num);
+    }
     
     dependency_graph = new set<dependency_type>* [tid_num];
     for (int i = 0; i < tid_num; i++) 
@@ -1053,13 +1062,25 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
             else if (depend_set.count(STRICT_START_DEPEND) > 0 && depend_set.size() == 1)
                 stmt_dist_graph[branch] = 10;
             else if (depend_set.count(INNER_DEPEND) > 0)
-                stmt_dist_graph[branch] = 100;
-            else if (depend_set.count(STRICT_START_DEPEND) > 0)
                 stmt_dist_graph[branch] = 1000;
-            else
+            else if (depend_set.count(STRICT_START_DEPEND) > 0)
                 stmt_dist_graph[branch] = 10000;
+            else
+                stmt_dist_graph[branch] = 1000000;
         }
     }
 
-    return longest_stmt_path(stmt_dist_graph);
+    auto path = longest_stmt_path(stmt_dist_graph);
+    auto path_size = path.size();
+    for (int i = 0; i < path_size; i++) {
+        auto txn_id = path[i].txn_id;
+        auto stmt_pos = path[i].stmt_idx_in_txn;
+        if (stmt_pos != 0 && f_txn_size[txn_id] != stmt_pos + 1)
+            continue;
+        // if it is the first one (begin), or last one (commit), delete it
+        path.erase(path.begin() + i);
+        path_size--;
+        i--;
+    }
+    return path;
 }

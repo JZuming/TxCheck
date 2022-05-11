@@ -384,7 +384,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             trans_arr[tid].is_blocked = false;
             
             real_tid_queue.push_back(tid);
-            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE"));
+            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
             real_stmt_usage.push_back(NORMAL);
             status_queue[i] = 1;
@@ -430,7 +430,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             status_queue[stmt_pos] = 1;
 
             real_tid_queue.push_back(tid);
-            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE"));
+            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
             real_stmt_usage.push_back(NORMAL);
         }
@@ -477,7 +477,7 @@ void transaction_test::trans_test()
         if (is_executed == 2) { // the executed stmt fail
             status_queue[stmt_index] = 1;
             real_tid_queue.push_back(tid);
-            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE"));
+            real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
             real_stmt_usage.push_back(NORMAL);
             continue;
@@ -853,11 +853,10 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
         stmt_pos_of_txn[i] = 0;
     for (int i = 0; i < stmt_num; i++) {
         auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
-        if (casted.use_count() > 0) {
-            auto tid = tid_queue[i];
+        auto tid = tid_queue[i];
+        if (casted.use_count() > 0) 
             trans_arr[tid].stmts[stmt_pos_of_txn[tid]] = casted;
-        }
-        stmt_pos_of_txn[i]++;
+        stmt_pos_of_txn[tid]++;
     }
     
     bool is_refined = false;
@@ -892,13 +891,13 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
             continue;
         }
         auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
-        if (casted.use_count() > 0) { // already been replaced
+        if (casted.use_count() > 0) { // already been replaced, include commit and abort stmt
             stmt_pos_of_txn[tid]++;
             continue;
         }
         is_refined = true;
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
-        stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, "SELECT 1 WHERE FASLE");
+        stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
         stmt_use[i] = NORMAL;
     }
     
@@ -1001,7 +1000,7 @@ bool transaction_test::multi_stmt_round_test()
         cerr << RED << "one round test" << RESET << endl;
         cerr << "ideal test stmt path: ";
         for (auto& sid:longest_stmt_path) 
-            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn;
+            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn << "->";
         cerr << endl;
         auto ideal_test_path = longest_stmt_path;
 
@@ -1016,7 +1015,7 @@ bool transaction_test::multi_stmt_round_test()
 
         cerr << "real test path: ";
         for (auto& sid : longest_stmt_path) 
-            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn;
+            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn << "->";
         cerr << endl;
 
         // normal test and check
@@ -1110,19 +1109,10 @@ int transaction_test::test()
     }
     
     try {
-        if (multi_round_test() == false)
-            return 0;
-        // while (1) {
-        //     trans_test();
-        //     shared_ptr<dependency_analyzer> da;
-        //     if (analyze_txn_dependency(da)) 
-        //         throw runtime_error("BUG: found in analyze_txn_dependency()");
-        //     if (refine_txn_as_txn_order() == false)
-        //         break; // have been stable
-        // }
-
-        // normal_test();
-        // if (check_txn_normal_result())
+        // if (multi_round_test() == false)
+        //     return 0;
+        multi_stmt_round_test();
+        // if (multi_stmt_round_test() == false)
         //     return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
@@ -1141,8 +1131,8 @@ int transaction_test::test()
     
     save_test_case(dir_name);
     
-    // exit(-1);
-    return 1;
+    exit(-1);
+    // return 1;
 }
 
 transaction_test::transaction_test(dbms_info& d_info)

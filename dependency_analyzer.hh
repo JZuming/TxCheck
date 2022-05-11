@@ -130,6 +130,7 @@ struct dependency_analyzer
     int* tid_end_idx;
     vector<txn_status> f_txn_status;
     vector<int> f_txn_id_queue;
+    vector<int> f_txn_size;
     map<int, row_output> hash_to_output;
     set<dependency_type> **dependency_graph;
 

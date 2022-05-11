@@ -13,7 +13,8 @@
 
 using namespace std;
 
-#define SHOW_CHARACTERS 30
+#define SHOW_CHARACTERS 100
+#define SPACE_HOLDER_STMT "SELECT 1 WHERE 0 <> 0"
 
 struct transaction {
     shared_ptr<dut_base> dut;
