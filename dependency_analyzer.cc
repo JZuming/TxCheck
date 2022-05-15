@@ -1056,8 +1056,11 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
             auto branch = make_pair(stmt_i, stmt_j);
             if (stmt_dependency_graph.count(branch) == 0)
                 continue;
-            auto& depend_set = stmt_dependency_graph[branch];
-            if (depend_set.count(INNER_DEPEND) > 0 && depend_set.size() == 1)
+            auto depend_set = stmt_dependency_graph[branch];
+            depend_set.erase(START_DEPEND);
+            if (depend_set.empty()) 
+                continue;
+            else if (depend_set.count(INNER_DEPEND) > 0 && depend_set.size() == 1)
                 stmt_dist_graph[branch] = 1;
             else if (depend_set.count(STRICT_START_DEPEND) > 0 && depend_set.size() == 1)
                 stmt_dist_graph[branch] = 10;

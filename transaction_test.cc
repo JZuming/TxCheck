@@ -843,9 +843,9 @@ bool transaction_test::multi_round_test()
 bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
 {
     // use real one to replace 
-    stmt_queue = real_stmt_queue;
-    tid_queue = real_tid_queue;
-    stmt_use = real_stmt_usage;
+    // stmt_queue = real_stmt_queue;
+    // tid_queue = real_tid_queue;
+    // stmt_use = real_stmt_usage;
 
     // refine txn_stmt because the skipped stmt has been changed
     int stmt_pos_of_txn[trans_num];
@@ -985,9 +985,9 @@ bool transaction_test::multi_stmt_round_test()
     auto longest_stmt_path = init_da->longest_stmt_path();
     
     // record init status
-    auto init_stmt_queue = real_stmt_queue;
-    auto init_tid_queue = real_tid_queue;
-    auto init_stmt_usage = real_stmt_usage;
+    auto init_stmt_queue = stmt_queue;
+    auto init_tid_queue = tid_queue;
+    auto init_stmt_usage = stmt_use;
     txn_status init_txn_status[trans_num];
     vector<shared_ptr<prod>> init_txn_stmt[trans_num];
     for (int tid = 0; tid < trans_num; tid++) {
@@ -1000,7 +1000,7 @@ bool transaction_test::multi_stmt_round_test()
         cerr << RED << "one round test" << RESET << endl;
         cerr << "ideal test stmt path: ";
         for (auto& sid:longest_stmt_path) 
-            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn << "->";
+            cerr << "(" << sid.txn_id << "." << sid.stmt_idx_in_txn << ")" << "->";
         cerr << endl;
         auto ideal_test_path = longest_stmt_path;
 
@@ -1015,7 +1015,7 @@ bool transaction_test::multi_stmt_round_test()
 
         cerr << "real test path: ";
         for (auto& sid : longest_stmt_path) 
-            cerr << sid.txn_id << "." << sid.stmt_idx_in_txn << "->";
+            cerr << "(" << sid.txn_id << "." << sid.stmt_idx_in_txn << ")" << "->";
         cerr << endl;
 
         // normal test and check
@@ -1023,18 +1023,20 @@ bool transaction_test::multi_stmt_round_test()
         if (check_normal_stmt_result(longest_stmt_path) == false)
             return true;
         
-        auto stmt_graph = init_da->stmt_dependency_graph;
-        auto path_length = longest_stmt_path.size();
-        for (int i = 0; i + 1 < path_length; i++) {
-            auto& cur_sid = longest_stmt_path[i];
-            auto& next_sid = longest_stmt_path[i + 1];
-            auto branch = make_pair(cur_sid, next_sid);
-            if (stmt_graph.count(branch) == 0)
-                continue;
-            stmt_graph[branch].erase(WRITE_READ);
-            stmt_graph[branch].erase(WRITE_WRITE);
-            stmt_graph[branch].erase(READ_WRITE);
-        }
+        auto& stmt_graph = init_da->stmt_dependency_graph;
+        // auto path_length = longest_stmt_path.size();
+        // for (int i = 0; i + 1 < path_length; i++) {
+        //     auto& cur_sid = longest_stmt_path[i];
+        //     auto& next_sid = longest_stmt_path[i + 1];
+        //     auto branch = make_pair(cur_sid, next_sid);
+        //     if (stmt_graph.count(branch) == 0)
+        //         continue;
+        //     stmt_graph[branch].erase(WRITE_READ);
+        //     stmt_graph[branch].erase(WRITE_WRITE);
+        //     stmt_graph[branch].erase(READ_WRITE);
+        //     if (stmt_graph[branch].empty())
+        //         stmt_graph.erase(branch);
+        // }
 
         auto ideal_path_length = ideal_test_path.size();
         for (int i = 0; i + 1 < ideal_path_length; i++) {
@@ -1046,9 +1048,11 @@ bool transaction_test::multi_stmt_round_test()
             stmt_graph[branch].erase(WRITE_READ);
             stmt_graph[branch].erase(WRITE_WRITE);
             stmt_graph[branch].erase(READ_WRITE);
+            if (stmt_graph[branch].empty())
+                stmt_graph.erase(branch);
         }
 
-        longest_stmt_path = tmp_da->longest_stmt_path();
+        longest_stmt_path = init_da->longest_stmt_path();
         auto new_path_length = longest_stmt_path.size();
         bool has_conflict_depend = false;
         for (int i = 0; i + 1 < new_path_length; i++) {
@@ -1064,12 +1068,17 @@ bool transaction_test::multi_stmt_round_test()
                 break;   
             }
         }
+        cerr << "next test stmt path: ";
+        for (auto& sid:longest_stmt_path) 
+            cerr << "(" << sid.txn_id << "." << sid.stmt_idx_in_txn << ")" << "->";
+        cerr << endl;
+        cerr << "has_conflict_depend: " << has_conflict_depend <<endl;
         if (has_conflict_depend == false)
             break;
         
-        real_stmt_queue = init_stmt_queue;
-        real_stmt_usage = init_stmt_usage;
-        real_tid_queue = init_tid_queue;
+        stmt_queue = init_stmt_queue;
+        stmt_use = init_stmt_usage;
+        tid_queue = init_tid_queue;
         for (int tid = 0; tid < trans_num; tid++) {
             trans_arr[tid].stmts = init_txn_stmt[tid];
             change_txn_status(tid, init_txn_status[tid]);
