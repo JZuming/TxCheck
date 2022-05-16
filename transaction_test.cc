@@ -1,6 +1,6 @@
 #include "transaction_test.hh"
 
-#define MAX_CONCURRENT_TXN_NUM  3
+#define MAX_CONCURRENT_TXN_NUM  5
 
 void transaction_test::assign_txn_id()
 {
@@ -877,29 +877,52 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
 
     for (int i = 0; i < trans_num; i++) 
         stmt_pos_of_txn[i] = 0;
-    int stmt_pos_of_path = 0;
     for (int i = 0; i < stmt_num; i++) {
         auto tid = tid_queue[i];
-        auto& target_stmt = stmt_path[stmt_pos_of_path];
-        if (target_stmt.txn_id != tid) { // txn not in the path, is abort
-            stmt_pos_of_txn[tid]++;
+        if (exist_tid.count(tid) == 0) 
             continue;
-        }
-        if (target_stmt.stmt_idx_in_txn == stmt_pos_of_txn[tid]) { // the stmt in the path
-            stmt_pos_of_txn[tid]++;
-            stmt_pos_of_path++; // matched
+        auto stmt_pos = stmt_pos_of_txn[tid];
+        stmt_id stmt_idx(tid, stmt_pos);
+        stmt_pos_of_txn[tid]++;
+        
+        if (exist_stmt.count(stmt_idx) > 0) // matched
             continue;
-        }
+
         auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
-        if (casted.use_count() > 0) { // already been replaced, include commit and abort stmt
-            stmt_pos_of_txn[tid]++;
+        if (casted.use_count() > 0) // already been replaced, include commit and abort stmt
             continue;
-        }
+        
+        cerr << RED << "Refining: " << stmt_idx.txn_id << "." << stmt_idx.stmt_idx_in_txn << RESET << endl;
+
         is_refined = true;
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
         stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
         stmt_use[i] = NORMAL;
+
     }
+    // int stmt_pos_of_path = 0;
+    // for (int i = 0; i < stmt_num; i++) {
+    //     auto tid = tid_queue[i];
+    //     auto& target_stmt = stmt_path[stmt_pos_of_path];
+    //     if (target_stmt.txn_id != tid) { // txn not in the path, is abort
+    //         stmt_pos_of_txn[tid]++;
+    //         continue;
+    //     }
+    //     if (target_stmt.stmt_idx_in_txn == stmt_pos_of_txn[tid]) { // the stmt in the path
+    //         stmt_pos_of_txn[tid]++;
+    //         stmt_pos_of_path++; // matched
+    //         continue;
+    //     }
+    //     auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
+    //     if (casted.use_count() > 0) { // already been replaced, include commit and abort stmt
+    //         stmt_pos_of_txn[tid]++;
+    //         continue;
+    //     }
+    //     is_refined = true;
+    //     // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
+    //     stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
+    //     stmt_use[i] = NORMAL;
+    // }
     
     if (is_refined == false)
         return false;
@@ -968,9 +991,17 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
     }
     for (int i = 0; i < err_info_size; i++) {
         if (path_txn_err_info[i] != normal_stmt_err_info[i]) {
+            if (path_txn_err_info[i] != "" && normal_stmt_err_info[i] != "") // both has error, the content could be different
+                continue;
             cerr << "txn error info is not equal to normal stmt one, idx: " << i << endl;
+            cerr << "txn one: " << path_txn_err_info[i] << endl;
+            cerr << "normal one: " << normal_stmt_err_info[i] << endl;
             return false;
         }
+        // if (path_txn_err_info[i] != normal_stmt_err_info[i]) {
+        //     cerr << "txn error info is not equal to normal stmt one, idx: " << i << endl;
+        //     return false;
+        // }
     }
 
     return true;
@@ -1120,9 +1151,8 @@ int transaction_test::test()
     try {
         // if (multi_round_test() == false)
         //     return 0;
-        multi_stmt_round_test();
-        // if (multi_stmt_round_test() == false)
-        //     return 0;
+        if (multi_stmt_round_test() == false)
+            return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }
@@ -1146,7 +1176,7 @@ int transaction_test::test()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = 12; // 12
+    trans_num = 15; // 12
     // trans_num = 4;
     test_dbms_info = d_info;
 

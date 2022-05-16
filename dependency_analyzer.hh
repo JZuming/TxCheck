@@ -64,6 +64,7 @@ struct stmt_id {
 
     stmt_id(vector<int>& final_tid_queue, int stmt_idx);
     stmt_id() {txn_id = -1; stmt_idx_in_txn = -1;}
+    stmt_id(int tid, int stmt_pos) {txn_id = tid; stmt_idx_in_txn = stmt_pos;}
 };
 
 struct dependency_analyzer
