@@ -68,29 +68,29 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
             // init the select
             auto after_write_select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, equal_op, wkey_column, wkey_value);
-            // non-impact update_stmt
-            used_scope.new_stmt();
-            auto block_update_stmt = make_shared<update_stmt>((struct prod *)0, &used_scope, update_statement->victim);
-            auto false_value = make_shared<truth_value>(block_update_stmt.get());
-            false_value->op = used_scope.schema->false_literal;
-            auto and_op = make_shared<bool_term>(block_update_stmt.get());
-            and_op->op = "and";
-            and_op->lhs = update_statement->search;
-            and_op->rhs = false_value;
-            block_update_stmt->set_list = update_statement->set_list;
-            block_update_stmt->search = and_op;
+            // // non-impact update_stmt
+            // used_scope.new_stmt();
+            // auto block_update_stmt = make_shared<update_stmt>((struct prod *)0, &used_scope, update_statement->victim);
+            // auto false_value = make_shared<truth_value>(block_update_stmt.get());
+            // false_value->op = used_scope.schema->false_literal;
+            // auto and_op = make_shared<bool_term>(block_update_stmt.get());
+            // and_op->op = "and";
+            // and_op->lhs = update_statement->search;
+            // and_op->rhs = false_value;
+            // block_update_stmt->set_list = update_statement->set_list;
+            // block_update_stmt->search = and_op;
             
-            final_tid_queue.push_back(tid); // prevent that the before_read and update are seperated
+            // final_tid_queue.push_back(tid); // prevent that the before_read and update are seperated
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
             final_tid_queue.push_back(tid);
             final_tid_queue.push_back(tid); // get the changed value for later WW and WR dependency
 
-            final_stmt_queue.push_back(block_update_stmt);
+            // final_stmt_queue.push_back(block_update_stmt);
             final_stmt_queue.push_back(before_write_select_stmt);
             final_stmt_queue.push_back(stmt);
             final_stmt_queue.push_back(after_write_select_stmt);
 
-            final_stmt_usage.push_back(NORMAL);
+            // final_stmt_usage.push_back(NORMAL);
             final_stmt_usage.push_back(BEFORE_WRITE_READ);
             final_stmt_usage.push_back(NORMAL);
             final_stmt_usage.push_back(AFTER_WRITE_READ);
@@ -104,27 +104,27 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope,
                                     delete_statement->victim, delete_statement->search);
             
-            // non-impact update_stmt
-            used_scope.new_stmt();
-            auto block_delete_stmt = make_shared<delete_stmt>((struct prod *)0, &used_scope, delete_statement->victim);
-            auto false_value = make_shared<truth_value>(block_delete_stmt.get());
-            false_value->op = used_scope.schema->false_literal;
-            auto and_op = make_shared<bool_term>(block_delete_stmt.get());
-            and_op->op = "and";
-            and_op->lhs = delete_statement->search;
-            and_op->rhs = false_value;
-            block_delete_stmt->search = and_op;
+            // // non-impact update_stmt
+            // used_scope.new_stmt();
+            // auto block_delete_stmt = make_shared<delete_stmt>((struct prod *)0, &used_scope, delete_statement->victim);
+            // auto false_value = make_shared<truth_value>(block_delete_stmt.get());
+            // false_value->op = used_scope.schema->false_literal;
+            // auto and_op = make_shared<bool_term>(block_delete_stmt.get());
+            // and_op->op = "and";
+            // and_op->lhs = delete_statement->search;
+            // and_op->rhs = false_value;
+            // block_delete_stmt->search = and_op;
 
-            final_tid_queue.push_back(tid); // prevent that the before_read and delete are seperated
+            // final_tid_queue.push_back(tid); // prevent that the before_read and delete are seperated
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
             final_tid_queue.push_back(tid);
             // item is deleted, so no need for later dependency
             
-            final_stmt_queue.push_back(block_delete_stmt);
+            // final_stmt_queue.push_back(block_delete_stmt);
             final_stmt_queue.push_back(select_stmt);
             final_stmt_queue.push_back(stmt);
 
-            final_stmt_usage.push_back(NORMAL);
+            // final_stmt_usage.push_back(NORMAL);
             final_stmt_usage.push_back(BEFORE_WRITE_READ);
             final_stmt_usage.push_back(NORMAL);
 

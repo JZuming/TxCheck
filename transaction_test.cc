@@ -898,31 +898,7 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
         stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
         stmt_use[i] = NORMAL;
-
     }
-    // int stmt_pos_of_path = 0;
-    // for (int i = 0; i < stmt_num; i++) {
-    //     auto tid = tid_queue[i];
-    //     auto& target_stmt = stmt_path[stmt_pos_of_path];
-    //     if (target_stmt.txn_id != tid) { // txn not in the path, is abort
-    //         stmt_pos_of_txn[tid]++;
-    //         continue;
-    //     }
-    //     if (target_stmt.stmt_idx_in_txn == stmt_pos_of_txn[tid]) { // the stmt in the path
-    //         stmt_pos_of_txn[tid]++;
-    //         stmt_pos_of_path++; // matched
-    //         continue;
-    //     }
-    //     auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
-    //     if (casted.use_count() > 0) { // already been replaced, include commit and abort stmt
-    //         stmt_pos_of_txn[tid]++;
-    //         continue;
-    //     }
-    //     is_refined = true;
-    //     // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
-    //     stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
-    //     stmt_use[i] = NORMAL;
-    // }
     
     if (is_refined == false)
         return false;
@@ -998,10 +974,6 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
             cerr << "normal one: " << normal_stmt_err_info[i] << endl;
             return false;
         }
-        // if (path_txn_err_info[i] != normal_stmt_err_info[i]) {
-        //     cerr << "txn error info is not equal to normal stmt one, idx: " << i << endl;
-        //     return false;
-        // }
     }
 
     return true;
