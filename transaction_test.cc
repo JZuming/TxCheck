@@ -1135,8 +1135,8 @@ int transaction_test::test()
         auto dut = dut_setup(test_dbms_info);
         dut->save_backup_file(dir_name);
 
-        // exit(-1);
-        return 1; // not need to do other transaction thing
+        exit(-1);
+        // return 1; // not need to do other transaction thing
     }
     
     try {
