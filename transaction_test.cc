@@ -76,6 +76,7 @@ void transaction_test::gen_txn_stmts()
         auto tid = tid_queue[i];
         auto &stmt = trans_arr[tid].stmts[stmt_pos_of_trans[tid]];
         stmt_queue.push_back(stmt);
+        stmt_use.push_back(NORMAL);
         stmt_pos_of_trans[tid]++;
     }
 }
@@ -1090,12 +1091,30 @@ bool transaction_test::multi_stmt_round_test()
     return false;
 }
 
+void transaction_test::block_scheduling()
+{
+    cerr << RED << "block scheduling" << RESET << endl;
+    int round = 0;
+    while (1) {
+        trans_test();
+        if (tid_queue == real_tid_queue)
+            break;
+        stmt_queue = real_stmt_queue;
+        stmt_use = real_stmt_usage;
+        tid_queue = real_tid_queue;
+        clear_execution_status();
+        round++;
+    }
+    cerr << RED << "schedule round: " << round << RESET << endl;
+}
+
 int transaction_test::test()
 {
     try {
         assign_txn_id();
         assign_txn_status();
         gen_txn_stmts();
+        block_scheduling();
         instrument_txn_stmts();
     } catch(exception &e) {
         cerr << RED << "Trigger a normal bugs when inializing the stmts" << RESET << endl;
