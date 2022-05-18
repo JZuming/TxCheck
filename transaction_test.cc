@@ -507,6 +507,8 @@ void transaction_test::trans_test(bool debug_mode)
     }
 
     if (real_stmt_queue.size() != stmt_num) {
+        cerr << "real_stmt_queue size: " << real_stmt_queue.size() << endl;
+        cerr << "stmt_num: " << stmt_num << endl;
         cerr << "real_stmt_queue size is not equal to stmt_queue size, something wrong" << endl;
         throw runtime_error("real_stmt_queue size is not equal to stmt_queue size, something wrong");
     }
@@ -1080,7 +1082,7 @@ void transaction_test::block_scheduling()
     while (1) {
         cerr << RED << "\nscheduling: " << round << RESET << endl;
         trans_test(false);
-        if (tid_queue == real_tid_queue)
+        if (tid_queue == real_tid_queue) 
             break;
         stmt_queue = real_stmt_queue;
         stmt_use = real_stmt_usage;
@@ -1088,6 +1090,7 @@ void transaction_test::block_scheduling()
         clear_execution_status();
         round++;
     }
+    clear_execution_status();
     cerr << RED << "schedule round: " << round << RESET << endl;
 }
 
@@ -1099,8 +1102,8 @@ int transaction_test::test()
         gen_txn_stmts();
         block_scheduling();
         instrument_txn_stmts();
-
-        throw runtime_error("test");
+        // block_scheduling(); // no necessary
+        // throw runtime_error("test");
     } catch(exception &e) {
         cerr << RED << "Trigger a normal bugs when inializing the stmts" << RESET << endl;
         cerr << "Bug info: " << e.what() << endl;
@@ -1127,8 +1130,9 @@ int transaction_test::test()
     try {
         // if (multi_round_test() == false)
         //     return 0;
-        if (multi_stmt_round_test() == false)
-            return 0;
+        multi_stmt_round_test();
+        // if (multi_stmt_round_test() == false)
+        //     return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }
@@ -1153,14 +1157,13 @@ int transaction_test::test()
 transaction_test::transaction_test(dbms_info& d_info)
 {
     trans_num = 15; // 12
-    // trans_num = 4;
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];
     commit_num = trans_num; // all commit
     stmt_num = 0;
     for (int i = 0; i < trans_num; i++) {
-        trans_arr[i].stmt_num = 2 + d6(); // 3 - 8
+        trans_arr[i].stmt_num = 4 + d6(); // 5 - 10
         stmt_num += trans_arr[i].stmt_num;
     }
 
