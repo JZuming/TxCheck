@@ -1827,10 +1827,10 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
 #ifndef TEST_CLICKHOUSE
         if (choice == 1)
             return make_shared<delete_stmt>((struct prod *)0, s);
-        if (choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
+        if (choice == 6 || choice == 7 || choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif
-        if (choice == 4 || choice == 5 || choice == 6 || choice == 7)
+        if (choice == 4 || choice == 5)
             return make_shared<insert_stmt>((struct prod *)0, s);
         // if (choice == 6 || choice == 7)
         //     return make_shared<insert_select_stmt>((struct prod *)0, s);

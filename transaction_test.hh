@@ -88,10 +88,9 @@ public:
     void normal_stmt_test(vector<stmt_id>& stmt_path);
     bool check_normal_stmt_result(vector<stmt_id>& stmt_path);
     
-    bool check_commit_trans_blocked();
-    void trans_test();
-    void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue);
-    int trans_test_unit(int stmt_pos, stmt_output& output);
+    void trans_test(bool debug_mode = true);
+    void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue, bool debug_mode = true);
+    int trans_test_unit(int stmt_pos, stmt_output& output, bool debug_mode = true);
 
     bool check_txn_normal_result();
 
