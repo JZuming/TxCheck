@@ -130,6 +130,7 @@ void dut_reset_to_backup(dbms_info& d_info)
     cerr << YELLOW << "reset to backup" << RESET << endl;
     auto dut = dut_setup(d_info);
     dut->reset_to_backup();
+    cerr << YELLOW << "backup finished" << RESET << endl;
 }
 
 void dut_get_content(dbms_info& d_info, 

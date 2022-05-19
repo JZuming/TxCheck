@@ -75,6 +75,7 @@ public:
     void assign_txn_status();
     void gen_txn_stmts();
     void instrument_txn_stmts();
+    void clean_instrument();
     void block_scheduling();
 
     static vector<int> get_longest_path_from_graph(shared_ptr<dependency_analyzer>& da);

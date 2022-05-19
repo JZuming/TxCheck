@@ -77,11 +77,11 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
         
         find_the_write = true;
 
-        if (op_list[i].tid != target_op.tid) {
+        if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) // stmts in same transaction should build dependency 
+            build_stmt_depend_from_stmt_idx(op_list[i].stmt_idx, target_op.stmt_idx, WRITE_READ);
+
+        if (op_list[i].tid != target_op.tid) 
             dependency_graph[op_list[i].tid][target_op.tid].insert(WRITE_READ);
-            if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) 
-                build_stmt_depend_from_stmt_idx(op_list[i].stmt_idx, target_op.stmt_idx, WRITE_READ);
-        }
         
         break; // only find the nearest write
     }
@@ -128,12 +128,11 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
         if (op_list[i].write_op_id != target_op.write_op_id)
             continue;
 
-        if (op_list[i].tid == target_op.tid)
-            continue;
-
-        dependency_graph[op_list[i].tid][target_op.tid].insert(READ_WRITE);
         if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) 
             build_stmt_depend_from_stmt_idx(op_list[i].stmt_idx, target_op.stmt_idx, READ_WRITE);
+
+        if (op_list[i].tid != target_op.tid)
+            dependency_graph[op_list[i].tid][target_op.tid].insert(READ_WRITE);
 
         // do not break, because need to find all the read
     }
@@ -158,11 +157,11 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
         
         find_the_write = true;
 
-        if (op_list[i].tid != target_op.tid) {
-            dependency_graph[op_list[i].tid][target_op.tid].insert(WRITE_WRITE);
-            if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) 
+        if (op_list[i].stmt_idx >= 0 && target_op.stmt_idx >= 0) 
                 build_stmt_depend_from_stmt_idx(op_list[i].stmt_idx, target_op.stmt_idx, WRITE_WRITE);
-        }
+
+        if (op_list[i].tid != target_op.tid) 
+            dependency_graph[op_list[i].tid][target_op.tid].insert(WRITE_WRITE);
 
         break; // only find the nearest write
     }
@@ -365,14 +364,14 @@ f_txn_id_queue(final_tid_queue)
         }
     }
 
-    // generate start dependency (for snapshot)
+    // // generate start dependency (for snapshot)
     build_start_dependency();
 
-    // generate stmt inner depend
-    build_stmt_inner_dependency();
+    // // generate stmt inner depend
+    // build_stmt_inner_dependency(); // should not be used
     
     // print dependency graph
-    print_dependency_graph();
+    // print_dependency_graph();
 }
 
 dependency_analyzer::~dependency_analyzer()

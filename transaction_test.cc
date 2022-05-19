@@ -84,12 +84,41 @@ void transaction_test::gen_txn_stmts()
 void transaction_test::instrument_txn_stmts()
 {
     instrumentor i(stmt_queue, tid_queue, db_schema);
-    stmt_queue.clear();
     stmt_queue = i.final_stmt_queue;
-    tid_queue.clear();
     tid_queue = i.final_tid_queue;
     stmt_use = i.final_stmt_usage;
     stmt_num = stmt_queue.size();
+
+    for (int tid = 0; tid < trans_num; tid++)
+        trans_arr[tid].stmts.clear();
+
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        auto &stmt = stmt_queue[i];
+        trans_arr[tid].stmts.push_back(stmt);
+    }
+
+    for (int tid = 0; tid < trans_num; tid++) 
+        trans_arr[tid].stmt_num = trans_arr[tid].stmts.size();
+}
+
+void transaction_test::clean_instrument()
+{
+    vector<shared_ptr<prod>> clean_stmt_queue;
+    vector<int> clean_tid_queue;
+    vector<stmt_usage> clean_stmt_usage_queue;
+
+    for (int i = 0; i < stmt_num; i++) {
+        if (stmt_use[i] != NORMAL)
+            continue;
+        clean_stmt_queue.push_back(stmt_queue[i]);
+        clean_tid_queue.push_back(tid_queue[i]);
+        clean_stmt_usage_queue.push_back(stmt_use[i]);
+    }
+    stmt_num = clean_stmt_queue.size();
+    stmt_queue = clean_stmt_queue;
+    tid_queue = clean_tid_queue;
+    stmt_use = clean_stmt_usage_queue;
 
     for (int tid = 0; tid < trans_num; tid++)
         trans_arr[tid].stmts.clear();
@@ -894,6 +923,7 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
 
 void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
 {
+    cerr << "normal testing" << endl;
     dut_reset_to_backup(test_dbms_info);
     auto normal_dut = dut_setup(test_dbms_info);
     for (auto& stmt_id : stmt_path) {
@@ -910,10 +940,15 @@ void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
             cerr << "T" << tid << "P" << stmt_pos << ": " << show_str << endl;
         } catch (exception &e) {
             string err = e.what();
+            stmt_output empty_output;
             cerr << RED 
                 << "T" << tid << "P" << stmt_pos << ": " << show_str << ": fail, err: " 
                 << err << RESET << endl;
-            stmt_output empty_output;
+            if (err.find("skipped") != string::npos) {
+                normal_stmt_output.push_back(empty_output);
+                normal_stmt_err_info.push_back("");
+                continue;
+            }
             normal_stmt_output.push_back(empty_output);
             normal_stmt_err_info.push_back(err);
         }
@@ -950,22 +985,28 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
         cerr << "path_txn_err_info: " << err_info_size << ", normal_stmt_err_info" << normal_stmt_err_info.size() << endl;
         return false;
     }
+    bool err_result = true;
     for (int i = 0; i < err_info_size; i++) {
+        // cerr << "err idx: " << i << endl;
+        // cerr << "txn one: " << path_txn_err_info[i] << endl;
+        // cerr << "normal one: " << normal_stmt_err_info[i] << endl;
+        
         if (path_txn_err_info[i] != normal_stmt_err_info[i]) {
             if (path_txn_err_info[i] != "" && normal_stmt_err_info[i] != "") // both has error, the content could be different
                 continue;
             cerr << "txn error info is not equal to normal stmt one, idx: " << i << endl;
             cerr << "txn one: " << path_txn_err_info[i] << endl;
             cerr << "normal one: " << normal_stmt_err_info[i] << endl;
-            return false;
+            err_result = false;
         }
     }
 
-    return true;
+    return err_result;
 }
 
 bool transaction_test::multi_stmt_round_test()
 {
+    instrument_txn_stmts();
     trans_test(); // first run, get all dependency information
     shared_ptr<dependency_analyzer> init_da;
     if (analyze_txn_dependency(init_da)) 
@@ -995,6 +1036,9 @@ bool transaction_test::multi_stmt_round_test()
         // use the longest path to refine
         shared_ptr<dependency_analyzer> tmp_da;
         while (refine_stmt_queue(longest_stmt_path) == true) {
+            clean_instrument();
+            block_scheduling();
+            instrument_txn_stmts();
             trans_test();
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
@@ -1101,7 +1145,7 @@ int transaction_test::test()
         assign_txn_status();
         gen_txn_stmts();
         block_scheduling();
-        instrument_txn_stmts();
+        // instrument_txn_stmts();
         // block_scheduling(); // no necessary
         // throw runtime_error("test");
     } catch(exception &e) {
