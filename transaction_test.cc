@@ -320,7 +320,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
         return 1;
     } catch(exception &e) {
         string err = e.what();
-        if (debug_mode)
+        // if (debug_mode)
             cerr << RED << "S" << stmt_pos << " T" << tid << ": " << show_str << ": fail, err: " << err << RESET << endl;
 
         if (err.find("ost connection") != string::npos) // lost connection
@@ -1028,14 +1028,62 @@ bool transaction_test::multi_stmt_round_test()
         cerr << "\n\n";
         cerr << RED << "one round test" << RESET << endl;
         cerr << "ideal test stmt path: ";
-        for (auto& sid:longest_stmt_path) 
-            cerr << "(" << sid.txn_id << "." << sid.stmt_idx_in_txn << ")" << "->";
+        for (int i = 0; i < longest_stmt_path.size(); i++) {
+            auto& cur_sid = longest_stmt_path[i];
+            cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ")" << "-";
+            if (i + 1 < longest_stmt_path.size()) {
+                auto& next_sid = longest_stmt_path[i + 1];
+                auto branch = make_pair<>(cur_sid, next_sid);
+                auto& dset = init_da->stmt_dependency_graph[branch];
+                if (dset.count(WRITE_READ))
+                    cerr << RED << "0" << RESET;
+                if (dset.count(WRITE_WRITE))
+                    cerr << RED << "1" << RESET;
+                if (dset.count(READ_WRITE))
+                    cerr << RED << "2" << RESET;
+                if (dset.count(STRICT_START_DEPEND))
+                    cerr << RED << "3" << RESET;
+                if (dset.count(INSTRUMENT_DEPEND))
+                    cerr << "4";
+            }
+            cerr << "->";
+        }
         cerr << endl;
         auto ideal_test_path = longest_stmt_path;
+        
+        for (int i = 0; i < longest_stmt_path.size(); i++) {
+            auto& cur_sid = longest_stmt_path[i];
+            auto tid = cur_sid.txn_id;
+            auto pos = cur_sid.stmt_idx_in_txn;
+            auto stmt = print_stmt_to_string(trans_arr[tid].stmts[pos]);
+            auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+            replace(show_str.begin(), show_str.end(), '\n', ' ');
+            cerr << "S" << pos << " T" << tid << ": " << show_str << endl;
+        }
+
+        return true;
+
+        // cerr << RED << "before refining: stmt queue" << RESET << endl;
+        // for (int i = 0; i < stmt_queue.size(); i++) {
+        //     auto tid = tid_queue[i];
+        //     auto stmt = print_stmt_to_string(stmt_queue[i]);
+        //     auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+        //     replace(show_str.begin(), show_str.end(), '\n', ' ');
+        //     cerr << "S" << i << " T" << tid << ": " << show_str << endl;
+        // }
 
         // use the longest path to refine
         shared_ptr<dependency_analyzer> tmp_da;
         while (refine_stmt_queue(longest_stmt_path) == true) {
+            // cerr << RED << "after refining: stmt queue" << RESET << endl;
+            // for (int i = 0; i < stmt_queue.size(); i++) {
+            //     auto tid = tid_queue[i];
+            //     auto stmt = print_stmt_to_string(stmt_queue[i]);
+            //     auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+            //     replace(show_str.begin(), show_str.end(), '\n', ' ');
+            //     cerr << "S" << i << " T" << tid << ": " << show_str << endl;
+            // }
+
             clean_instrument();
             block_scheduling();
             instrument_txn_stmts();
@@ -1043,11 +1091,30 @@ bool transaction_test::multi_stmt_round_test()
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
             longest_stmt_path = tmp_da->longest_stmt_path();
+            return true;
         }
 
         cerr << "real test path: ";
-        for (auto& sid : longest_stmt_path) 
-            cerr << "(" << sid.txn_id << "." << sid.stmt_idx_in_txn << ")" << "->";
+        for (int i = 0; i < longest_stmt_path.size(); i++) {
+            auto& cur_sid = longest_stmt_path[i];
+            cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ")" << "-";
+            if (i + 1 < longest_stmt_path.size()) {
+                auto& next_sid = longest_stmt_path[i + 1];
+                auto branch = make_pair<>(cur_sid, next_sid);
+                auto& dset = tmp_da->stmt_dependency_graph[branch];
+                if (dset.count(WRITE_READ))
+                    cerr << RED << "0" << RESET;
+                if (dset.count(WRITE_WRITE))
+                    cerr << RED << "1" << RESET;
+                if (dset.count(READ_WRITE))
+                    cerr << RED << "2" << RESET;
+                if (dset.count(STRICT_START_DEPEND))
+                    cerr << RED << "3" << RESET;
+                if (dset.count(INSTRUMENT_DEPEND))
+                    cerr << "4";
+            }
+            cerr << "->";
+        }
         cerr << endl;
 
         // normal test and check

@@ -19,7 +19,7 @@ using namespace std;
 
 // START_DEPEND: the begin is count by first read or write
 // STRICT_START_DEPEND: the begin is count by begin statement
-enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND, STRICT_START_DEPEND, INNER_DEPEND};
+enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND, STRICT_START_DEPEND, INSTRUMENT_DEPEND};
 
 typedef vector<string> row_output; // a row consists of several field(string)
 typedef vector<row_output> stmt_output; // one output consits of several rows
@@ -85,7 +85,7 @@ struct dependency_analyzer
     void build_WW_dependency(vector<operate_unit>& op_list, int op_idx);
     
     void build_start_dependency();
-    void build_stmt_inner_dependency();
+    void build_stmt_instrument_dependency();
     void build_stmt_start_dependency(int prev_tid, int later_tid, dependency_type dt);
 
     void print_dependency_graph();
@@ -132,6 +132,7 @@ struct dependency_analyzer
     vector<txn_status> f_txn_status;
     vector<int> f_txn_id_queue;
     vector<int> f_txn_size;
+    vector<stmt_usage> f_stmt_usage;
     map<int, row_output> hash_to_output;
     set<dependency_type> **dependency_graph;
 

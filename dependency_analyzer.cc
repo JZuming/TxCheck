@@ -214,14 +214,43 @@ void dependency_analyzer::build_start_dependency()
     delete[] tid_has_used_begin;
 }
 
-void dependency_analyzer::build_stmt_inner_dependency()
+void dependency_analyzer::build_stmt_instrument_dependency()
 {
     for (int i = 0; i < stmt_num; i++) {
-        auto tid = f_txn_id_queue[i];
-        for (int j = 0; j < i; j++) {
-            auto prev_tid = f_txn_id_queue[j];
-            if (prev_tid == tid) 
-                build_stmt_depend_from_stmt_idx(j, i, INNER_DEPEND);
+        auto cur_usage = f_stmt_usage[i];
+        auto cur_tid = f_txn_id_queue[i];
+        if (cur_usage == NORMAL)
+            continue;
+        
+        if (cur_usage == BEFORE_WRITE_READ) {
+            if (i + 1 >= stmt_num) {
+                cerr << "i = BEFORE_WRITE_READ, i + 1 >= stmt_num" << endl;
+                throw runtime_error("i = BEFORE_WRITE_READ, i + 1 >= stmt_num");
+            }
+                
+            auto next_tid = f_txn_id_queue[i + 1];
+            auto next_usage = f_stmt_usage[i + 1];
+            if (next_tid != cur_tid || next_usage != NORMAL) {
+                cerr << "next_tid != cur_tid or next_usage != NORMAL" << endl;
+                throw runtime_error("next_tid != cur_tid or next_usage != NORMAL");
+            }
+
+            build_stmt_depend_from_stmt_idx(i, i + 1, INSTRUMENT_DEPEND);
+        }
+        else if (cur_usage == AFTER_WRITE_READ) {
+            if (i - 1 < 0) {
+                cerr << "i = AFTER_WRITE_READ, i - 1 < 0" << endl;
+                throw runtime_error("i = AFTER_WRITE_READ, i - 1 < 0");
+            }
+
+            auto prev_tid = f_txn_id_queue[i - 1];
+            auto prev_usage = f_stmt_usage[i - 1];
+            if (prev_tid != cur_tid || prev_usage != NORMAL) {
+                cerr << "prev_tid != cur_tid or prev_usage != NORMAL" << endl;
+                throw runtime_error("prev_tid != cur_tid or prev_usage != NORMAL");
+            }
+
+            build_stmt_depend_from_stmt_idx(i - 1, i, INSTRUMENT_DEPEND);
         }
     }
 }
@@ -290,7 +319,8 @@ dependency_analyzer::dependency_analyzer(vector<stmt_output>& init_output,
                         int write_op_key_idx):
 tid_num(t_num + 1),  // add 1 for init txn
 f_txn_status(final_txn_status),
-f_txn_id_queue(final_tid_queue)
+f_txn_id_queue(final_tid_queue),
+f_stmt_usage(final_stmt_usage)
 {   
     if (total_output.size() != f_txn_id_queue.size() || total_output.size() != final_stmt_usage.size()) {
         cerr << "dependency_analyzer: total_output, final_tid_queue and final_stmt_usage size are not equal" << endl;
@@ -369,6 +399,8 @@ f_txn_id_queue(final_tid_queue)
 
     // // generate stmt inner depend
     // build_stmt_inner_dependency(); // should not be used
+
+    build_stmt_instrument_dependency();
     
     // print dependency graph
     // print_dependency_graph();
@@ -1059,12 +1091,10 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
             depend_set.erase(START_DEPEND);
             if (depend_set.empty()) 
                 continue;
-            else if (depend_set.count(INNER_DEPEND) > 0 && depend_set.size() == 1)
+            if (depend_set.count(INSTRUMENT_DEPEND) > 0 && depend_set.size() == 1)
                 stmt_dist_graph[branch] = 1;
             else if (depend_set.count(STRICT_START_DEPEND) > 0 && depend_set.size() == 1)
-                stmt_dist_graph[branch] = 10;
-            else if (depend_set.count(INNER_DEPEND) > 0)
-                stmt_dist_graph[branch] = 1000;
+                stmt_dist_graph[branch] = 100;
             else if (depend_set.count(STRICT_START_DEPEND) > 0)
                 stmt_dist_graph[branch] = 10000;
             else
