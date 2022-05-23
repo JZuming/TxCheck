@@ -316,12 +316,12 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
         trans_arr[tid].stmt_outputs.push_back(output);
         trans_arr[tid].stmt_err_info.push_back("");
         if (debug_mode)
-            cerr << "S" << stmt_pos << " T" << tid << ": " << show_str << endl;
+            cerr << "T" << tid << " S" << trans_arr[tid].stmt_outputs.size() - 1 << ": " << show_str << endl;
         return 1;
     } catch(exception &e) {
         string err = e.what();
         // if (debug_mode)
-            cerr << RED << "S" << stmt_pos << " T" << tid << ": " << show_str << ": fail, err: " << err << RESET << endl;
+            cerr << RED << "T" << tid << " S" << trans_arr[tid].stmt_outputs.size()  << ": " << show_str << ": fail, err: " << err << RESET << endl;
 
         if (err.find("ost connection") != string::npos) // lost connection
             throw e;
@@ -362,12 +362,12 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
             trans_arr[tid].stmt_outputs.push_back(empty_output);
             trans_arr[tid].stmt_err_info.push_back("");
             if (debug_mode)
-                cerr << "S" << stmt_pos << " T" << tid << ": " << show_str << endl;
+                cerr << "T" << tid << " S" << trans_arr[tid].stmt_outputs.size() - 1  << ": " << show_str << endl;
             return 1;
         } catch(exception &e2) {
             err = e2.what();
             if (debug_mode)
-                cerr << RED << "S" << stmt_pos << " T" << tid << ": " << show_str << ": fail, err: " << err << RESET << endl;
+                cerr << RED << "T" << tid << " S" << trans_arr[tid].stmt_outputs.size()  << ": " << show_str << ": fail, err: " << err << RESET << endl;
         }
     }
 
@@ -1061,37 +1061,66 @@ bool transaction_test::multi_stmt_round_test()
             cerr << "S" << pos << " T" << tid << ": " << show_str << endl;
         }
 
-        return true;
-
-        // cerr << RED << "before refining: stmt queue" << RESET << endl;
-        // for (int i = 0; i < stmt_queue.size(); i++) {
-        //     auto tid = tid_queue[i];
-        //     auto stmt = print_stmt_to_string(stmt_queue[i]);
-        //     auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
-        //     replace(show_str.begin(), show_str.end(), '\n', ' ');
-        //     cerr << "S" << i << " T" << tid << ": " << show_str << endl;
-        // }
+        cerr << YELLOW << "current stmt_queue: " << RESET << endl;
+        for (int i = 0; i < stmt_queue.size(); i++) {
+            auto stmt = print_stmt_to_string(stmt_queue[i]);
+            auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+            replace(show_str.begin(), show_str.end(), '\n', ' ');
+            cerr << "T" << tid_queue[i] << ": " << show_str << endl;
+        }
 
         // use the longest path to refine
         shared_ptr<dependency_analyzer> tmp_da;
         while (refine_stmt_queue(longest_stmt_path) == true) {
-            // cerr << RED << "after refining: stmt queue" << RESET << endl;
-            // for (int i = 0; i < stmt_queue.size(); i++) {
-            //     auto tid = tid_queue[i];
-            //     auto stmt = print_stmt_to_string(stmt_queue[i]);
-            //     auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
-            //     replace(show_str.begin(), show_str.end(), '\n', ' ');
-            //     cerr << "S" << i << " T" << tid << ": " << show_str << endl;
-            // }
+            cerr << "current stmt_queue 1: " << endl;
+            if (stmt_queue.size() != stmt_num)
+                throw runtime_error("stmt_queue.size() != stmt_num");
 
             clean_instrument();
+
+            cerr << "current stmt_queue 2: " << endl;
+            if (stmt_queue.size() != stmt_num)
+                throw runtime_error("stmt_queue.size() != stmt_num");
+
             block_scheduling();
+
+            cerr << "current stmt_queue 3: " << endl;
+            if (stmt_queue.size() != stmt_num)
+                throw runtime_error("stmt_queue.size() != stmt_num");
+
             instrument_txn_stmts();
-            trans_test();
+
+            cerr << "current stmt_queue 4: " << endl;
+            if (stmt_queue.size() != stmt_num)
+                throw runtime_error("stmt_queue.size() != stmt_num");
+
+            trans_test(false);
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
             longest_stmt_path = tmp_da->longest_stmt_path();
-            return true;
+
+            cerr << "next test path for refining: ";
+            for (int i = 0; i < longest_stmt_path.size(); i++) {
+                auto& cur_sid = longest_stmt_path[i];
+                cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ")" << "-";
+                if (i + 1 < longest_stmt_path.size()) {
+                    auto& next_sid = longest_stmt_path[i + 1];
+                    auto branch = make_pair<>(cur_sid, next_sid);
+                    auto& dset = tmp_da->stmt_dependency_graph[branch];
+                    if (dset.count(WRITE_READ))
+                        cerr << RED << "0" << RESET;
+                    if (dset.count(WRITE_WRITE))
+                        cerr << RED << "1" << RESET;
+                    if (dset.count(READ_WRITE))
+                        cerr << RED << "2" << RESET;
+                    if (dset.count(STRICT_START_DEPEND))
+                        cerr << RED << "3" << RESET;
+                    if (dset.count(INSTRUMENT_DEPEND))
+                        cerr << "4";
+                }
+                cerr << "->";
+            }
+            cerr << endl;
         }
 
         cerr << "real test path: ";
@@ -1116,6 +1145,17 @@ bool transaction_test::multi_stmt_round_test()
             cerr << "->";
         }
         cerr << endl;
+
+        cerr << RED << "final stmt queue: " << RESET << endl;
+        for (int i = 0; i < longest_stmt_path.size(); i++) {
+            auto& cur_sid = longest_stmt_path[i];
+            auto tid = cur_sid.txn_id;
+            auto pos = cur_sid.stmt_idx_in_txn;
+            auto stmt = print_stmt_to_string(trans_arr[tid].stmts[pos]);
+            auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
+            replace(show_str.begin(), show_str.end(), '\n', ' ');
+            cerr << "S" << pos << " T" << tid << ": " << show_str << endl;
+        }
 
         // normal test and check
         normal_stmt_test(longest_stmt_path);
@@ -1178,6 +1218,7 @@ bool transaction_test::multi_stmt_round_test()
         stmt_queue = init_stmt_queue;
         stmt_use = init_stmt_usage;
         tid_queue = init_tid_queue;
+        stmt_num = stmt_queue.size();
         for (int tid = 0; tid < trans_num; tid++) {
             trans_arr[tid].stmts = init_txn_stmt[tid];
             change_txn_status(tid, init_txn_status[tid]);
