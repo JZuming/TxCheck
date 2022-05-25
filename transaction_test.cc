@@ -1072,34 +1072,17 @@ bool transaction_test::multi_stmt_round_test()
         // use the longest path to refine
         shared_ptr<dependency_analyzer> tmp_da;
         while (refine_stmt_queue(longest_stmt_path) == true) {
-            cerr << "current stmt_queue 1: " << endl;
-            if (stmt_queue.size() != stmt_num)
-                throw runtime_error("stmt_queue.size() != stmt_num");
-
             clean_instrument();
-
-            cerr << "current stmt_queue 2: " << endl;
-            if (stmt_queue.size() != stmt_num)
-                throw runtime_error("stmt_queue.size() != stmt_num");
-
             block_scheduling();
-
-            cerr << "current stmt_queue 3: " << endl;
-            if (stmt_queue.size() != stmt_num)
-                throw runtime_error("stmt_queue.size() != stmt_num");
-
             instrument_txn_stmts();
 
-            cerr << "current stmt_queue 4: " << endl;
-            if (stmt_queue.size() != stmt_num)
-                throw runtime_error("stmt_queue.size() != stmt_num");
-
-            trans_test(false);
+            cerr << "txn testing:" << endl;
+            trans_test();
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
             longest_stmt_path = tmp_da->longest_stmt_path();
 
-            cerr << "next test path for refining: ";
+            cerr << "stmt path for refining: ";
             for (int i = 0; i < longest_stmt_path.size(); i++) {
                 auto& cur_sid = longest_stmt_path[i];
                 cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ")" << "-";
@@ -1123,60 +1106,12 @@ bool transaction_test::multi_stmt_round_test()
             cerr << endl;
         }
 
-        cerr << "real test path: ";
-        for (int i = 0; i < longest_stmt_path.size(); i++) {
-            auto& cur_sid = longest_stmt_path[i];
-            cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ")" << "-";
-            if (i + 1 < longest_stmt_path.size()) {
-                auto& next_sid = longest_stmt_path[i + 1];
-                auto branch = make_pair<>(cur_sid, next_sid);
-                auto& dset = tmp_da->stmt_dependency_graph[branch];
-                if (dset.count(WRITE_READ))
-                    cerr << RED << "0" << RESET;
-                if (dset.count(WRITE_WRITE))
-                    cerr << RED << "1" << RESET;
-                if (dset.count(READ_WRITE))
-                    cerr << RED << "2" << RESET;
-                if (dset.count(STRICT_START_DEPEND))
-                    cerr << RED << "3" << RESET;
-                if (dset.count(INSTRUMENT_DEPEND))
-                    cerr << "4";
-            }
-            cerr << "->";
-        }
-        cerr << endl;
-
-        cerr << RED << "final stmt queue: " << RESET << endl;
-        for (int i = 0; i < longest_stmt_path.size(); i++) {
-            auto& cur_sid = longest_stmt_path[i];
-            auto tid = cur_sid.txn_id;
-            auto pos = cur_sid.stmt_idx_in_txn;
-            auto stmt = print_stmt_to_string(trans_arr[tid].stmts[pos]);
-            auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
-            replace(show_str.begin(), show_str.end(), '\n', ' ');
-            cerr << "S" << pos << " T" << tid << ": " << show_str << endl;
-        }
-
         // normal test and check
         normal_stmt_test(longest_stmt_path);
         if (check_normal_stmt_result(longest_stmt_path) == false)
             return true;
         
         auto& stmt_graph = init_da->stmt_dependency_graph;
-        // auto path_length = longest_stmt_path.size();
-        // for (int i = 0; i + 1 < path_length; i++) {
-        //     auto& cur_sid = longest_stmt_path[i];
-        //     auto& next_sid = longest_stmt_path[i + 1];
-        //     auto branch = make_pair(cur_sid, next_sid);
-        //     if (stmt_graph.count(branch) == 0)
-        //         continue;
-        //     stmt_graph[branch].erase(WRITE_READ);
-        //     stmt_graph[branch].erase(WRITE_WRITE);
-        //     stmt_graph[branch].erase(READ_WRITE);
-        //     if (stmt_graph[branch].empty())
-        //         stmt_graph.erase(branch);
-        // }
-
         auto ideal_path_length = ideal_test_path.size();
         for (int i = 0; i + 1 < ideal_path_length; i++) {
             auto& cur_sid = ideal_test_path[i];
