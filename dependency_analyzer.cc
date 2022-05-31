@@ -318,15 +318,16 @@ dependency_analyzer::dependency_analyzer(vector<stmt_output>& init_output,
                         int primary_key_idx,
                         int write_op_key_idx):
 tid_num(t_num + 1),  // add 1 for init txn
+f_stmt_output(total_output),
 f_txn_status(final_txn_status),
 f_txn_id_queue(final_tid_queue),
 f_stmt_usage(final_stmt_usage)
 {   
-    if (total_output.size() != f_txn_id_queue.size() || total_output.size() != final_stmt_usage.size()) {
+    if (f_stmt_output.size() != f_txn_id_queue.size() || f_stmt_output.size() != f_stmt_usage.size()) {
         cerr << "dependency_analyzer: total_output, final_tid_queue and final_stmt_usage size are not equal" << endl;
         throw runtime_error("dependency_analyzer: total_output, final_tid_queue and final_stmt_usage size are not equal");
     }
-    stmt_num = total_output.size();
+    stmt_num = f_stmt_output.size();
     
     f_txn_status.push_back(TXN_COMMIT); // for init txn;
 
@@ -357,9 +358,9 @@ f_stmt_usage(final_stmt_usage)
     }
     
     for (int i = 0; i < stmt_num; i++) {
-        auto& each_output = total_output[i];
+        auto& each_output = f_stmt_output[i];
         auto tid = f_txn_id_queue[i];
-        auto stmt_u = final_stmt_usage[i];
+        auto stmt_u = f_stmt_usage[i];
 
         // do not analyze empty output select read;
         // write operation (insert, delete, update) will be analzye by using before/after-write read

@@ -46,6 +46,14 @@ struct stmt_usage {
         pred_target_txn_id = target_txn_id;
         pred_target_stmt_pos = target_stmt_pos;
     }
+    stmt_usage(const stmt_usage& target_su) {
+        stmt_type = target_su.stmt_type;
+        pred_source_txn_id = target_su.pred_source_txn_id;
+        pred_source_stmt_pos = target_su.pred_source_stmt_pos;
+        pred_target_txn_id = target_su.pred_target_txn_id;
+        pred_target_stmt_pos = target_su.pred_target_stmt_pos;
+    }
+
     bool operator==(const stmt_basic_type& target_st) const {
         return stmt_type == target_st;
     }
@@ -55,7 +63,14 @@ struct stmt_usage {
     void operator=(const stmt_basic_type& target_st) {
         stmt_type = target_st;
     }
-    friend ostream &operator<<( ostream &output, const stmt_usage &su ) { 
+    void operator=(const stmt_usage& target_su) {
+        stmt_type = target_su.stmt_type;
+        pred_source_txn_id = target_su.pred_source_txn_id;
+        pred_source_stmt_pos = target_su.pred_source_stmt_pos;
+        pred_target_txn_id = target_su.pred_target_txn_id;
+        pred_target_stmt_pos = target_su.pred_target_stmt_pos;
+    }
+    friend ostream &operator<<(ostream &output, const stmt_usage &su) { 
         output << su.stmt_type;
         return output;            
     }

@@ -138,6 +138,7 @@ struct dependency_analyzer
     vector<int> f_txn_id_queue;
     vector<int> f_txn_size;
     vector<stmt_usage> f_stmt_usage;
+    vector<stmt_output> f_stmt_output;
     map<int, row_output> hash_to_output;
     set<dependency_type> **dependency_graph;
 
