@@ -202,7 +202,14 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             continue;
         }
 
-        // normal read query
+        // normal select (with cte) query
+        auto involved_tables = extract_words_begin_with(print_stmt_to_string(stmt), "t_");
+        for (auto& table_str:involved_tables) {
+            auto version_set_select_stmt = make_shared<txn_string_stmt>((prod *)0, "SELECT * FROM " + table_str);
+            final_tid_queue.push_back(tid); // version_set select, build predicate-WW
+            final_stmt_queue.push_back(version_set_select_stmt);
+            final_stmt_usage.push_back(VERSION_SET_READ);
+        }
         final_tid_queue.push_back(tid);
         final_stmt_queue.push_back(stmt);
         final_stmt_usage.push_back(NORMAL);
