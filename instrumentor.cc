@@ -1,7 +1,35 @@
 #include "instrumentor.hh"
 
-
 string print_stmt_to_string(shared_ptr<prod> stmt);
+
+set<string> extract_words_begin_with(const string str, const string begin_str)
+{
+    set<string> words;
+    auto pos = str.find(begin_str, 0);
+    while (pos != string::npos) {
+        if (pos >= 1 && str[pos - 1] != ' ' && str[pos - 1] != '\n') { // not begin
+            pos = str.find(begin_str, pos + 1);
+            continue;
+        }
+
+        // find the interval
+        auto interval_pos = pos + 1;
+        while (interval_pos < str.size() && 
+                str[interval_pos] != ' ' && 
+                str[interval_pos] != '\n' &&
+                str[interval_pos] != ';') // not end
+            interval_pos++;
+        
+        auto word = str.substr(pos, interval_pos - pos);
+        words.insert(word);
+        
+        if (interval_pos == str.size()) // the last one
+            return words;
+
+        pos = interval_pos;
+    }
+    return words;
+}
 
 instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                             vector<int>& tid_queue,
@@ -68,29 +96,24 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
             // init the select
             auto after_write_select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, equal_op, wkey_column, wkey_value);
-            // // non-impact update_stmt
-            // used_scope.new_stmt();
-            // auto block_update_stmt = make_shared<update_stmt>((struct prod *)0, &used_scope, update_statement->victim);
-            // auto false_value = make_shared<truth_value>(block_update_stmt.get());
-            // false_value->op = used_scope.schema->false_literal;
-            // auto and_op = make_shared<bool_term>(block_update_stmt.get());
-            // and_op->op = "and";
-            // and_op->lhs = update_statement->search;
-            // and_op->rhs = false_value;
-            // block_update_stmt->set_list = update_statement->set_list;
-            // block_update_stmt->search = and_op;
             
-            // final_tid_queue.push_back(tid); // prevent that the before_read and update are seperated
+            /*---- version_set select (select * from t where 1=1) ---*/
+            auto involved_tables = extract_words_begin_with(print_stmt_to_string(stmt), "t_");
+            for (auto& table_str:involved_tables) {
+                auto version_set_select_stmt = make_shared<txn_string_stmt>((prod *)0, "SELECT * FROM " + table_str);
+                final_tid_queue.push_back(tid); // version_set select, build predicate-WW
+                final_stmt_queue.push_back(version_set_select_stmt);
+                final_stmt_usage.push_back(VERSION_SET_READ);
+            }
+            
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
             final_tid_queue.push_back(tid);
             final_tid_queue.push_back(tid); // get the changed value for later WW and WR dependency
 
-            // final_stmt_queue.push_back(block_update_stmt);
             final_stmt_queue.push_back(before_write_select_stmt);
             final_stmt_queue.push_back(stmt);
             final_stmt_queue.push_back(after_write_select_stmt);
 
-            // final_stmt_usage.push_back(NORMAL);
             final_stmt_usage.push_back(BEFORE_WRITE_READ);
             final_stmt_usage.push_back(NORMAL);
             final_stmt_usage.push_back(AFTER_WRITE_READ);
@@ -104,27 +127,22 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope,
                                     delete_statement->victim, delete_statement->search);
             
-            // // non-impact update_stmt
-            // used_scope.new_stmt();
-            // auto block_delete_stmt = make_shared<delete_stmt>((struct prod *)0, &used_scope, delete_statement->victim);
-            // auto false_value = make_shared<truth_value>(block_delete_stmt.get());
-            // false_value->op = used_scope.schema->false_literal;
-            // auto and_op = make_shared<bool_term>(block_delete_stmt.get());
-            // and_op->op = "and";
-            // and_op->lhs = delete_statement->search;
-            // and_op->rhs = false_value;
-            // block_delete_stmt->search = and_op;
+            /*---- version_set select (select * from t where 1=1) ---*/
+            auto involved_tables = extract_words_begin_with(print_stmt_to_string(stmt), "t_");
+            for (auto& table_str:involved_tables) {
+                auto version_set_select_stmt = make_shared<txn_string_stmt>((prod *)0, "SELECT * FROM " + table_str);
+                final_tid_queue.push_back(tid); // version_set select, build predicate-WW
+                final_stmt_queue.push_back(version_set_select_stmt);
+                final_stmt_usage.push_back(VERSION_SET_READ);
+            }
 
-            // final_tid_queue.push_back(tid); // prevent that the before_read and delete are seperated
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
             final_tid_queue.push_back(tid);
             // item is deleted, so no need for later dependency
             
-            // final_stmt_queue.push_back(block_delete_stmt);
             final_stmt_queue.push_back(select_stmt);
             final_stmt_queue.push_back(stmt);
 
-            // final_stmt_usage.push_back(NORMAL);
             final_stmt_usage.push_back(BEFORE_WRITE_READ);
             final_stmt_usage.push_back(NORMAL);
 
@@ -170,41 +188,6 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
             // init the select
             auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, equal_op, wkey_column, wkey_value);
-            
-            // item does not exist, so no need for ealier dependency
-            final_tid_queue.push_back(tid);
-            final_tid_queue.push_back(tid); // get the later value to build WR and WW dependency
-
-            final_stmt_queue.push_back(stmt);
-            final_stmt_queue.push_back(select_stmt);
-
-            final_stmt_usage.push_back(NORMAL);
-            final_stmt_usage.push_back(AFTER_WRITE_READ);
-
-            continue;
-        }
-
-        auto insert_select_statement = dynamic_pointer_cast<insert_select_stmt>(stmt);
-        if (insert_select_statement) {
-            used_scope.new_stmt(); // for select_stmt
-            // get wkey value
-            auto& wkey_value = insert_select_statement->target_subquery->select_list->value_exprs.front();
-
-            // init compare op
-            op *equal_op = NULL;
-            for (auto& op : db_schema->operators) {
-                if (op.name == "=") {
-                    equal_op = &op;
-                    break;
-                }
-            }
-            if (equal_op == NULL) 
-                throw runtime_error("intrument insert statement: cannot find = operator");
-            
-            // init column reference
-            auto wkey_column = make_shared<column_reference>((struct prod *)0, wkey_value->type, "wkey", insert_select_statement->victim->name);
-            // init the select
-            auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, insert_select_statement->victim, equal_op, wkey_column, wkey_value);
             
             // item does not exist, so no need for ealier dependency
             final_tid_queue.push_back(tid);

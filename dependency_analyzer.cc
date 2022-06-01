@@ -232,7 +232,7 @@ void dependency_analyzer::build_stmt_instrument_dependency()
             auto next_usage = f_stmt_usage[i + 1];
             if (next_tid != cur_tid || next_usage != NORMAL) {
                 cerr << "next_tid != cur_tid or next_usage != NORMAL" << endl;
-                throw runtime_error("next_tid != cur_tid or next_usage != NORMAL");
+                throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid or next_usage != NORMAL");
             }
 
             build_stmt_depend_from_stmt_idx(i, i + 1, INSTRUMENT_DEPEND);
@@ -247,7 +247,7 @@ void dependency_analyzer::build_stmt_instrument_dependency()
             auto prev_usage = f_stmt_usage[i - 1];
             if (prev_tid != cur_tid || prev_usage != NORMAL) {
                 cerr << "prev_tid != cur_tid or prev_usage != NORMAL" << endl;
-                throw runtime_error("prev_tid != cur_tid or prev_usage != NORMAL");
+                throw runtime_error("AFTER_WRITE_READ: prev_tid != cur_tid or prev_usage != NORMAL");
             }
 
             build_stmt_depend_from_stmt_idx(i - 1, i, INSTRUMENT_DEPEND);

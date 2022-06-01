@@ -14,7 +14,10 @@
 
 using namespace std;
 
-enum stmt_basic_type {NORMAL, BEFORE_WRITE_READ, AFTER_WRITE_READ, BEFORE_PREDICATE_JUDGE, AFTER_PREDICATE_JUDGE};
+
+// item-dependency related: BEFORE_WRITE_READ, AFTER_WRITE_READ
+// predicate-dependency related: VERSION_SET_READ, BEFORE_OVERWRITE_JUDGE, AFTER_OVERWRITE_JUDGE
+enum stmt_basic_type {NORMAL, BEFORE_WRITE_READ, AFTER_WRITE_READ, VERSION_SET_READ, BEFORE_OVERWRITE_JUDGE, AFTER_OVERWRITE_JUDGE};
 
 struct stmt_usage {
     stmt_basic_type stmt_type;
@@ -34,7 +37,7 @@ struct stmt_usage {
                 const int& source_txn_id, const int& source_stmt_pos,
                 const int& target_txn_id, const int& target_stmt_pos) {
         stmt_type = target_st;
-        if (stmt_type != BEFORE_PREDICATE_JUDGE && stmt_type != AFTER_PREDICATE_JUDGE) {
+        if (stmt_type != BEFORE_OVERWRITE_JUDGE && stmt_type != AFTER_OVERWRITE_JUDGE) {
             pred_source_txn_id = -1;
             pred_source_stmt_pos = -1;
             pred_target_txn_id = -1;
