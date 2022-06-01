@@ -118,7 +118,7 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
         throw runtime_error("something wrong, target_op.stmt_u is not BEFORE_WRITE_READ in build_RW_dependency");
 
     auto list_size = op_list.size();
-    for (int i = list_size - 1; i >= 0; i--) {
+    for (int i = 0; i < list_size; i++) {
         // could not build BWR -> BWR ()
         // if BWR -> BWR is build (RW), then AWR -> BWR is also built (WW), so missing it is fine
         if (op_list[i].stmt_u == BEFORE_WRITE_READ) 
@@ -231,7 +231,7 @@ void dependency_analyzer::build_stmt_instrument_dependency()
             auto next_tid = f_txn_id_queue[i + 1];
             auto next_usage = f_stmt_usage[i + 1];
             if (next_tid != cur_tid || next_usage != NORMAL) {
-                cerr << "next_tid != cur_tid or next_usage != NORMAL" << endl;
+                cerr << "BEFORE_WRITE_READ: next_tid != cur_tid or next_usage != NORMAL" << endl;
                 throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid or next_usage != NORMAL");
             }
 
@@ -246,11 +246,32 @@ void dependency_analyzer::build_stmt_instrument_dependency()
             auto prev_tid = f_txn_id_queue[i - 1];
             auto prev_usage = f_stmt_usage[i - 1];
             if (prev_tid != cur_tid || prev_usage != NORMAL) {
-                cerr << "prev_tid != cur_tid or prev_usage != NORMAL" << endl;
+                cerr << "AFTER_WRITE_READ: prev_tid != cur_tid or prev_usage != NORMAL" << endl;
                 throw runtime_error("AFTER_WRITE_READ: prev_tid != cur_tid or prev_usage != NORMAL");
             }
 
             build_stmt_depend_from_stmt_idx(i - 1, i, INSTRUMENT_DEPEND);
+        }
+        else if (cur_usage == VERSION_SET_READ) {
+            int normal_pos = i + 1;
+            while (normal_pos < stmt_num) {
+                auto next_tid = f_txn_id_queue[normal_pos];
+                auto next_usage = f_stmt_usage[normal_pos];
+                if (next_tid != cur_tid) {
+                    cerr << "VERSION_SET_READ: next_tid != cur_tid" << endl;
+                    throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid");
+                }
+                if (next_usage == NORMAL)
+                    break;
+                normal_pos ++;
+            }
+
+            if (normal_pos == stmt_num) {
+                cerr << "VERSION_SET_READ: cannot find the normal one" << endl;
+                throw runtime_error("VERSION_SET_READ: cannot find the normal one");
+            }
+
+            build_stmt_depend_from_stmt_idx(i, normal_pos, INSTRUMENT_DEPEND);
         }
     }
 }

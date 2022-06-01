@@ -19,7 +19,8 @@ using namespace std;
 
 // START_DEPEND: the begin is count by first read or write
 // STRICT_START_DEPEND: the begin is count by begin statement
-enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, START_DEPEND, STRICT_START_DEPEND, INSTRUMENT_DEPEND};
+enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, 
+                        START_DEPEND, STRICT_START_DEPEND, INSTRUMENT_DEPEND};
 
 typedef vector<string> row_output; // a row consists of several field(string)
 typedef vector<row_output> stmt_output; // one output consits of several rows
