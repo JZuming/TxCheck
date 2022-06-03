@@ -76,7 +76,7 @@ void transaction_test::gen_txn_stmts()
         auto tid = tid_queue[i];
         auto &stmt = trans_arr[tid].stmts[stmt_pos_of_trans[tid]];
         stmt_queue.push_back(stmt);
-        stmt_use.push_back(NORMAL);
+        stmt_use.push_back(INIT_TYPE);
         stmt_pos_of_trans[tid]++;
     }
 }
@@ -109,7 +109,9 @@ void transaction_test::clean_instrument()
     vector<stmt_usage> clean_stmt_usage_queue;
 
     for (int i = 0; i < stmt_num; i++) {
-        if (stmt_use[i] != NORMAL)
+        if (stmt_use[i] == BEFORE_WRITE_READ || 
+                stmt_use[i] == AFTER_WRITE_READ ||
+                stmt_use[i] == VERSION_SET_READ)
             continue;
         clean_stmt_queue.push_back(stmt_queue[i]);
         clean_tid_queue.push_back(tid_queue[i]);
@@ -408,7 +410,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
-            real_stmt_usage.push_back(NORMAL);
+            real_stmt_usage.push_back(INIT_TYPE);
             status_queue[i] = 1;
         } else {// blocked
             trans_arr[tid].is_blocked = true;
@@ -449,7 +451,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
-            real_stmt_usage.push_back(NORMAL);
+            real_stmt_usage.push_back(INIT_TYPE);
         }
         else { // still blocked
             trans_arr[tid].is_blocked = true;
@@ -491,7 +493,7 @@ void transaction_test::trans_test(bool debug_mode)
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
-            real_stmt_usage.push_back(NORMAL);
+            real_stmt_usage.push_back(INIT_TYPE);
             continue;
         }
         status_queue[stmt_index] = 1;
@@ -911,7 +913,7 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
         is_refined = true;
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
         stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
-        stmt_use[i] = NORMAL;
+        stmt_use[i] = INIT_TYPE;
     }
     
     if (is_refined == false)

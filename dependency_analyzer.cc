@@ -63,12 +63,13 @@ size_t dependency_analyzer::hash_output(row_output& row)
     return hash;
 }
 
+// for BEFORE_WRITE_READ, VERSION_SET_READ, SELECT_READ
 void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int op_idx)
 {
     auto& target_op = op_list[op_idx];
     bool find_the_write = false;
     for (int i = op_idx - 1; i >= 0; i--) {
-        if (op_list[i].stmt_u != AFTER_WRITE_READ)
+        if (op_list[i].stmt_u != AFTER_WRITE_READ) // only search for AFTER_WRITE_READ
             continue;
         
         // need strict compare to check whether the write is missed
@@ -111,6 +112,7 @@ void dependency_analyzer::build_WR_dependency(vector<operate_unit>& op_list, int
     return;
 }
 
+// for BEFORE_WRITE_READ
 void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int op_idx)
 {
     auto& target_op = op_list[op_idx];
@@ -121,8 +123,8 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
     for (int i = 0; i < list_size; i++) {
         // could not build BWR -> BWR ()
         // if BWR -> BWR is build (RW), then AWR -> BWR is also built (WW), so missing it is fine
-        if (op_list[i].stmt_u == BEFORE_WRITE_READ) 
-            continue;
+        if (op_list[i].stmt_u != SELECT_READ && op_list[i].stmt_u != AFTER_WRITE_READ) 
+            continue; // only search for SELECT_READ, AFTER_WRITE_READ
 
         // need eazier compare to build more edge
         if (op_list[i].write_op_id != target_op.write_op_id)
@@ -140,6 +142,7 @@ void dependency_analyzer::build_RW_dependency(vector<operate_unit>& op_list, int
     return;
 }
 
+// for BEFORE_WRITE_READ
 void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int op_idx)
 {
     auto& target_op = op_list[op_idx];
@@ -219,8 +222,6 @@ void dependency_analyzer::build_stmt_instrument_dependency()
     for (int i = 0; i < stmt_num; i++) {
         auto cur_usage = f_stmt_usage[i];
         auto cur_tid = f_txn_id_queue[i];
-        if (cur_usage == NORMAL)
-            continue;
         
         if (cur_usage == BEFORE_WRITE_READ) {
             if (i + 1 >= stmt_num) {
@@ -230,9 +231,14 @@ void dependency_analyzer::build_stmt_instrument_dependency()
                 
             auto next_tid = f_txn_id_queue[i + 1];
             auto next_usage = f_stmt_usage[i + 1];
-            if (next_tid != cur_tid || next_usage != NORMAL) {
-                cerr << "BEFORE_WRITE_READ: next_tid != cur_tid or next_usage != NORMAL" << endl;
-                throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid or next_usage != NORMAL");
+            if (next_tid != cur_tid) {
+                cerr << "BEFORE_WRITE_READ: next_tid != cur_tid" << endl;
+                throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid");
+            }
+
+            if (next_usage != UPDATE_WRITE && next_usage != DELETE_WRITE) {
+                cerr << "BEFORE_WRITE_READ: next_usage != UPDATE_WRITE && next_usage != DELETE_WRITE" << endl;
+                throw runtime_error("BEFORE_WRITE_READ: next_usage != UPDATE_WRITE && next_usage != DELETE_WRITE");
             }
 
             build_stmt_depend_from_stmt_idx(i, i + 1, INSTRUMENT_DEPEND);
@@ -245,9 +251,14 @@ void dependency_analyzer::build_stmt_instrument_dependency()
 
             auto prev_tid = f_txn_id_queue[i - 1];
             auto prev_usage = f_stmt_usage[i - 1];
-            if (prev_tid != cur_tid || prev_usage != NORMAL) {
-                cerr << "AFTER_WRITE_READ: prev_tid != cur_tid or prev_usage != NORMAL" << endl;
-                throw runtime_error("AFTER_WRITE_READ: prev_tid != cur_tid or prev_usage != NORMAL");
+            if (prev_tid != cur_tid) {
+                cerr << "AFTER_WRITE_READ: prev_tid != cur_tid" << endl;
+                throw runtime_error("AFTER_WRITE_READ: prev_tid != cur_tid");
+            }
+
+            if (prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE) {
+                cerr << "AFTER_WRITE_READ: prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE" << endl;
+                throw runtime_error("AFTER_WRITE_READ: prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE");
             }
 
             build_stmt_depend_from_stmt_idx(i - 1, i, INSTRUMENT_DEPEND);
@@ -261,7 +272,10 @@ void dependency_analyzer::build_stmt_instrument_dependency()
                     cerr << "VERSION_SET_READ: next_tid != cur_tid" << endl;
                     throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid");
                 }
-                if (next_usage == NORMAL)
+                if (next_usage == SELECT_READ || 
+                        next_usage == UPDATE_WRITE || 
+                        next_usage == DELETE_WRITE || 
+                        next_usage == INSERT_WRITE)
                     break;
                 normal_pos ++;
             }

@@ -20,7 +20,8 @@ using namespace std;
 // START_DEPEND: the begin is count by first read or write
 // STRICT_START_DEPEND: the begin is count by begin statement
 enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, 
-                        START_DEPEND, STRICT_START_DEPEND, INSTRUMENT_DEPEND};
+                        START_DEPEND, STRICT_START_DEPEND, INSTRUMENT_DEPEND,
+                        VERSION_SET_DEPEND, OVERWRITE_DEPEND}; // for predicate
 
 typedef vector<string> row_output; // a row consists of several field(string)
 typedef vector<row_output> stmt_output; // one output consits of several rows
@@ -89,6 +90,10 @@ struct dependency_analyzer
     void build_WR_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_RW_dependency(vector<operate_unit>& op_list, int op_idx);
     void build_WW_dependency(vector<operate_unit>& op_list, int op_idx);
+
+    // for predicate
+    void build_VS_dependency();
+    void build_OW_dependency();
     
     void build_start_dependency();
     void build_stmt_instrument_dependency();

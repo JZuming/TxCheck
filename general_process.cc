@@ -606,7 +606,9 @@ bool minimize_testcase(dbms_info& d_info,
             continue;
 
         // do not delete BEFORE_WRITE_READ or AFTER_WRITE_READ seperately
-        if (tmp_usage_queue[i] != NORMAL)
+        if (tmp_usage_queue[i] == BEFORE_WRITE_READ || 
+            tmp_usage_queue[i] == AFTER_WRITE_READ ||
+            tmp_usage_queue[i] == VERSION_SET_READ)
             continue;
         
         // delete possible AFTER_WRITE_READ

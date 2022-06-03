@@ -17,44 +17,23 @@ using namespace std;
 
 // item-dependency related: BEFORE_WRITE_READ, AFTER_WRITE_READ
 // predicate-dependency related: VERSION_SET_READ, BEFORE_OVERWRITE_JUDGE, AFTER_OVERWRITE_JUDGE
-enum stmt_basic_type {NORMAL, BEFORE_WRITE_READ, AFTER_WRITE_READ, VERSION_SET_READ, BEFORE_OVERWRITE_JUDGE, AFTER_OVERWRITE_JUDGE};
+enum stmt_basic_type {INIT_TYPE, // replaced str or did not figure out yet
+                    SELECT_READ,
+                    UPDATE_WRITE,
+                    INSERT_WRITE,
+                    DELETE_WRITE,
+                    BEFORE_WRITE_READ, 
+                    AFTER_WRITE_READ, 
+                    VERSION_SET_READ};
 
 struct stmt_usage {
     stmt_basic_type stmt_type;
-    int pred_source_txn_id; // for predicate judge, the predicate source
-    int pred_source_stmt_pos; // for predicate judge, the predicate source
-    int pred_target_txn_id; // for predicate judge, the instrumented stmt
-    int pred_target_stmt_pos; // for predicate judge, the instrumented stmt
 
     stmt_usage(const stmt_basic_type& target_st) {
         stmt_type = target_st;
-        pred_source_txn_id = -1;
-        pred_source_stmt_pos = -1;
-        pred_target_txn_id = -1;
-        pred_target_stmt_pos = -1;
-    }
-    stmt_usage(const stmt_basic_type& target_st, 
-                const int& source_txn_id, const int& source_stmt_pos,
-                const int& target_txn_id, const int& target_stmt_pos) {
-        stmt_type = target_st;
-        if (stmt_type != BEFORE_OVERWRITE_JUDGE && stmt_type != AFTER_OVERWRITE_JUDGE) {
-            pred_source_txn_id = -1;
-            pred_source_stmt_pos = -1;
-            pred_target_txn_id = -1;
-            pred_target_stmt_pos = -1;
-            return;
-        }
-        pred_source_txn_id = source_txn_id;
-        pred_source_stmt_pos = source_stmt_pos;
-        pred_target_txn_id = target_txn_id;
-        pred_target_stmt_pos = target_stmt_pos;
     }
     stmt_usage(const stmt_usage& target_su) {
         stmt_type = target_su.stmt_type;
-        pred_source_txn_id = target_su.pred_source_txn_id;
-        pred_source_stmt_pos = target_su.pred_source_stmt_pos;
-        pred_target_txn_id = target_su.pred_target_txn_id;
-        pred_target_stmt_pos = target_su.pred_target_stmt_pos;
     }
 
     bool operator==(const stmt_basic_type& target_st) const {
@@ -68,10 +47,6 @@ struct stmt_usage {
     }
     void operator=(const stmt_usage& target_su) {
         stmt_type = target_su.stmt_type;
-        pred_source_txn_id = target_su.pred_source_txn_id;
-        pred_source_stmt_pos = target_su.pred_source_stmt_pos;
-        pred_target_txn_id = target_su.pred_target_txn_id;
-        pred_target_stmt_pos = target_su.pred_target_stmt_pos;
     }
     friend ostream &operator<<(ostream &output, const stmt_usage &su) { 
         output << su.stmt_type;
