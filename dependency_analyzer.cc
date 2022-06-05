@@ -174,6 +174,160 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
     return;
 }
 
+// should be used after build_start_dependency
+void dependency_analyzer::build_VS_dependency()
+{
+    if (tid_begin_idx == NULL || tid_strict_begin_idx == NULL || tid_end_idx == NULL) {
+        cerr << "you should not use build_VS_dependency before build_start_dependency" << endl;
+        throw runtime_error("you should not use build_VS_dependency before build_start_dependency");
+    }
+    for (int i = 0; i < stmt_num; i++) {
+        auto& i_stmt_u = f_stmt_usage[i];
+        if (i_stmt_u != VERSION_SET_READ)
+            continue;
+        auto& i_tid = f_txn_id_queue[i];
+        auto& i_output = f_stmt_output[i];
+
+        set<pair<int, int>> i_pv_pair_set; // primary_key, version_key
+        set<int> i_primary_set; // primary_key
+        for (auto& row : i_output) {
+            auto row_id = stoi(row[primary_key_index]);
+            auto version_id = stoi(row[version_key_index]);
+            pair<int, int> p(row_id, version_id);
+            i_pv_pair_set.insert(p);
+            i_primary_set.insert(row_id);
+        }
+
+        for (int j = 0; j < stmt_num; j++) {
+            auto& j_tid = f_txn_id_queue[j];
+            // skip if they donot interleave
+            if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
+                continue;
+            if (dependency_graph[j_tid][i_tid].count(STRICT_START_DEPEND) > 0)
+                continue;
+            
+            auto& j_stmt_u = f_stmt_usage[j];
+            if (j_stmt_u == UPDATE_WRITE || j_stmt_u == INSERT_WRITE) {
+                auto after_write_idx = j + 1;
+                if (f_stmt_usage[after_write_idx] != AFTER_WRITE_READ) {
+                    cerr << "build_VS_dependency: after_write_idx is not AFTER_WRITE_READ" << endl;
+                    throw runtime_error("build_VS_dependency: after_write_idx is not AFTER_WRITE_READ");
+                }
+                auto& after_write_output = f_stmt_output[after_write_idx];
+                set<pair<int, int>> after_write_pv_pair_set; // primary_key, version_key
+                for (auto& row:after_write_output) {
+                    auto row_id = stoi(row[primary_key_index]);
+                    auto version_id = stoi(row[version_key_index]);
+                    pair<int, int> p(row_id, version_id);
+                    after_write_pv_pair_set.insert(p);
+                }
+
+                set<pair<int, int>> res;
+                set_intersection(i_pv_pair_set.begin(), i_pv_pair_set.end(), 
+                    after_write_pv_pair_set.begin(), after_write_pv_pair_set.end(),
+                    inserter(res, res.begin()));
+
+                if (!res.empty()) { // if it is not empty, the changed version is seen in version read
+                    dependency_graph[j_tid][i_tid].insert(VERSION_SET_DEPEND);
+                    build_stmt_depend_from_stmt_idx(after_write_idx, i, VERSION_SET_DEPEND);
+                    // update/insert -> AFTER_WRITE_READ -> VERSION_SET_READ -> target_one
+                }
+            }
+            else if (j_stmt_u == DELETE_WRITE) {
+                auto before_write_idx = j - 1;
+                if (f_stmt_usage[before_write_idx] != BEFORE_WRITE_READ) {
+                    cerr << "build_VS_dependency: before_write_idx is not BEFORE_WRITE_READ" << endl;
+                    throw runtime_error("build_VS_dependency: before_write_idx is not BEFORE_WRITE_READ");
+                }
+                auto& before_write_output = f_stmt_output[before_write_idx];
+                if (before_write_output.empty()) // delete nothing, skip
+                    continue;
+
+                set<int> before_write_primary_set; // primary_key, version_key
+                for (auto& row:before_write_output) {
+                    auto row_id = stoi(row[primary_key_index]);
+                    before_write_primary_set.insert(row_id);
+                }
+
+                set<int> res;
+                set_intersection(i_primary_set.begin(), i_primary_set.begin(),
+                    before_write_primary_set.begin(), before_write_primary_set.begin(),
+                    inserter(res, res.begin()));
+                if (res.empty()) { // if it is emtpy, the row is deleted
+                    dependency_graph[j_tid][i_tid].insert(VERSION_SET_DEPEND);
+                    build_stmt_depend_from_stmt_idx(j, i, VERSION_SET_DEPEND);
+                    // BEFORE_WRITE_READ-> delete -> VERSION_SET_READ -> target_one
+                }
+            }
+        }
+    }
+}
+
+// should be used after build_start_dependency
+void dependency_analyzer::build_OW_dependency()
+{
+    if (tid_begin_idx == NULL || tid_strict_begin_idx == NULL || tid_end_idx == NULL) {
+        cerr << "you should not use build_VS_dependency before build_start_dependency" << endl;
+        throw runtime_error("you should not use build_VS_dependency before build_start_dependency");
+    }
+
+    for (int i = 0; i < stmt_num; i++) {
+        auto& i_stmt_u = f_stmt_usage[i];
+        if (i_stmt_u != VERSION_SET_READ)
+            continue;
+        auto& i_tid = f_txn_id_queue[i];
+        auto& i_output = f_stmt_output[i];
+
+        set<pair<int, int>> i_pv_pair_set; // primary_key, version_key
+        set<int> i_primary_set; // primary_key
+        for (auto& row : i_output) {
+            auto row_id = stoi(row[primary_key_index]);
+            auto version_id = stoi(row[version_key_index]);
+            pair<int, int> p(row_id, version_id);
+            i_pv_pair_set.insert(p);
+            i_primary_set.insert(row_id);
+        }
+
+        for (int j = 0; j < stmt_num; j++) {
+            auto& j_tid = f_txn_id_queue[j];
+            // skip if they donot interleave
+            if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
+                continue;
+            if (dependency_graph[j_tid][i_tid].count(STRICT_START_DEPEND) > 0)
+                continue;
+            
+            auto& j_stmt_u = f_stmt_usage[j];
+            if (j_stmt_u == UPDATE_WRITE || j_stmt_u == DELETE_WRITE) {
+                auto before_write_idx = j - 1;
+                if (f_stmt_usage[before_write_idx] != BEFORE_WRITE_READ) {
+                    cerr << "build_OW_dependency: before_write_idx is not BEFORE_WRITE_READ" << endl;
+                    throw runtime_error("build_OW_dependency: before_write_idx is not BEFORE_WRITE_READ");
+                }
+                auto& before_write_output = f_stmt_output[before_write_idx];
+                set<pair<int, int>> before_write_pv_pair_set; // primary_key, version_key
+                for (auto& row:before_write_output) {
+                    auto row_id = stoi(row[primary_key_index]);
+                    auto version_id = stoi(row[version_key_index]);
+                    pair<int, int> p(row_id, version_id);
+                    before_write_pv_pair_set.insert(p);
+                }
+
+                set<pair<int, int>> res;
+                set_intersection(i_pv_pair_set.begin(), i_pv_pair_set.end(), 
+                    before_write_pv_pair_set.begin(), before_write_pv_pair_set.end(),
+                    inserter(res, res.begin()));
+                if (!res.empty()) { // if it is not empty, the changed version is seen in version read
+                    dependency_graph[i_tid][j_tid].insert(OVERWRITE_DEPEND);
+                    build_stmt_depend_from_stmt_idx(after_write_idx, i, VERSION_SET_DEPEND);
+                    // update/insert -> AFTER_WRITE_READ -> VERSION_SET_READ -> target_one
+                }
+
+            }
+        }
+    }
+
+}
+
 void dependency_analyzer::build_start_dependency()
 {
     // count the second stmt as begin stmt, because some dbms donot use snapshot unless it read or write something
@@ -356,7 +510,12 @@ tid_num(t_num + 1),  // add 1 for init txn
 f_stmt_output(total_output),
 f_txn_status(final_txn_status),
 f_txn_id_queue(final_tid_queue),
-f_stmt_usage(final_stmt_usage)
+f_stmt_usage(final_stmt_usage),
+tid_begin_idx(NULL),
+tid_strict_begin_idx(NULL),
+tid_end_idx(NULL), 
+primary_key_index(primary_key_idx),
+version_key_index(write_op_key_idx)
 {   
     if (f_stmt_output.size() != f_txn_id_queue.size() || f_stmt_output.size() != f_stmt_usage.size()) {
         cerr << "dependency_analyzer: total_output, final_tid_queue and final_stmt_usage size are not equal" << endl;

@@ -137,9 +137,13 @@ struct dependency_analyzer
     history h;
     int tid_num;
     int stmt_num;
-    int* tid_begin_idx;
-    int* tid_strict_begin_idx;
+    int* tid_begin_idx; // idx of first non-start transaction
+    int* tid_strict_begin_idx; // idx of start transaction
     int* tid_end_idx;
+
+    int primary_key_index;
+    int version_key_index;
+
     vector<txn_status> f_txn_status;
     vector<int> f_txn_id_queue;
     vector<int> f_txn_size;
