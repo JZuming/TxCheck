@@ -200,6 +200,8 @@ void dependency_analyzer::build_VS_dependency()
 
         for (int j = 0; j < stmt_num; j++) {
             auto& j_tid = f_txn_id_queue[j];
+            if (i_tid == j_tid)
+                continue;
             // skip if they donot interleave
             if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
                 continue;
@@ -239,6 +241,14 @@ void dependency_analyzer::build_VS_dependency()
                     cerr << "build_VS_dependency: before_write_idx is not BEFORE_WRITE_READ" << endl;
                     throw runtime_error("build_VS_dependency: before_write_idx is not BEFORE_WRITE_READ");
                 }
+                // skip if they donot handle the same table
+                if (f_stmt_usage[before_write_idx].target_table == "" || i_stmt_u.target_table == "") {
+                    cerr << "build_VS_dependency: target_table is not initialized" << endl;
+                    throw runtime_error("build_VS_dependency: target_table is not initialized");
+                }
+                if (f_stmt_usage[before_write_idx].target_table != i_stmt_u.target_table)
+                    continue;
+                
                 auto& before_write_output = f_stmt_output[before_write_idx];
                 if (before_write_output.empty()) // delete nothing, skip
                     continue;
@@ -305,6 +315,8 @@ void dependency_analyzer::build_OW_dependency()
 
         for (int j = 0; j < stmt_num; j++) {
             auto& j_tid = f_txn_id_queue[j];
+            if (i_tid == j_tid)
+                continue;
             // skip if they donot interleave
             if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
                 continue;
@@ -343,6 +355,14 @@ void dependency_analyzer::build_OW_dependency()
                     cerr << "build_OW_dependency: after_write_idx is not AFTER_WRITE_READ" << endl;
                     throw runtime_error("build_OW_dependency: after_write_idx is not AFTER_WRITE_READ");
                 }
+                // skip if they donot handle the same table
+                if (f_stmt_usage[after_write_idx].target_table == "" || i_stmt_u.target_table == "") {
+                    cerr << "build_OW_dependency: target_table is not initialized" << endl;
+                    throw runtime_error("build_OW_dependency: target_table is not initialized");
+                }
+                if (f_stmt_usage[after_write_idx].target_table != i_stmt_u.target_table)
+                    continue;
+                
                 auto& after_write_output = f_stmt_output[after_write_idx];
                 if (after_write_output.empty()) // insert nothing, skip
                     continue;
@@ -502,9 +522,9 @@ void dependency_analyzer::print_dependency_graph()
     cerr << "  ";
     for (int i = 0; i < tid_num; i++) {
         if (i < 10)
-            cerr << "|   " << i;
+            cerr << "|     " << i;
         else
-            cerr << "|  " << i;
+            cerr << "|    " << i;
     }
     cerr << "|" << endl;
     for (int i = 0; i < tid_num; i++) {

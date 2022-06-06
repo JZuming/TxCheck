@@ -21,7 +21,8 @@ using namespace std;
 // STRICT_START_DEPEND: the begin is count by begin statement
 enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, 
                         START_DEPEND, STRICT_START_DEPEND, INSTRUMENT_DEPEND,
-                        VERSION_SET_DEPEND, OVERWRITE_DEPEND}; // for predicate
+                        VERSION_SET_DEPEND, OVERWRITE_DEPEND
+                        }; // for predicate
 
 typedef vector<string> row_output; // a row consists of several field(string)
 typedef vector<row_output> stmt_output; // one output consits of several rows

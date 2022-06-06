@@ -28,12 +28,14 @@ enum stmt_basic_type {INIT_TYPE, // replaced str or did not figure out yet
 
 struct stmt_usage {
     stmt_basic_type stmt_type;
+    string target_table; // not used for SELECT_READ which may read row from multiple tables
 
     stmt_usage(const stmt_basic_type& target_st) {
         stmt_type = target_st;
     }
-    stmt_usage(const stmt_usage& target_su) {
-        stmt_type = target_su.stmt_type;
+    stmt_usage(const stmt_basic_type& target_st, string target_t) {
+        stmt_type = target_st;
+        target_table = target_t;
     }
 
     bool operator==(const stmt_basic_type& target_st) const {
@@ -44,9 +46,6 @@ struct stmt_usage {
     }
     void operator=(const stmt_basic_type& target_st) {
         stmt_type = target_st;
-    }
-    void operator=(const stmt_usage& target_su) {
-        stmt_type = target_su.stmt_type;
     }
     friend ostream &operator<<(ostream &output, const stmt_usage &su) { 
         output << su.stmt_type;
