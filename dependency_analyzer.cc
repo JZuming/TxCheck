@@ -288,6 +288,21 @@ void dependency_analyzer::build_OW_dependency()
             i_primary_set.insert(row_id);
         }
 
+        int orginal_index = -1;
+        for (int j = i + 1; j < stmt_num; j++) {
+            if (f_stmt_usage[j] == SELECT_READ ||
+                    f_stmt_usage[j] == UPDATE_WRITE ||
+                    f_stmt_usage[j] == DELETE_WRITE ||
+                    f_stmt_usage[j] == INSERT_WRITE) {
+                orginal_index = j;
+                break;
+            }
+        }
+        if (orginal_index == -1) {
+            cerr << "cannot find the orginal_index in build_OW_dependency" << endl;
+            throw runtime_error("cannot find the orginal_index in build_OW_dependency");
+        }
+
         for (int j = 0; j < stmt_num; j++) {
             auto& j_tid = f_txn_id_queue[j];
             // skip if they donot interleave
@@ -316,16 +331,38 @@ void dependency_analyzer::build_OW_dependency()
                 set_intersection(i_pv_pair_set.begin(), i_pv_pair_set.end(), 
                     before_write_pv_pair_set.begin(), before_write_pv_pair_set.end(),
                     inserter(res, res.begin()));
-                if (!res.empty()) { // if it is not empty, the changed version is seen in version read
+                if (!res.empty()) {
                     dependency_graph[i_tid][j_tid].insert(OVERWRITE_DEPEND);
-                    build_stmt_depend_from_stmt_idx(after_write_idx, i, VERSION_SET_DEPEND);
-                    // update/insert -> AFTER_WRITE_READ -> VERSION_SET_READ -> target_one
+                    build_stmt_depend_from_stmt_idx(orginal_index, before_write_idx, OVERWRITE_DEPEND);
+                    // version_set read -> target_one -> before_read -> update/delete
                 }
-
+            }
+            else if (j_stmt_u == INSERT_WRITE) {
+                auto after_write_idx = j + 1;
+                if (f_stmt_usage[after_write_idx] != AFTER_WRITE_READ) {
+                    cerr << "build_OW_dependency: after_write_idx is not AFTER_WRITE_READ" << endl;
+                    throw runtime_error("build_OW_dependency: after_write_idx is not AFTER_WRITE_READ");
+                }
+                auto& after_write_output = f_stmt_output[after_write_idx];
+                if (after_write_output.empty()) // insert nothing, skip
+                    continue;
+                set<int> after_write_primary_set;
+                for (auto& row : after_write_output) {
+                    auto row_id = stoi(row[primary_key_index]);
+                    after_write_primary_set.insert(row_id);
+                }
+                set<int> res;
+                set_intersection(i_primary_set.begin(), i_primary_set.begin(),
+                    after_write_primary_set.begin(), after_write_primary_set.begin(),
+                    inserter(res, res.begin()));
+                if (res.empty()) { // if it is emtpy, the row is not inserted yet
+                    dependency_graph[i_tid][j_tid].insert(OVERWRITE_DEPEND);
+                    build_stmt_depend_from_stmt_idx(orginal_index, j, OVERWRITE_DEPEND);
+                    // version_set read -> target_one -> insert -> after_read
+                }
             }
         }
     }
-
 }
 
 void dependency_analyzer::build_start_dependency()
@@ -591,6 +628,10 @@ version_key_index(write_op_key_idx)
 
     // // generate start dependency (for snapshot)
     build_start_dependency();
+
+    // build version_set depend and overwrite depend that should be build after start depend
+    build_VS_dependency();
+    build_OW_dependency();
 
     // // generate stmt inner depend
     // build_stmt_inner_dependency(); // should not be used
