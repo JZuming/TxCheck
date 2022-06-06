@@ -417,7 +417,6 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
         }
     }
     
-    auto is_serializable = test_dbms_info.serializable;
     for (int stmt_pos = 0; stmt_pos < cur_stmt_num; stmt_pos++) {
         auto tid = tid_queue[stmt_pos];
         // skip the tried but still blocked transaction
@@ -1014,6 +1013,8 @@ bool transaction_test::multi_stmt_round_test()
     if (analyze_txn_dependency(init_da)) 
         throw runtime_error("BUG: found in analyze_txn_dependency()");
     auto longest_stmt_path = init_da->longest_stmt_path();
+    
+    return 0;
     
     // record init status
     auto init_stmt_queue = stmt_queue;

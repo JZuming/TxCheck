@@ -447,7 +447,7 @@ void dependency_analyzer::build_stmt_instrument_dependency()
                 throw runtime_error("AFTER_WRITE_READ: prev_tid != cur_tid");
             }
 
-            if (prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE) {
+            if (prev_usage != UPDATE_WRITE && prev_usage != INSERT_WRITE) {
                 cerr << "AFTER_WRITE_READ: prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE" << endl;
                 throw runtime_error("AFTER_WRITE_READ: prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE");
             }
@@ -526,8 +526,16 @@ void dependency_analyzer::print_dependency_graph()
                 cerr << "2";
             else
                 cerr << " ";
-            if (dependency_graph[i][j].count(STRICT_START_DEPEND))
+            if (dependency_graph[i][j].count(VERSION_SET_DEPEND))
                 cerr << "3";
+            else
+                cerr << " ";
+            if (dependency_graph[i][j].count(OVERWRITE_DEPEND))
+                cerr << "4";
+            else
+                cerr << " ";
+            if (dependency_graph[i][j].count(STRICT_START_DEPEND))
+                cerr << "5";
             else
                 cerr << " ";
         }
@@ -544,15 +552,15 @@ dependency_analyzer::dependency_analyzer(vector<stmt_output>& init_output,
                         int primary_key_idx,
                         int write_op_key_idx):
 tid_num(t_num + 1),  // add 1 for init txn
-f_stmt_output(total_output),
-f_txn_status(final_txn_status),
-f_txn_id_queue(final_tid_queue),
-f_stmt_usage(final_stmt_usage),
 tid_begin_idx(NULL),
 tid_strict_begin_idx(NULL),
 tid_end_idx(NULL), 
 primary_key_index(primary_key_idx),
-version_key_index(write_op_key_idx)
+version_key_index(write_op_key_idx),
+f_txn_status(final_txn_status),
+f_txn_id_queue(final_tid_queue),
+f_stmt_usage(final_stmt_usage),
+f_stmt_output(total_output)
 {   
     if (f_stmt_output.size() != f_txn_id_queue.size() || f_stmt_output.size() != f_stmt_usage.size()) {
         cerr << "dependency_analyzer: total_output, final_tid_queue and final_stmt_usage size are not equal" << endl;
@@ -639,7 +647,7 @@ version_key_index(write_op_key_idx)
     build_stmt_instrument_dependency();
     
     // print dependency graph
-    // print_dependency_graph();
+    print_dependency_graph();
 }
 
 dependency_analyzer::~dependency_analyzer()
@@ -940,7 +948,6 @@ bool dependency_analyzer::check_G2_item()
 
     return have_cycle;
 }
-
 
 bool dependency_analyzer::check_GSIa()
 {

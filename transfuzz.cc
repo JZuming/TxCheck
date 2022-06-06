@@ -419,15 +419,15 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
         int use;
         while (stmt_usage_file >> use) {
             switch (use) {
-            case 0:
-                stmt_usage_queue.push_back(NORMAL);
-                break;
-            case 1:
-                stmt_usage_queue.push_back(BEFORE_WRITE_READ);
-                break;
-            case 2:
-                stmt_usage_queue.push_back(AFTER_WRITE_READ);
-                break;
+            // case 0:
+            //     stmt_usage_queue.push_back(NORMAL);
+            //     break;
+            // case 1:
+            //     stmt_usage_queue.push_back(BEFORE_WRITE_READ);
+            //     break;
+            // case 2:
+            //     stmt_usage_queue.push_back(AFTER_WRITE_READ);
+            //     break;
             default:
                 cerr << "unknown stmt usage: " << use << endl;
                 exit(-1);

@@ -7,14 +7,19 @@ set<string> extract_words_begin_with(const string str, const string begin_str)
     set<string> words;
     auto pos = str.find(begin_str, 0);
     while (pos != string::npos) {
-        if (pos >= 1 && str[pos - 1] != ' ' && str[pos - 1] != '\n') { // not begin
+        if (pos >= 1 &&
+                str[pos - 1] != '(' &&
+                str[pos - 1] != ' ' && 
+                str[pos - 1] != '\n') { // not begin
             pos = str.find(begin_str, pos + 1);
             continue;
         }
 
         // find the interval
         auto interval_pos = pos + 1;
-        while (interval_pos < str.size() && 
+        while (interval_pos < str.size() &&
+                str[interval_pos] != ')' && 
+                str[interval_pos] != '.' &&  
                 str[interval_pos] != ' ' && 
                 str[interval_pos] != '\n' &&
                 str[interval_pos] != ';') // not end
@@ -26,7 +31,7 @@ set<string> extract_words_begin_with(const string str, const string begin_str)
         if (interval_pos == str.size()) // the last one
             return words;
 
-        pos = interval_pos;
+        pos = str.find(begin_str, interval_pos + 1);
     }
     return words;
 }
