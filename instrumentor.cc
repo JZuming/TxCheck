@@ -153,6 +153,51 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             final_stmt_usage.push_back(stmt_usage(BEFORE_WRITE_READ, target_table_str));
             final_stmt_usage.push_back(stmt_usage(DELETE_WRITE, target_table_str));
 
+            // // instrument an insert
+            // used_scope.new_stmt();
+            // auto instrumented_insert = make_shared<insert_stmt>((struct prod *)0, used_scope, delete_statement->victim, true);
+            // final_tid_queue.push_back(tid);
+            // final_stmt_queue.push_back(instrumented_insert);
+            // final_stmt_usage.push_back(stmt_usage(INSERT_WRITE, target_table_str, true));
+            
+            // // instrument an select * from t where wkey = wkey_value
+            // // get wkey idex
+            // auto table = instrumented_insert->victim;
+            // int wkey_idx = -1;
+            // auto& columns = table->columns();
+            // int t_size = columns.size();
+            // for (int i = 0; i < t_size; i++) {
+            //     if (columns[i].name == "wkey") {
+            //         wkey_idx = i;
+            //         break;
+            //     }
+            // }
+            // if (wkey_idx == -1) {
+            //     cerr << "problem stmt:\n" << print_stmt_to_string(instrumented_insert) << endl;
+            //     throw runtime_error("intrument insert statement: cannot find wkey");
+            // }
+            // // get wkey value
+            // auto& items = instrumented_insert->value_exprs_vector.front();
+            // auto wkey_value = items[wkey_idx];
+
+            // // init compare op
+            // op *equal_op = NULL;
+            // for (auto& op : db_schema->operators) {
+            //     if (op.name == "=") {
+            //         equal_op = &op;
+            //         break;
+            //     }
+            // }
+            // if (equal_op == NULL) 
+            //     throw runtime_error("intrument insert statement: cannot find = operator");
+            // // init column reference
+            // auto wkey_column = make_shared<column_reference>((struct prod *)0, columns[wkey_idx].type, columns[wkey_idx].name, table->name);
+            // // init the select
+            // auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, equal_op, wkey_column, wkey_value);
+            // final_tid_queue.push_back(tid);
+            // final_stmt_queue.push_back(select_stmt);
+            // final_stmt_usage.push_back(stmt_usage(AFTER_WRITE_READ, target_table_str));
+
             continue;
         }
 
@@ -174,8 +219,7 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                 cerr << "problem stmt:\n" << print_stmt_to_string(insert_statement) << endl;
                 throw runtime_error("intrument insert statement: cannot find wkey");
             }
-                
-            
+
             // get wkey value
             auto& items = insert_statement->value_exprs_vector.front();
             auto wkey_value = items[wkey_idx];

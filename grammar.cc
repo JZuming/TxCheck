@@ -1825,8 +1825,8 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
             choice = d12();
         // should not have ddl statement, which will auto commit in tidb;
 #ifndef TEST_CLICKHOUSE
-        if (choice == 1)
-            return make_shared<delete_stmt>((struct prod *)0, s);
+        // if (choice == 1)
+        //     return make_shared<delete_stmt>((struct prod *)0, s);
         if (choice == 6 || choice == 7 || choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif

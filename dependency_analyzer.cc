@@ -501,6 +501,18 @@ void dependency_analyzer::build_stmt_instrument_dependency()
     }
 }
 
+void dependency_analyzer::build_stmt_inner_dependency()
+{
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = f_txn_id_queue[i];
+        for (int j = 0; j < i; j++) {
+            auto prev_tid = f_txn_id_queue[j];
+            if (prev_tid == tid) 
+                build_stmt_depend_from_stmt_idx(j, i, INNER_DEPEND);
+        }
+    }
+}
+
 void dependency_analyzer::build_stmt_start_dependency(int prev_tid, int later_tid, dependency_type dt)
 {
     for (int i = 0; i < stmt_num; i++) {
@@ -661,8 +673,8 @@ f_stmt_output(total_output)
     build_VS_dependency();
     build_OW_dependency();
 
-    // // generate stmt inner depend
-    // build_stmt_inner_dependency(); // should not be used
+    // generate stmt inner depend
+    build_stmt_inner_dependency();
 
     build_stmt_instrument_dependency();
     
@@ -1352,13 +1364,16 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
                 continue;
             auto depend_set = stmt_dependency_graph[branch];
             depend_set.erase(START_DEPEND);
+            depend_set.erase(INSTRUMENT_DEPEND);
             if (depend_set.empty()) 
                 continue;
-            if (depend_set.count(INSTRUMENT_DEPEND) > 0 && depend_set.size() == 1)
+            if (depend_set.count(INNER_DEPEND) > 0 && depend_set.size() == 1)
                 stmt_dist_graph[branch] = 1;
             else if (depend_set.count(STRICT_START_DEPEND) > 0 && depend_set.size() == 1)
                 stmt_dist_graph[branch] = 100;
             else if (depend_set.count(STRICT_START_DEPEND) > 0)
+                stmt_dist_graph[branch] = 10000;
+            if (depend_set.count(INNER_DEPEND) > 0)
                 stmt_dist_graph[branch] = 10000;
             else
                 stmt_dist_graph[branch] = 1000000;

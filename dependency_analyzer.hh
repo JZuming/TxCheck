@@ -21,7 +21,8 @@ using namespace std;
 // STRICT_START_DEPEND: the begin is count by begin statement
 enum dependency_type {WRITE_READ, WRITE_WRITE, READ_WRITE, 
                         START_DEPEND, STRICT_START_DEPEND, INSTRUMENT_DEPEND,
-                        VERSION_SET_DEPEND, OVERWRITE_DEPEND
+                        VERSION_SET_DEPEND, OVERWRITE_DEPEND,
+                        INNER_DEPEND
                         }; // for predicate
 
 typedef vector<string> row_output; // a row consists of several field(string)
@@ -96,6 +97,7 @@ struct dependency_analyzer
     void build_VS_dependency();
     void build_OW_dependency();
     
+    void build_stmt_inner_dependency();
     void build_start_dependency();
     void build_stmt_instrument_dependency();
     void build_stmt_start_dependency(int prev_tid, int later_tid, dependency_type dt);
