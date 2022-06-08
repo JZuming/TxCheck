@@ -36,6 +36,23 @@ stmt_id::stmt_id(vector<int>& final_tid_queue, int stmt_idx)
     }
 }
 
+// -1: error, txn_id or stmt_idx_in_txn is -1, or cannot find 
+int stmt_id::transfer_2_stmt_idx(vector<int>& final_tid_queue)
+{
+    if (txn_id == -1 || stmt_idx_in_txn == -1)
+        return -1;
+    int tmp_target_txn_idx = -1;
+    auto queue_size = final_tid_queue.size();
+    for (int i = 0; i < queue_size; i++) {
+        if (final_tid_queue[i] != txn_id)
+            continue;
+        tmp_target_txn_idx++;
+        if (tmp_target_txn_idx == stmt_idx_in_txn)
+            return i;
+    }
+    return -1;
+}
+
 void dependency_analyzer::build_stmt_depend_from_stmt_idx(int stmt_idx1, int stmt_idx2, dependency_type dt)
 {
     auto stmt_id1 = stmt_id(f_txn_id_queue, stmt_idx1);
@@ -499,6 +516,33 @@ void dependency_analyzer::build_stmt_instrument_dependency()
             build_stmt_depend_from_stmt_idx(i, normal_pos, INSTRUMENT_DEPEND);
         }
     }
+}
+
+set<int> dependency_analyzer::get_instrumented_stmt_set(int queue_idx)
+{
+    set<int> init_idx_set;
+    set<int> processed_idx_set;
+    init_idx_set.insert(queue_idx);
+    while (!init_idx_set.empty()) {
+        auto select_idx = *init_idx_set.begin();
+        init_idx_set.erase(select_idx);
+        processed_idx_set.insert(select_idx);
+
+        auto stmt_id1 = stmt_id(f_txn_id_queue, select_idx);
+        for (int i = 0; i < stmt_num; i++) {
+            if (processed_idx_set.count(i) > 0) // has been processed
+                continue;
+            auto stmt_id2 = stmt_id(f_txn_id_queue, i);
+            pair<stmt_id, stmt_id> instrument_pair;
+            if (i < select_idx)
+                instrument_pair = make_pair<>(stmt_id2, stmt_id1);
+            else
+                instrument_pair = make_pair<>(stmt_id1, stmt_id2);
+            if (stmt_dependency_graph[instrument_pair].count(INSTRUMENT_DEPEND) > 0)
+                init_idx_set.insert(i);
+        }
+    }
+    return processed_idx_set;
 }
 
 void dependency_analyzer::build_stmt_inner_dependency()
@@ -1311,7 +1355,7 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
         
         // if do not has zero-indegree statement, so there is a cycle
         if (zero_indegree_idx == -1) {
-            cerr << "There is a cycle in longest_stmt_path(), try to delete one node" << endl;
+            cerr << "There is a cycle in longest_stmt_path(), delete one node: ";
             // select one node to delete
             auto tmp_stmt_set = all_stmt_set;
             for (auto& node : delete_node) 
@@ -1322,16 +1366,22 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
             auto select_one_it = tmp_stmt_set.begin();
             advance(select_one_it, r);
 
-            // delete it 
-            real_deleted_node.insert(*select_one_it);
-            for (int j = 0; j < stmt_num; j++) {
-                auto out_branch = make_pair(*select_one_it, stmt_id(f_txn_id_queue, j));
-                if (tmp_stmt_graph.count(out_branch))
+            // delete its set (version_set, before_read, itself, after_read)
+            auto select_stmt_id = *select_one_it;
+            auto select_queue_idx = select_stmt_id.transfer_2_stmt_idx(f_txn_id_queue);
+            auto select_idx_set = get_instrumented_stmt_set(select_queue_idx);
+            for (auto chosen_idx : select_idx_set) {
+                auto chosen_stmt_id = stmt_id(f_txn_id_queue, chosen_idx);
+                real_deleted_node.insert(chosen_stmt_id);
+                for (int i = 0; i < stmt_num; i++) {
+                    auto out_branch = make_pair(chosen_stmt_id, stmt_id(f_txn_id_queue, i));
+                    auto in_branch = make_pair(stmt_id(f_txn_id_queue, i), chosen_stmt_id);
                     tmp_stmt_graph.erase(out_branch);
-                auto in_branch = make_pair(stmt_id(f_txn_id_queue, j), *select_one_it);
-                if (tmp_stmt_graph.count(in_branch))
                     tmp_stmt_graph.erase(in_branch);
+                }
+                cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
             }
+            cerr << endl;
             continue;
         }
         // ------------------------------------
@@ -1342,6 +1392,8 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
         auto stmt_zero_idx = stmt_id(f_txn_id_queue, zero_indegree_idx);
         for (int i = 0; i < stmt_num; i++) {
             auto stmt_i = stmt_id(f_txn_id_queue, i);
+            if (real_deleted_node.count(stmt_i) > 0) // // has been really deleted (for decycle)
+                continue;
             auto branch = make_pair(stmt_i, stmt_zero_idx);
             if (stmt_dist_graph.count(branch) == 0)
                 continue;
@@ -1351,13 +1403,12 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
             }
         }
         dist_length[stmt_zero_idx] = cur_max_length;
-        dad_stmt[stmt_zero_idx] = cur_max_dad;
+        dad_stmt[stmt_zero_idx] = cur_max_dad; // the first one is (-1, -1): no dad
 
         delete_node.insert(stmt_zero_idx);
         for (int j = 0; j < stmt_num; j++) {
             auto branch = make_pair(stmt_zero_idx, stmt_id(f_txn_id_queue, j));
-            if (tmp_stmt_graph.count(branch))
-                tmp_stmt_graph.erase(branch);
+            tmp_stmt_graph.erase(branch);
         }
     }
 
@@ -1366,6 +1417,8 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
     stmt_id longest_dist_stmt;
     for (int i = 0; i < stmt_num; i++) {
         auto stmt_i = stmt_id(f_txn_id_queue, i);
+        if (real_deleted_node.count(stmt_i) > 0) // // has been really deleted (for decycle)
+                continue;
         auto path_length = dist_length[stmt_i];
         if (path_length > longest_dist) {
             longest_dist = path_length;

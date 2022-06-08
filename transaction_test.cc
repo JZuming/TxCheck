@@ -1013,7 +1013,32 @@ bool transaction_test::multi_stmt_round_test()
     if (analyze_txn_dependency(init_da)) 
         throw runtime_error("BUG: found in analyze_txn_dependency()");
     auto longest_stmt_path = init_da->longest_stmt_path();
-    
+    cerr << "ideal test stmt path: ";
+    for (int i = 0; i < longest_stmt_path.size(); i++) {
+        auto& cur_sid = longest_stmt_path[i];
+        cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ")" << "-";
+        if (i + 1 < longest_stmt_path.size()) {
+            auto& next_sid = longest_stmt_path[i + 1];
+            auto branch = make_pair<>(cur_sid, next_sid);
+            auto& dset = init_da->stmt_dependency_graph[branch];
+            if (dset.count(WRITE_READ))
+                cerr << RED << "0" << RESET;
+            if (dset.count(WRITE_WRITE))
+                cerr << RED << "1" << RESET;
+            if (dset.count(READ_WRITE))
+                cerr << RED << "2" << RESET;
+            if (dset.count(VERSION_SET_DEPEND))
+                cerr << RED << "3" << RESET;
+            if (dset.count(OVERWRITE_DEPEND))
+                cerr << RED << "4" << RESET;
+            if (dset.count(STRICT_START_DEPEND))
+                cerr << RED << "5" << RESET;
+            if (dset.count(INNER_DEPEND))
+                cerr << "6";
+        }
+        cerr << "->";
+    }
+    cerr << endl;
     return 0;
     
     // record init status
@@ -1172,7 +1197,8 @@ void transaction_test::block_scheduling()
     while (1) {
         cerr << RED << "\nscheduling: " << round << RESET << endl;
         trans_test(false);
-        if (tid_queue == real_tid_queue) 
+        if (tid_queue == real_tid_queue // no blocking
+                && stmt_use == real_stmt_usage) // no failing 
             break;
         stmt_queue = real_stmt_queue;
         stmt_use = real_stmt_usage;
@@ -1213,8 +1239,8 @@ int transaction_test::test()
         auto dut = dut_setup(test_dbms_info);
         dut->save_backup_file(dir_name);
 
-        exit(-1);
-        // return 1; // not need to do other transaction thing
+        // exit(-1);
+        return 1; // not need to do other transaction thing
     }
     
     try {
@@ -1240,8 +1266,8 @@ int transaction_test::test()
     
     save_test_case(dir_name);
     
-    exit(-1);
-    // return 1;
+    // exit(-1);
+    return 1;
 }
 
 transaction_test::transaction_test(dbms_info& d_info)
