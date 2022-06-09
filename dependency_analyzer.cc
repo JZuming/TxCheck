@@ -329,7 +329,14 @@ void dependency_analyzer::build_OW_dependency()
             cerr << "cannot find the orginal_index in build_OW_dependency" << endl;
             throw runtime_error("cannot find the orginal_index in build_OW_dependency");
         }
-
+        if (f_stmt_usage[orginal_index] == UPDATE_WRITE) {
+            orginal_index++; // use after_write_read (SELECT_READ and DELETE_WRITE donot have awr, INSERT_WRITE donot version_set)
+            if (f_stmt_usage[orginal_index] != AFTER_WRITE_READ) {
+                cerr << "build_OW_dependency: orginal_index + 1 is not AFTER_WRITE_READ" << endl;
+                throw runtime_error("build_OW_dependency: orginal_index + 1 is not AFTER_WRITE_READ");
+            }
+        }
+            
         for (int j = 0; j < stmt_num; j++) {
             auto& j_tid = f_txn_id_queue[j];
             if (i_tid == j_tid)

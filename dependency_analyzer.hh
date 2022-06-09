@@ -66,11 +66,6 @@ struct stmt_id {
             return this->txn_id < other_id.txn_id;
     }
 
-    void operator=(const stmt_id& other_id) {
-        txn_id = other_id.txn_id;
-        stmt_idx_in_txn = other_id.stmt_idx_in_txn;
-    }
-
     stmt_id(vector<int>& final_tid_queue, int stmt_idx);
     stmt_id() {txn_id = -1; stmt_idx_in_txn = -1;}
     stmt_id(int tid, int stmt_pos) {txn_id = tid; stmt_idx_in_txn = stmt_pos;}

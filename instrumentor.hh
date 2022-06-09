@@ -37,10 +37,6 @@ struct stmt_usage {
         stmt_type = target_st;
         target_table = target_t;
     }
-    stmt_usage(const stmt_basic_type& target_st, string target_t, bool instrumented) {
-        stmt_type = target_st;
-        target_table = target_t;
-    }
 
     bool operator==(const stmt_basic_type& target_st) const {
         return stmt_type == target_st;
