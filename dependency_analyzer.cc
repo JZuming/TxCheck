@@ -1442,88 +1442,6 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
     return longest_path;
 }
 
-// vector<stmt_id> dependency_analyzer::longest_stmt_path(
-//     map<pair<stmt_id, stmt_id>, int>& stmt_dist_graph)
-// {
-//     map<stmt_id, stmt_id> dad_stmt;
-//     map<stmt_id, int> dist_length;
-//     for (int i = 0; i < stmt_num; i++) {
-//         auto stmt_i = stmt_id(f_txn_id_queue, i);
-//         dist_length[stmt_i] = 0;
-//     }
-
-//     auto tmp_stmt_graph = stmt_dist_graph;
-//     set<stmt_id> delete_node;
-//     while (delete_node.size() < stmt_num) {
-//         int zero_indegree_idx = -1;
-//         for (int i = 0; i < stmt_num; i++) {
-//             auto stmt_i = stmt_id(f_txn_id_queue, i);
-//             if (delete_node.count(stmt_i) > 0)
-//                 continue;
-            
-//             bool has_indegree = false;
-//             for (int j = 0; j < stmt_num; j++) {
-//                 auto stmt_j = stmt_id(f_txn_id_queue, j);
-//                 if (tmp_stmt_graph.count(make_pair(stmt_j, stmt_i)) > 0) {
-//                     has_indegree = true;
-//                     break;
-//                 }
-//             }
-
-//             if (has_indegree == false) {
-//                 zero_indegree_idx = i;
-//                 break;
-//             }
-//         }
-
-//         if (zero_indegree_idx == -1)
-//             throw runtime_error("BUG: there is a cycle in longest_stmt_path()");
-        
-//         int cur_max_length = 0;
-//         stmt_id cur_max_dad;
-//         auto stmt_zero_idx = stmt_id(f_txn_id_queue, zero_indegree_idx);
-//         for (int i = 0; i < stmt_num; i++) {
-//             auto stmt_i = stmt_id(f_txn_id_queue, i);
-//             auto branch = make_pair(stmt_i, stmt_zero_idx);
-//             if (stmt_dist_graph.count(branch) == 0)
-//                 continue;
-//             if (dist_length[stmt_i] + stmt_dist_graph[branch] > cur_max_length) {
-//                 cur_max_length = dist_length[stmt_i] + stmt_dist_graph[branch];
-//                 cur_max_dad = stmt_i;
-//             }
-//         }
-//         dist_length[stmt_zero_idx] = cur_max_length;
-//         dad_stmt[stmt_zero_idx] = cur_max_dad;
-
-//         delete_node.insert(stmt_zero_idx);
-//         for (int j = 0; j < stmt_num; j++) {
-//             auto branch = make_pair(stmt_zero_idx, stmt_id(f_txn_id_queue, j));
-//             if (tmp_stmt_graph.count(branch))
-//                 tmp_stmt_graph.erase(branch);
-//         }
-//     }
-
-//     vector<stmt_id> longest_path;
-//     int longest_dist = 0;
-//     stmt_id longest_dist_stmt;
-//     for (int i = 0; i < stmt_num; i++) {
-//         auto stmt_i = stmt_id(f_txn_id_queue, i);
-//         auto path_length = dist_length[stmt_i];
-//         if (path_length > longest_dist) {
-//             longest_dist = path_length;
-//             longest_dist_stmt = stmt_i;
-//         }
-//     }
-
-//     while (longest_dist_stmt.txn_id != -1) { // default
-//         longest_path.insert(longest_path.begin(), longest_dist_stmt);
-//         longest_dist_stmt = dad_stmt[longest_dist_stmt];
-//     }
-
-//     cerr << "stmt path length: " << longest_dist << endl;
-//     return longest_path;
-// }
-
 vector<stmt_id> dependency_analyzer::longest_stmt_path()
 {
     map<pair<stmt_id, stmt_id>, int> stmt_dist_graph;
@@ -1571,5 +1489,16 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
         path_size--;
         i--;
     }
+
+    // delete replaced stmt
+    for (int i = 0; i < path_size; i++) {
+        auto queue_idx = path[i].transfer_2_stmt_idx(f_txn_id_queue);
+        if (f_stmt_usage[queue_idx] != INIT_TYPE)
+            continue;
+        path.erase(path.begin() + i);
+        path_size--;
+        i--;
+    }
+
     return path;
 }

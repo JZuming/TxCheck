@@ -1057,9 +1057,8 @@ bool transaction_test::multi_stmt_round_test()
     while (1) {
         cerr << "\n\n";
         cerr << RED << "one round test" << RESET << endl;
-        cerr << "ideal test stmt path: ";
+        cerr << "original test stmt path: ";
         print_stmt_path(longest_stmt_path, init_da->stmt_dependency_graph);
-        auto ideal_test_path = longest_stmt_path;
         
         for (int i = 0; i < longest_stmt_path.size(); i++) {
             auto& cur_sid = longest_stmt_path[i];
@@ -1095,11 +1094,12 @@ bool transaction_test::multi_stmt_round_test()
         
         return 0;
         
+        // delete stmts from the stmt_dependency_graph
         auto& stmt_graph = init_da->stmt_dependency_graph;
-        auto ideal_path_length = ideal_test_path.size();
-        for (int i = 0; i + 1 < ideal_path_length; i++) {
-            auto& cur_sid = ideal_test_path[i];
-            auto& next_sid = ideal_test_path[i + 1];
+        auto path_length = longest_stmt_path.size();
+        for (int i = 0; i + 1 < path_length; i++) {
+            auto& cur_sid = longest_stmt_path[i];
+            auto& next_sid = longest_stmt_path[i + 1];
             auto branch = make_pair(cur_sid, next_sid);
             if (stmt_graph.count(branch) == 0)
                 continue;
