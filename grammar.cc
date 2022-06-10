@@ -653,7 +653,7 @@ insert_stmt::insert_stmt(prod *p, struct scope *s, table *v, bool only_const)
                     excluded_tables, 
                     excluded_t_with_c_of_type);
     
-    auto insert_num = d6();
+    auto insert_num = d6() + 2; // at least three
     // select valued columns
     for (auto& col : victim->columns()) {
         if (col.name == "wkey" || col.name == "pkey" || d6() > 1) 
@@ -1825,8 +1825,8 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
             choice = d12();
         // should not have ddl statement, which will auto commit in tidb;
 #ifndef TEST_CLICKHOUSE
-        // if (choice == 1)
-        //     return make_shared<delete_stmt>((struct prod *)0, s);
+        if (choice == 1)
+            return make_shared<delete_stmt>((struct prod *)0, s);
         if (choice == 6 || choice == 7 || choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
             return make_shared<update_stmt>((struct prod *)0, s);
 #endif

@@ -729,8 +729,8 @@ f_stmt_output(total_output)
 
     build_stmt_instrument_dependency();
     
-    // print dependency graph
-    print_dependency_graph();
+    // // print dependency graph
+    // print_dependency_graph();
 }
 
 dependency_analyzer::~dependency_analyzer()
@@ -1362,7 +1362,7 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
         
         // if do not has zero-indegree statement, so there is a cycle
         if (zero_indegree_idx == -1) {
-            cerr << "There is a cycle in longest_stmt_path(), delete one node: ";
+            // cerr << "There is a cycle in longest_stmt_path(), delete one node: ";
             // select one node to delete
             auto tmp_stmt_set = all_stmt_set;
             for (auto& node : delete_node) 
@@ -1386,9 +1386,9 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path(
                     tmp_stmt_graph.erase(out_branch);
                     tmp_stmt_graph.erase(in_branch);
                 }
-                cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
+                // cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
             }
-            cerr << endl;
+            // cerr << endl;
             continue;
         }
         // ------------------------------------

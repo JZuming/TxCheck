@@ -1054,21 +1054,11 @@ bool transaction_test::multi_stmt_round_test()
         init_txn_stmt[tid] = trans_arr[tid].stmts;
     }
 
+    int round_count = 1;
     while (1) {
         cerr << "\n\n";
-        cerr << RED << "one round test" << RESET << endl;
-        cerr << "original test stmt path: ";
-        print_stmt_path(longest_stmt_path, init_da->stmt_dependency_graph);
-        
-        for (int i = 0; i < longest_stmt_path.size(); i++) {
-            auto& cur_sid = longest_stmt_path[i];
-            auto tid = cur_sid.txn_id;
-            auto pos = cur_sid.stmt_idx_in_txn;
-            auto stmt = print_stmt_to_string(trans_arr[tid].stmts[pos]);
-            auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
-            replace(show_str.begin(), show_str.end(), '\n', ' ');
-            cerr << "S" << pos << " T" << tid << ": " << show_str << endl;
-        }
+        cerr << RED << "test round: " << round_count << RESET << endl;
+        round_count++;
 
         // use the longest path to refine
         while (refine_stmt_queue(longest_stmt_path) == true) {
@@ -1092,22 +1082,24 @@ bool transaction_test::multi_stmt_round_test()
         if (check_normal_stmt_result(longest_stmt_path) == false)
             return true;
         
-        return 0;
-        
         // delete stmts from the stmt_dependency_graph
-        auto& stmt_graph = init_da->stmt_dependency_graph;
         auto path_length = longest_stmt_path.size();
-        for (int i = 0; i + 1 < path_length; i++) {
+        auto& stmt_graph = init_da->stmt_dependency_graph;
+        auto& init_da_tid_queue = init_da->f_txn_id_queue;
+        for (int i = 0; i < path_length; i++) {
             auto& cur_sid = longest_stmt_path[i];
-            auto& next_sid = longest_stmt_path[i + 1];
-            auto branch = make_pair(cur_sid, next_sid);
-            if (stmt_graph.count(branch) == 0)
-                continue;
-            stmt_graph[branch].erase(WRITE_READ);
-            stmt_graph[branch].erase(WRITE_WRITE);
-            stmt_graph[branch].erase(READ_WRITE);
-            if (stmt_graph[branch].empty())
-                stmt_graph.erase(branch);
+            auto queue_idx = cur_sid.transfer_2_stmt_idx(init_da_tid_queue);
+            auto idx_set = init_da->get_instrumented_stmt_set(queue_idx);
+            for (auto& delete_idx : idx_set) {
+                auto chosen_stmt_id = stmt_id(init_da_tid_queue, delete_idx);
+                for (int j = 0; j < init_da->stmt_num; j++) {
+                    auto another_stmt = stmt_id(init_da_tid_queue, j);
+                    auto out_branch = make_pair(chosen_stmt_id, another_stmt);
+                    auto in_branch = make_pair(another_stmt, chosen_stmt_id);
+                    stmt_graph.erase(in_branch);
+                    stmt_graph.erase(out_branch);
+                }
+            }
         }
 
         longest_stmt_path = init_da->longest_stmt_path();
@@ -1118,18 +1110,23 @@ bool transaction_test::multi_stmt_round_test()
             auto& next_sid = longest_stmt_path[i + 1];
             auto branch = make_pair(cur_sid, next_sid);
 
+            // should have interleavings
+            if (stmt_graph[branch].count(INNER_DEPEND) ||
+                    stmt_graph[branch].count(START_DEPEND))
+                continue;
+            
             if (stmt_graph[branch].count(WRITE_READ) ||
                     stmt_graph[branch].count(WRITE_WRITE) ||
-                    stmt_graph[branch].count(READ_WRITE)) {
+                    stmt_graph[branch].count(READ_WRITE) ||
+                    stmt_graph[branch].count(VERSION_SET_DEPEND) ||
+                    stmt_graph[branch].count(OVERWRITE_DEPEND)) {
             
                 has_conflict_depend = true; 
                 break;   
             }
         }
         cerr << "next test stmt path: ";
-        for (auto& sid:longest_stmt_path) 
-            cerr << "(" << sid.txn_id << "." << sid.stmt_idx_in_txn << ")" << "->";
-        cerr << endl;
+        print_stmt_path(longest_stmt_path, init_da->stmt_dependency_graph);
         cerr << "has_conflict_depend: " << has_conflict_depend <<endl;
         if (has_conflict_depend == false)
             break;

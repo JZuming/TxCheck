@@ -343,7 +343,7 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     // ranking window function
     WIN(CUME_DIST, realtype);
     WIN(DENSE_RANK, inttype);
-    WIN1(NTILE, inttype, inttype);
+    // WIN1(NTILE, inttype, inttype);
     WIN(RANK, inttype);
     WIN(ROW_NUMBER, inttype);
     WIN(PERCENT_RANK, realtype);
