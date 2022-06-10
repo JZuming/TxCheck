@@ -76,7 +76,7 @@ void transaction_test::gen_txn_stmts()
         auto tid = tid_queue[i];
         auto &stmt = trans_arr[tid].stmts[stmt_pos_of_trans[tid]];
         stmt_queue.push_back(stmt);
-        stmt_use.push_back(INIT_TYPE);
+        stmt_use.push_back(stmt_usage(INIT_TYPE, false));
         stmt_pos_of_trans[tid]++;
     }
 }
@@ -109,9 +109,7 @@ void transaction_test::clean_instrument()
     vector<stmt_usage> clean_stmt_usage_queue;
 
     for (int i = 0; i < stmt_num; i++) {
-        if (stmt_use[i] == BEFORE_WRITE_READ || 
-                stmt_use[i] == AFTER_WRITE_READ ||
-                stmt_use[i] == VERSION_SET_READ)
+        if (stmt_use[i].is_instrumented == true)
             continue;
         clean_stmt_queue.push_back(stmt_queue[i]);
         clean_tid_queue.push_back(tid_queue[i]);
@@ -318,12 +316,12 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
         trans_arr[tid].stmt_outputs.push_back(output);
         trans_arr[tid].stmt_err_info.push_back("");
         if (debug_mode)
-            cerr << "T" << tid << " S" << trans_arr[tid].stmt_outputs.size() - 1 << ": " << show_str << endl;
+            cerr << stmt_pos << " T" << tid << " S" << trans_arr[tid].stmt_outputs.size() - 1 << ": " << show_str << endl;
         return 1;
     } catch(exception &e) {
         string err = e.what();
-        if (debug_mode)
-            cerr << RED << "T" << tid << " S" << trans_arr[tid].stmt_outputs.size()  << ": " << show_str << ": fail, err: " << err << RESET << endl;
+        // if (debug_mode)
+            cerr << RED << stmt_pos << " T" << tid << " S" << trans_arr[tid].stmt_outputs.size()  << ": " << show_str << ": fail, err: " << err << RESET << endl;
 
         if (err.find("ost connection") != string::npos) // lost connection
             throw e;
@@ -388,6 +386,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             continue;
         
         auto tid = tid_queue[i];
+        auto su = stmt_use[i];
         if (trans_arr[tid].is_blocked == false)
             continue;
 
@@ -410,7 +409,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
-            real_stmt_usage.push_back(INIT_TYPE);
+            real_stmt_usage.push_back(stmt_usage(INIT_TYPE, su.is_instrumented));
             status_queue[i] = 1;
         } else {// blocked
             trans_arr[tid].is_blocked = true;
@@ -419,6 +418,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
     
     for (int stmt_pos = 0; stmt_pos < cur_stmt_num; stmt_pos++) {
         auto tid = tid_queue[stmt_pos];
+        auto su = stmt_use[stmt_pos];
         // skip the tried but still blocked transaction
         if (trans_arr[tid].is_blocked)
             continue;
@@ -450,7 +450,7 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> stat
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
-            real_stmt_usage.push_back(INIT_TYPE);
+            real_stmt_usage.push_back(stmt_usage(INIT_TYPE, su.is_instrumented));
         }
         else { // still blocked
             trans_arr[tid].is_blocked = true;
@@ -492,7 +492,7 @@ void transaction_test::trans_test(bool debug_mode)
             real_tid_queue.push_back(tid);
             real_stmt_queue.push_back(make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT));
             real_output_queue.push_back(output);
-            real_stmt_usage.push_back(INIT_TYPE);
+            real_stmt_usage.push_back(stmt_usage(INIT_TYPE, su.is_instrumented));
             continue;
         }
         status_queue[stmt_index] = 1;
@@ -908,10 +908,13 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
         
         cerr << "(" << stmt_idx.txn_id << "." << stmt_idx.stmt_idx_in_txn << ") ";
 
-        is_refined = true;
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
         stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
         stmt_use[i] = INIT_TYPE;
+
+        // will not mark as refined if only change instrumented stmts
+        if (stmt_use[i].is_instrumented == false)
+            is_refined = true;
     }
     cerr << endl;
     
@@ -1210,8 +1213,8 @@ int transaction_test::test()
         auto dut = dut_setup(test_dbms_info);
         dut->save_backup_file(dir_name);
 
-        // exit(-1);
-        return 1; // not need to do other transaction thing
+        exit(-1);
+        // return 1; // not need to do other transaction thing
     }
     
     try {
@@ -1237,8 +1240,8 @@ int transaction_test::test()
     
     save_test_case(dir_name);
     
-    // exit(-1);
-    return 1;
+    exit(-1);
+    // return 1;
 }
 
 transaction_test::transaction_test(dbms_info& d_info)

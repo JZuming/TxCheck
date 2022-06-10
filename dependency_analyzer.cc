@@ -504,7 +504,7 @@ void dependency_analyzer::build_stmt_instrument_dependency()
                 auto next_tid = f_txn_id_queue[normal_pos];
                 auto next_usage = f_stmt_usage[normal_pos];
                 if (next_tid != cur_tid) {
-                    cerr << "VERSION_SET_READ: next_tid != cur_tid" << endl;
+                    cerr << "VERSION_SET_READ: next_tid != cur_tid, cur: " << i << " next: " << normal_pos << endl;
                     throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid");
                 }
                 if (next_usage == SELECT_READ || 
@@ -516,7 +516,7 @@ void dependency_analyzer::build_stmt_instrument_dependency()
             }
 
             if (normal_pos == stmt_num) {
-                cerr << "VERSION_SET_READ: cannot find the normal one" << endl;
+                cerr << "VERSION_SET_READ: cannot find the normal one, cur: " << i << endl;
                 throw runtime_error("VERSION_SET_READ: cannot find the normal one");
             }
 
@@ -674,7 +674,7 @@ f_stmt_output(total_output)
             auto write_op_id = stoi(row[write_op_key_idx]);
             auto hash = hash_output(row);
             hash_to_output[hash] = row;
-            operate_unit op(AFTER_WRITE_READ, write_op_id, tid_num - 1, -1, row_id, hash);
+            operate_unit op(stmt_usage(AFTER_WRITE_READ, false), write_op_id, tid_num - 1, -1, row_id, hash);
             h.insert_to_history(op);
         }
     }

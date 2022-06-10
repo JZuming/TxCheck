@@ -108,7 +108,7 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                 auto version_set_select_stmt = make_shared<txn_string_stmt>((prod *)0, "SELECT * FROM " + table_str);
                 final_tid_queue.push_back(tid); // version_set select, build predicate-WW
                 final_stmt_queue.push_back(version_set_select_stmt);
-                final_stmt_usage.push_back(stmt_usage(VERSION_SET_READ, table_str));
+                final_stmt_usage.push_back(stmt_usage(VERSION_SET_READ, true, table_str));
             }
             
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
@@ -120,9 +120,9 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             final_stmt_queue.push_back(after_write_select_stmt);
 
             auto target_table_str = table->ident();
-            final_stmt_usage.push_back(stmt_usage(BEFORE_WRITE_READ, target_table_str));
-            final_stmt_usage.push_back(stmt_usage(UPDATE_WRITE, target_table_str));
-            final_stmt_usage.push_back(stmt_usage(AFTER_WRITE_READ, target_table_str));
+            final_stmt_usage.push_back(stmt_usage(BEFORE_WRITE_READ, true, target_table_str));
+            final_stmt_usage.push_back(stmt_usage(UPDATE_WRITE, false, target_table_str));
+            final_stmt_usage.push_back(stmt_usage(AFTER_WRITE_READ, true, target_table_str));
             
             continue;
         }
@@ -139,7 +139,7 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
                 auto version_set_select_stmt = make_shared<txn_string_stmt>((prod *)0, "SELECT * FROM " + table_str);
                 final_tid_queue.push_back(tid); // version_set select, build predicate-WW
                 final_stmt_queue.push_back(version_set_select_stmt);
-                final_stmt_usage.push_back(stmt_usage(VERSION_SET_READ, table_str));
+                final_stmt_usage.push_back(stmt_usage(VERSION_SET_READ, true, table_str));
             }
 
             final_tid_queue.push_back(tid); // get the ealier value to build RW and WW dependency
@@ -150,8 +150,8 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             final_stmt_queue.push_back(stmt);
 
             auto target_table_str = delete_statement->victim->ident();
-            final_stmt_usage.push_back(stmt_usage(BEFORE_WRITE_READ, target_table_str));
-            final_stmt_usage.push_back(stmt_usage(DELETE_WRITE, target_table_str));
+            final_stmt_usage.push_back(stmt_usage(BEFORE_WRITE_READ, true, target_table_str));
+            final_stmt_usage.push_back(stmt_usage(DELETE_WRITE, false, target_table_str));
 
             continue;
         }
@@ -203,8 +203,8 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             final_stmt_queue.push_back(select_stmt);
 
             auto target_table_str = table->ident();
-            final_stmt_usage.push_back(stmt_usage(INSERT_WRITE, target_table_str));
-            final_stmt_usage.push_back(stmt_usage(AFTER_WRITE_READ, target_table_str));
+            final_stmt_usage.push_back(stmt_usage(INSERT_WRITE, false, target_table_str));
+            final_stmt_usage.push_back(stmt_usage(AFTER_WRITE_READ, true, target_table_str));
 
             continue;
         }
@@ -214,7 +214,7 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
         if (string_stmt && print_stmt_to_string(string_stmt).find("SELECT * FROM") == string::npos) { 
             final_tid_queue.push_back(tid);
             final_stmt_queue.push_back(stmt);
-            final_stmt_usage.push_back(INIT_TYPE);
+            final_stmt_usage.push_back(stmt_usage(INIT_TYPE, false));
             continue;
         }
 
@@ -224,11 +224,11 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             auto version_set_select_stmt = make_shared<txn_string_stmt>((prod *)0, "SELECT * FROM " + table_str);
             final_tid_queue.push_back(tid); // version_set select, build predicate-WW
             final_stmt_queue.push_back(version_set_select_stmt);
-            final_stmt_usage.push_back(stmt_usage(VERSION_SET_READ, table_str));
+            final_stmt_usage.push_back(stmt_usage(VERSION_SET_READ, true, table_str));
         }
         final_tid_queue.push_back(tid);
         final_stmt_queue.push_back(stmt);
-        final_stmt_usage.push_back(SELECT_READ);
+        final_stmt_usage.push_back(stmt_usage(SELECT_READ, false));
     }
 
     cerr << "done" << endl;

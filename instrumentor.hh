@@ -29,13 +29,16 @@ enum stmt_basic_type {INIT_TYPE, // replaced str or did not figure out yet
 struct stmt_usage {
     stmt_basic_type stmt_type;
     string target_table; // not used for SELECT_READ which may read row from multiple tables
+    bool is_instrumented;
 
-    stmt_usage(const stmt_basic_type& target_st) {
+    stmt_usage(const stmt_basic_type& target_st, bool instrument) {
         stmt_type = target_st;
+        is_instrumented = instrument;
     }
-    stmt_usage(const stmt_basic_type& target_st, string target_t) {
+    stmt_usage(const stmt_basic_type& target_st, bool instrument, string target_t) {
         stmt_type = target_st;
         target_table = target_t;
+        is_instrumented = instrument;
     }
 
     bool operator==(const stmt_basic_type& target_st) const {
