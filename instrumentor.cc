@@ -210,7 +210,8 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
         }
 
         auto string_stmt = dynamic_pointer_cast<txn_string_stmt>(stmt);
-        if (string_stmt) { // begin, commit, abort and SELECT 1 WHERE 0 <> 0
+        // begin, commit, abort, SELECT 1 WHERE 0 <> 0, but should not include SELECT * FROM t
+        if (string_stmt && print_stmt_to_string(string_stmt).find("SELECT * FROM") == string::npos) { 
             final_tid_queue.push_back(tid);
             final_stmt_queue.push_back(stmt);
             final_stmt_usage.push_back(INIT_TYPE);

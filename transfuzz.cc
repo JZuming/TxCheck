@@ -231,6 +231,7 @@ int fork_for_transaction_test(dbms_info& d_info)
         else {
             cerr << RED << "find memory bug" << RESET << endl;
             cerr << "killSignal: " << killSignal << endl;
+            exit(-1);
             throw runtime_error(string("memory bug"));
         }
     }

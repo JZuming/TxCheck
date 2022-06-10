@@ -322,7 +322,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
         return 1;
     } catch(exception &e) {
         string err = e.what();
-        // if (debug_mode)
+        if (debug_mode)
             cerr << RED << "T" << tid << " S" << trans_arr[tid].stmt_outputs.size()  << ": " << show_str << ": fail, err: " << err << RESET << endl;
 
         if (err.find("ost connection") != string::npos) // lost connection
@@ -855,13 +855,10 @@ bool transaction_test::multi_round_test()
     return false;
 }
 
+
+// Note: txn_string_stmt contains begin, commit, abort, select 1 where 0<>0 and select * from t
 bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
 {
-    // use real one to replace 
-    // stmt_queue = real_stmt_queue;
-    // tid_queue = real_tid_queue;
-    // stmt_use = real_stmt_usage;
-
     // refine txn_stmt because the skipped stmt has been changed
     int stmt_pos_of_txn[trans_num];
     for (int i = 0; i < trans_num; i++) 
@@ -869,7 +866,7 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
     for (int i = 0; i < stmt_num; i++) {
         auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
         auto tid = tid_queue[i];
-        if (casted.use_count() > 0) 
+        if (casted && stmt_use[i] == INIT_TYPE) 
             trans_arr[tid].stmts[stmt_pos_of_txn[tid]] = casted;
         stmt_pos_of_txn[tid]++;
     }
@@ -892,6 +889,7 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
 
     for (int i = 0; i < trans_num; i++) 
         stmt_pos_of_txn[i] = 0;
+    cerr << RED << "Refining: " << RESET;
     for (int i = 0; i < stmt_num; i++) {
         auto tid = tid_queue[i];
         if (exist_tid.count(tid) == 0) 
@@ -903,17 +901,19 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
         if (exist_stmt.count(stmt_idx) > 0) // matched
             continue;
 
+        // already been replaced, include commit and abort stmt
         auto casted = dynamic_pointer_cast<txn_string_stmt>(stmt_queue[i]);
-        if (casted.use_count() > 0) // already been replaced, include commit and abort stmt
+        if (casted && stmt_use[i] == INIT_TYPE) 
             continue;
         
-        cerr << RED << "Refining: " << stmt_idx.txn_id << "." << stmt_idx.stmt_idx_in_txn << RESET << endl;
+        cerr << "(" << stmt_idx.txn_id << "." << stmt_idx.stmt_idx_in_txn << ") ";
 
         is_refined = true;
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
         stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
         stmt_use[i] = INIT_TYPE;
     }
+    cerr << endl;
     
     if (is_refined == false)
         return false;
@@ -924,7 +924,7 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
 
 void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
 {
-    cerr << "normal testing" << endl;
+    cerr << RED << "normal testing" << RESET << endl;
     dut_reset_to_backup(test_dbms_info);
     auto normal_dut = dut_setup(test_dbms_info);
     for (auto& stmt_id : stmt_path) {
@@ -1024,8 +1024,8 @@ void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set
                 cerr << RED << "3" << RESET;
             if (dset.count(OVERWRITE_DEPEND))
                 cerr << RED << "4" << RESET;
-            if (dset.count(STRICT_START_DEPEND))
-                cerr << RED << "5" << RESET;
+            if (dset.count(START_DEPEND))
+                cerr << "5";
             if (dset.count(INNER_DEPEND))
                 cerr << "6";
         }
@@ -1037,7 +1037,7 @@ void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set
 bool transaction_test::multi_stmt_round_test()
 {
     instrument_txn_stmts();
-    trans_test(); // first run, get all dependency information
+    trans_test(false); // first run, get all dependency information
     shared_ptr<dependency_analyzer> init_da;
     if (analyze_txn_dependency(init_da)) 
         throw runtime_error("BUG: found in analyze_txn_dependency()");
@@ -1055,12 +1055,16 @@ bool transaction_test::multi_stmt_round_test()
     }
 
     int round_count = 1;
+    int stmt_path_empty_time = 0;
     while (1) {
         cerr << "\n\n";
         cerr << RED << "test round: " << round_count << RESET << endl;
         round_count++;
+        cerr << "ideal test stmt path: ";
+        print_stmt_path(longest_stmt_path, init_da->stmt_dependency_graph);
 
         // use the longest path to refine
+        bool empty_stmt_path = false;
         while (refine_stmt_queue(longest_stmt_path) == true) {
             shared_ptr<dependency_analyzer> tmp_da;
             clean_instrument();
@@ -1068,13 +1072,25 @@ bool transaction_test::multi_stmt_round_test()
             instrument_txn_stmts();
 
             cerr << "txn testing:" << endl;
-            trans_test();
+            trans_test(false);
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
             longest_stmt_path = tmp_da->longest_stmt_path();
 
-            cerr << "stmt path for refining: ";
+            cerr << RED << "stmt path for refining: " << RESET;
             print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
+            if (longest_stmt_path.empty()) {
+                empty_stmt_path = true;
+                break;
+            }
+        }
+
+        if (empty_stmt_path) {
+            stmt_path_empty_time++;
+            if (stmt_path_empty_time >= 3) {
+                cerr << "generate " << stmt_path_empty_time << " times empty path, skip this graph" << endl;
+                break;
+            }
         }
 
         // normal test and check
@@ -1087,6 +1103,7 @@ bool transaction_test::multi_stmt_round_test()
         auto& stmt_graph = init_da->stmt_dependency_graph;
         auto& init_da_tid_queue = init_da->f_txn_id_queue;
         for (int i = 0; i < path_length; i++) {
+            cerr << "deleting node: ";
             auto& cur_sid = longest_stmt_path[i];
             auto queue_idx = cur_sid.transfer_2_stmt_idx(init_da_tid_queue);
             auto idx_set = init_da->get_instrumented_stmt_set(queue_idx);
@@ -1099,7 +1116,9 @@ bool transaction_test::multi_stmt_round_test()
                     stmt_graph.erase(in_branch);
                     stmt_graph.erase(out_branch);
                 }
+                cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
             }
+            cerr << endl;
         }
 
         longest_stmt_path = init_da->longest_stmt_path();
@@ -1148,7 +1167,7 @@ void transaction_test::block_scheduling()
     cerr << RED << "block scheduling" << RESET << endl;
     int round = 0;
     while (1) {
-        cerr << RED << "\nscheduling: " << round << RESET << endl;
+        cerr << RED << "scheduling: " << round << RESET << endl;
         trans_test(false);
         if (tid_queue == real_tid_queue // no blocking
                 && stmt_use == real_stmt_usage) // no failing 
@@ -1160,7 +1179,6 @@ void transaction_test::block_scheduling()
         round++;
     }
     clear_execution_status();
-    cerr << RED << "schedule round: " << round << RESET << endl;
 }
 
 int transaction_test::test()
@@ -1199,9 +1217,9 @@ int transaction_test::test()
     try {
         // if (multi_round_test() == false)
         //     return 0;
-        multi_stmt_round_test();
-        // if (multi_stmt_round_test() == false)
-        //     return 0;
+        // multi_stmt_round_test();
+        if (multi_stmt_round_test() == false)
+            return 0;
     } catch(exception &e) {
         cerr << "error captured by test: " << e.what() << endl;
     }
