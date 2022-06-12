@@ -857,7 +857,7 @@ bool transaction_test::multi_round_test()
 
 
 // Note: txn_string_stmt contains begin, commit, abort, select 1 where 0<>0 and select * from t
-bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
+bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<dependency_analyzer>& da)
 {
     // refine txn_stmt because the skipped stmt has been changed
     int stmt_pos_of_txn[trans_num];
@@ -906,15 +906,22 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path)
         if (casted && stmt_use[i] == INIT_TYPE) 
             continue;
         
+        // only change basic instrumented stmt (intrumented one will be deleted later)
+        if (stmt_use[i].is_instrumented == true)
+            continue;
+        
         cerr << "(" << stmt_idx.txn_id << "." << stmt_idx.stmt_idx_in_txn << ") ";
 
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
-        stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
-        stmt_use[i] = INIT_TYPE;
-
-        // will not mark as refined if only change instrumented stmts
-        if (stmt_use[i].is_instrumented == false)
-            is_refined = true;
+        is_refined = true; // only mark as refined if change basic stmts
+        auto change_set = da->get_instrumented_stmt_set(i);
+        for (auto& stmt_idx : change_set) {
+            // mark its instrumented stmt as false to prevent it from being deleted by clean_instrument, otherwise the number of stmts will change
+            stmt_use[stmt_idx].is_instrumented = false; 
+            // change its instrumented stmt as SPACE_HOLDER_STMT
+            stmt_use[stmt_idx] = INIT_TYPE;
+            stmt_queue[stmt_idx] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
+        }
     }
     cerr << endl;
     
@@ -1037,6 +1044,79 @@ void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set
     cerr << endl;
 }
 
+void infer_instrument_after_blocking(vector<shared_ptr<prod>>& whole_before_stmt_queue,
+                                    vector<int>& whole_before_tid_queue,
+                                    vector<stmt_usage>& whole_before_stmt_usage,
+                                    shared_ptr<dependency_analyzer>& before_da,
+                                    vector<shared_ptr<prod>>& after_stmt_queue,
+                                    vector<int>& after_tid_queue,
+                                    vector<stmt_usage>& after_stmt_usage)
+{
+    vector<shared_ptr<prod>> final_after_stmt_queue;
+    vector<int> final_after_tid_queue;
+    vector<stmt_usage> final_after_stmt_usage;
+
+    auto whole_before_queue_size = whole_before_stmt_queue.size();
+
+    auto after_queue_size = after_stmt_queue.size();
+    int tid_num = 0;
+    for (int i = 0; i < after_queue_size; i++) {
+        if (after_tid_queue[i] >= tid_num)
+            tid_num = after_tid_queue[i] + 1;
+    }
+    int stmt_pos_of_txn[tid_num];
+    for (int i = 0; i < tid_num; i++)
+        stmt_pos_of_txn[i] = -1;
+
+    for (int i = 0; i < after_queue_size; i++) {
+        auto tid = after_tid_queue[i];
+        auto& stmt_use = after_stmt_usage[i];
+        stmt_pos_of_txn[tid]++;
+        auto stmt_pos = stmt_pos_of_txn[tid];
+
+        if (stmt_use != INIT_TYPE) {
+            final_after_stmt_queue.push_back(after_stmt_queue[i]);
+            final_after_tid_queue.push_back(tid);
+            final_after_stmt_usage.push_back(stmt_use);
+            continue;
+        }
+        
+        // if it is INIT_TYPE
+        // find the corresponding basic stmt in whole_before_queue
+        int basic_stmt_pos = -1;
+        int j = 0;
+        for (; j < whole_before_queue_size; j++) {
+            if (whole_before_tid_queue[j] != tid)
+                continue;
+            if (whole_before_stmt_usage[j].is_instrumented == true)
+                continue;
+            basic_stmt_pos++;
+            if (basic_stmt_pos == stmt_pos)
+                break;
+        }
+
+        if (whole_before_stmt_usage[j] == INIT_TYPE) { // both are INIT_TYPE, not need to process
+            final_after_stmt_queue.push_back(after_stmt_queue[i]);
+            final_after_tid_queue.push_back(tid);
+            final_after_stmt_usage.push_back(stmt_use);
+            continue;
+        }
+
+        // they are different, mean that this stmt has been changed to space_holder after blocking scheduling
+        auto instrumented_set = before_da->get_instrumented_stmt_set(j);
+        auto set_size = instrumented_set.size();
+        for (int k = 0; k < set_size; k++) { // put it set_size times to make the queue size same
+            final_after_stmt_queue.push_back(after_stmt_queue[i]);
+            final_after_tid_queue.push_back(tid);
+            final_after_stmt_usage.push_back(stmt_use);
+        }
+    }
+
+    after_stmt_queue = final_after_stmt_queue;
+    after_tid_queue = final_after_tid_queue;
+    after_stmt_usage = final_after_stmt_usage;
+}
+
 bool transaction_test::multi_stmt_round_test()
 {
     instrument_txn_stmts();
@@ -1068,11 +1148,28 @@ bool transaction_test::multi_stmt_round_test()
 
         // use the longest path to refine
         bool empty_stmt_path = false;
-        while (refine_stmt_queue(longest_stmt_path) == true) {
-            shared_ptr<dependency_analyzer> tmp_da;
+        shared_ptr<dependency_analyzer> tmp_da = init_da;
+        while (refine_stmt_queue(longest_stmt_path, tmp_da) == true) { // will change some stmts to space holder
+            auto tmp_whole_before_stmt_queue = stmt_queue;
+            auto tmp_whole_before_tid_queue = tid_queue;
+            auto tmp_whole_before_stmt_usage = stmt_use;
+
+            cerr << "1 stmt_queue length: " << stmt_queue.size() << endl;
             clean_instrument();
-            block_scheduling();
+            cerr << "2 stmt_queue length: " << stmt_queue.size() << endl;
+            block_scheduling(); // will change some stmts to space holder
+            cerr << "3 stmt_queue length: " << stmt_queue.size() << endl;
+            infer_instrument_after_blocking(tmp_whole_before_stmt_queue, 
+                                                tmp_whole_before_tid_queue, 
+                                                tmp_whole_before_stmt_usage,
+                                                init_da,
+                                                stmt_queue,
+                                                tid_queue,
+                                                stmt_use);
+            cerr << "4 stmt_queue length: " << stmt_queue.size() << endl;
             instrument_txn_stmts();
+            cerr << "5 stmt_queue length: " << stmt_queue.size() << endl;
+            exit(-1);
 
             cerr << "txn testing:" << endl;
             trans_test(false);
