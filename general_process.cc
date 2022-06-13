@@ -6,7 +6,7 @@ int make_dir_error_exit(string folder)
 {
     if (mkdir(folder.c_str(), 0700)) {
         cout << "fail to mkdir "<< folder << endl;
-        exit(-1);
+        return 1;
     }
 
     return 0;

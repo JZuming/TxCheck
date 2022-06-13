@@ -229,8 +229,9 @@ void dependency_analyzer::build_VS_dependency()
             if (j_stmt_u == UPDATE_WRITE || j_stmt_u == INSERT_WRITE) {
                 auto after_write_idx = j + 1;
                 if (f_stmt_usage[after_write_idx] != AFTER_WRITE_READ) {
-                    cerr << "build_VS_dependency: after_write_idx is not AFTER_WRITE_READ" << endl;
-                    throw runtime_error("build_VS_dependency: after_write_idx is not AFTER_WRITE_READ");
+                    auto err_info = "[INSTRUMENT_ERR] build_VS_dependency: after_write_idx is not AFTER_WRITE_READ, after_write_idx = " + to_string(after_write_idx);
+                    cerr << err_info << endl;
+                    throw runtime_error(err_info);
                 }
                 auto& after_write_output = f_stmt_output[after_write_idx];
                 set<pair<int, int>> after_write_pv_pair_set; // primary_key, version_key
@@ -255,13 +256,15 @@ void dependency_analyzer::build_VS_dependency()
             else if (j_stmt_u == DELETE_WRITE) {
                 auto before_write_idx = j - 1;
                 if (f_stmt_usage[before_write_idx] != BEFORE_WRITE_READ) {
-                    cerr << "build_VS_dependency: before_write_idx is not BEFORE_WRITE_READ" << endl;
-                    throw runtime_error("build_VS_dependency: before_write_idx is not BEFORE_WRITE_READ");
+                    auto err_info = "[INSTRUMENT_ERR] build_VS_dependency: before_write_idx is not BEFORE_WRITE_READ, before_write_idx = " + to_string(before_write_idx);
+                    cerr << err_info << endl;
+                    throw runtime_error(err_info);
                 }
                 // skip if they donot handle the same table
                 if (f_stmt_usage[before_write_idx].target_table == "" || i_stmt_u.target_table == "") {
-                    cerr << "build_VS_dependency: target_table is not initialized" << endl;
-                    throw runtime_error("build_VS_dependency: target_table is not initialized");
+                    auto err_info = "[INSTRUMENT_ERR] build_VS_dependency: target_table is not initialized, before_write_idx = " + to_string(before_write_idx);
+                    cerr << err_info << endl;
+                    throw runtime_error(err_info);
                 }
                 if (f_stmt_usage[before_write_idx].target_table != i_stmt_u.target_table)
                     continue;
@@ -326,14 +329,16 @@ void dependency_analyzer::build_OW_dependency()
             }
         }
         if (orginal_index == -1) {
-            cerr << "cannot find the orginal_index in build_OW_dependency" << endl;
-            throw runtime_error("cannot find the orginal_index in build_OW_dependency");
+            auto err_info = "[INSTRUMENT_ERR] cannot find the orginal_index in build_OW_dependency";
+            cerr << err_info << endl;
+            throw runtime_error(err_info);
         }
         if (f_stmt_usage[orginal_index] == UPDATE_WRITE) {
             orginal_index++; // use after_write_read (SELECT_READ and DELETE_WRITE donot have awr, INSERT_WRITE donot version_set)
             if (f_stmt_usage[orginal_index] != AFTER_WRITE_READ) {
-                cerr << "build_OW_dependency: orginal_index + 1 is not AFTER_WRITE_READ" << endl;
-                throw runtime_error("build_OW_dependency: orginal_index + 1 is not AFTER_WRITE_READ");
+                auto err_info = "[INSTRUMENT_ERR] build_OW_dependency: orginal_index + 1 is not AFTER_WRITE_READ, orginal_index = " + to_string(orginal_index);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
         }
             
@@ -351,8 +356,9 @@ void dependency_analyzer::build_OW_dependency()
             if (j_stmt_u == UPDATE_WRITE || j_stmt_u == DELETE_WRITE) {
                 auto before_write_idx = j - 1;
                 if (f_stmt_usage[before_write_idx] != BEFORE_WRITE_READ) {
-                    cerr << "build_OW_dependency: before_write_idx is not BEFORE_WRITE_READ" << endl;
-                    throw runtime_error("build_OW_dependency: before_write_idx is not BEFORE_WRITE_READ");
+                    auto err_info = "[INSTRUMENT_ERR] build_OW_dependency: before_write_idx is not BEFORE_WRITE_READ, before_write_idx = " + to_string(before_write_idx);
+                    cerr << err_info << endl;
+                    throw runtime_error(err_info);
                 }
                 auto& before_write_output = f_stmt_output[before_write_idx];
                 set<pair<int, int>> before_write_pv_pair_set; // primary_key, version_key
@@ -376,13 +382,15 @@ void dependency_analyzer::build_OW_dependency()
             else if (j_stmt_u == INSERT_WRITE) {
                 auto after_write_idx = j + 1;
                 if (f_stmt_usage[after_write_idx] != AFTER_WRITE_READ) {
-                    cerr << "build_OW_dependency: after_write_idx is not AFTER_WRITE_READ" << endl;
-                    throw runtime_error("build_OW_dependency: after_write_idx is not AFTER_WRITE_READ");
+                    auto err_info = "[INSTRUMENT_ERR] build_OW_dependency: after_write_idx is not AFTER_WRITE_READ, after_write_idx = " + to_string(after_write_idx);
+                    cerr << err_info << endl;
+                    throw runtime_error(err_info);
                 }
                 // skip if they donot handle the same table
                 if (f_stmt_usage[after_write_idx].target_table == "" || i_stmt_u.target_table == "") {
-                    cerr << "build_OW_dependency: target_table is not initialized" << endl;
-                    throw runtime_error("build_OW_dependency: target_table is not initialized");
+                    auto err_info = "[INSTRUMENT_ERR] build_OW_dependency: target_table is not initialized, after_write_idx = " + to_string(after_write_idx);
+                    cerr << err_info << endl;
+                    throw runtime_error(err_info);
                 }
                 if (f_stmt_usage[after_write_idx].target_table != i_stmt_u.target_table)
                     continue;
@@ -460,40 +468,46 @@ void dependency_analyzer::build_stmt_instrument_dependency()
         
         if (cur_usage == BEFORE_WRITE_READ) {
             if (i + 1 >= stmt_num) {
-                cerr << "i = BEFORE_WRITE_READ, i + 1 >= stmt_num" << endl;
-                throw runtime_error("i = BEFORE_WRITE_READ, i + 1 >= stmt_num");
+                auto err_info = "[INSTRUMENT_ERR] i = BEFORE_WRITE_READ, i + 1 >= stmt_num, i = " + to_string(i);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
                 
             auto next_tid = f_txn_id_queue[i + 1];
             auto next_usage = f_stmt_usage[i + 1];
             if (next_tid != cur_tid) {
-                cerr << "BEFORE_WRITE_READ: next_tid != cur_tid" << endl;
-                throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid");
+                auto err_info = "[INSTRUMENT_ERR] BEFORE_WRITE_READ: next_tid != cur_tid, i = " + to_string(i);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
 
             if (next_usage != UPDATE_WRITE && next_usage != DELETE_WRITE) {
-                cerr << "BEFORE_WRITE_READ: next_usage != UPDATE_WRITE && next_usage != DELETE_WRITE" << endl;
-                throw runtime_error("BEFORE_WRITE_READ: next_usage != UPDATE_WRITE && next_usage != DELETE_WRITE");
+                auto err_info = "[INSTRUMENT_ERR] BEFORE_WRITE_READ: next_usage != UPDATE_WRITE && next_usage != DELETE_WRITE, i = " + to_string(i);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
 
             build_stmt_depend_from_stmt_idx(i, i + 1, INSTRUMENT_DEPEND);
         }
         else if (cur_usage == AFTER_WRITE_READ) {
             if (i - 1 < 0) {
-                cerr << "i = AFTER_WRITE_READ, i - 1 < 0" << endl;
-                throw runtime_error("i = AFTER_WRITE_READ, i - 1 < 0");
+                auto err_info = "[INSTRUMENT_ERR] i = AFTER_WRITE_READ, i - 1 < 0, i = " + to_string(i);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
 
             auto prev_tid = f_txn_id_queue[i - 1];
             auto prev_usage = f_stmt_usage[i - 1];
             if (prev_tid != cur_tid) {
-                cerr << "AFTER_WRITE_READ: prev_tid != cur_tid" << endl;
-                throw runtime_error("AFTER_WRITE_READ: prev_tid != cur_tid");
+                auto err_info = "[INSTRUMENT_ERR] AFTER_WRITE_READ: prev_tid != cur_tid, i = " + to_string(i);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
 
             if (prev_usage != UPDATE_WRITE && prev_usage != INSERT_WRITE) {
-                cerr << "AFTER_WRITE_READ: prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE" << endl;
-                throw runtime_error("AFTER_WRITE_READ: prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE");
+                auto err_info = "[INSTRUMENT_ERR] AFTER_WRITE_READ: prev_tid != UPDATE_WRITE && prev_tid != INSERT_WRITE, i = " + to_string(i);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
 
             build_stmt_depend_from_stmt_idx(i - 1, i, INSTRUMENT_DEPEND);
@@ -504,8 +518,9 @@ void dependency_analyzer::build_stmt_instrument_dependency()
                 auto next_tid = f_txn_id_queue[normal_pos];
                 auto next_usage = f_stmt_usage[normal_pos];
                 if (next_tid != cur_tid) {
-                    cerr << "VERSION_SET_READ: next_tid != cur_tid, cur: " << i << " next: " << normal_pos << endl;
-                    throw runtime_error("BEFORE_WRITE_READ: next_tid != cur_tid");
+                    auto err_info = "[INSTRUMENT_ERR] VERSION_SET_READ: next_tid != cur_tid, cur: " + to_string(i) + " next: " + to_string(normal_pos);
+                    cerr << err_info << endl;
+                    throw runtime_error(err_info);
                 }
                 if (next_usage == SELECT_READ || 
                         next_usage == UPDATE_WRITE || 
@@ -516,8 +531,9 @@ void dependency_analyzer::build_stmt_instrument_dependency()
             }
 
             if (normal_pos == stmt_num) {
-                cerr << "VERSION_SET_READ: cannot find the normal one, cur: " << i << endl;
-                throw runtime_error("VERSION_SET_READ: cannot find the normal one");
+                auto err_info = "[INSTRUMENT_ERR] VERSION_SET_READ: cannot find the normal one, cur: " + to_string(i);
+                cerr << err_info << endl;
+                throw runtime_error(err_info);
             }
 
             build_stmt_depend_from_stmt_idx(i, normal_pos, INSTRUMENT_DEPEND);
@@ -699,6 +715,9 @@ f_stmt_output(total_output)
         }
     }
 
+    // first build instrument dependency, make sure that the instrument is correct
+    build_stmt_instrument_dependency();
+
     // generate ww, wr, rw dependency
     for (auto& row_history : h.change_history) {
         auto& row_op_list = row_history.row_op_list;
@@ -726,8 +745,6 @@ f_stmt_output(total_output)
 
     // generate stmt inner depend
     build_stmt_inner_dependency();
-
-    build_stmt_instrument_dependency();
     
     // // print dependency graph
     // print_dependency_graph();

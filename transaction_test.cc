@@ -1191,7 +1191,7 @@ bool transaction_test::multi_stmt_round_test()
             instrument_txn_stmts();
             cerr << "5 stmt_queue length: " << stmt_queue.size() << endl;
 
-            cerr << "txn testing:" << endl;
+            cerr << RED << "txn testing:" << RESET << endl;
             trans_test(false);
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
@@ -1319,9 +1319,6 @@ int transaction_test::test()
         assign_txn_status();
         gen_txn_stmts();
         block_scheduling();
-        // instrument_txn_stmts();
-        // block_scheduling(); // no necessary
-        // throw runtime_error("test");
     } catch(exception &e) {
         cerr << RED << "Trigger a normal bugs when inializing the stmts" << RESET << endl;
         cerr << "Bug info: " << e.what() << endl;
@@ -1341,8 +1338,7 @@ int transaction_test::test()
         auto dut = dut_setup(test_dbms_info);
         dut->save_backup_file(dir_name);
 
-        exit(-1);
-        // return 1; // not need to do other transaction thing
+        return 1; // not need to do other transaction thing
     }
     
     try {
@@ -1352,12 +1348,17 @@ int transaction_test::test()
         if (multi_stmt_round_test() == false)
             return 0;
     } catch(exception &e) {
-        cerr << "error captured by test: " << e.what() << endl;
+        string err = e.what();
+        cerr << "error captured by test: " << err << endl;
+        if (err.find("INSTRUMENT_ERR") != string::npos) // it is cause by: after instrumented, the scheduling change and error in txn_test happens
+            return 0;
     }
 
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;
-    make_dir_error_exit(dir_name);
+    auto make_dir_ret = make_dir_error_exit(dir_name);
+    if (make_dir_ret == 1)
+        return 1;
 
     // check whether the server is still alive
     fork_if_server_closed();
@@ -1365,11 +1366,9 @@ int transaction_test::test()
     cerr << RED << "Saving database..." << RESET << endl;
     auto dut = dut_setup(test_dbms_info);
     dut->save_backup_file(dir_name);
-    
     save_test_case(dir_name);
     
-    exit(-1);
-    // return 1;
+    return 1;
 }
 
 transaction_test::transaction_test(dbms_info& d_info)
