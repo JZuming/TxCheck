@@ -107,8 +107,9 @@ void transaction_test::clean_instrument()
     vector<shared_ptr<prod>> clean_stmt_queue;
     vector<int> clean_tid_queue;
     vector<stmt_usage> clean_stmt_usage_queue;
-
-    for (int i = 0; i < stmt_num; i++) {
+    
+    auto cur_stmt_num = stmt_queue.size();
+    for (int i = 0; i < cur_stmt_num; i++) {
         if (stmt_use[i].is_instrumented == true)
             continue;
         clean_stmt_queue.push_back(stmt_queue[i]);
@@ -917,9 +918,9 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<
         auto change_set = da->get_instrumented_stmt_set(i);
         for (auto& stmt_idx : change_set) {
             // mark its instrumented stmt as false to prevent it from being deleted by clean_instrument, otherwise the number of stmts will change
-            stmt_use[stmt_idx].is_instrumented = false; 
-            // change its instrumented stmt as SPACE_HOLDER_STMT
             stmt_use[stmt_idx] = INIT_TYPE;
+            // change its instrumented stmt as SPACE_HOLDER_STMT
+            stmt_use[stmt_idx].is_instrumented = false; 
             stmt_queue[stmt_idx] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
         }
     }
@@ -967,6 +968,19 @@ void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
     dut_get_content(test_dbms_info, normal_stmt_db_content);
 }
 
+void print_stmt_output(stmt_output& output)
+{
+    auto row_num = output.size();
+    for (int i = 0; i < row_num; i++) {
+        auto& row = output[i];
+        auto col_num = row.size();
+        for (int j = 0; j < col_num; j++) 
+            cerr << row[j] << " ";
+        cerr << endl;
+    }
+    cerr << endl;
+}
+
 bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
 {
     if (!compare_content(trans_db_content, normal_stmt_db_content)) {
@@ -984,6 +998,13 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
         path_txn_output.push_back(trans_arr[tid].stmt_outputs[stmt_pos]);
         path_txn_err_info.push_back(trans_arr[tid].stmt_err_info[stmt_pos]);
     }
+
+    // for (int i = 0; i < path_length; i++) {
+    //     cerr << "txn output: " << endl;
+    //     print_stmt_output(path_txn_output[i]);
+    //     cerr << "normal output: " << endl;
+    //     print_stmt_output(normal_stmt_output[i]);
+    // }
 
     if (!compare_output(path_txn_output, normal_stmt_output)) {
         cerr << "txn output is not equal to normal stmt one" << endl;
@@ -1169,7 +1190,6 @@ bool transaction_test::multi_stmt_round_test()
             cerr << "4 stmt_queue length: " << stmt_queue.size() << endl;
             instrument_txn_stmts();
             cerr << "5 stmt_queue length: " << stmt_queue.size() << endl;
-            exit(-1);
 
             cerr << "txn testing:" << endl;
             trans_test(false);
@@ -1213,8 +1233,19 @@ bool transaction_test::multi_stmt_round_test()
                     auto another_stmt = stmt_id(init_da_tid_queue, j);
                     auto out_branch = make_pair(chosen_stmt_id, another_stmt);
                     auto in_branch = make_pair(another_stmt, chosen_stmt_id);
-                    stmt_graph.erase(in_branch);
-                    stmt_graph.erase(out_branch);
+                    // should not delete INSTRUMENT_DEPEND edge which is needed for get_instrument_set
+                    if (stmt_graph[in_branch].count(INSTRUMENT_DEPEND) > 0) {
+                        stmt_graph[in_branch].clear();
+                        stmt_graph[in_branch].insert(INSTRUMENT_DEPEND);
+                    }
+                    else
+                        stmt_graph.erase(in_branch);
+                    if (stmt_graph[out_branch].count(INSTRUMENT_DEPEND) > 0) {
+                        stmt_graph[out_branch].clear();
+                        stmt_graph[out_branch].insert(INSTRUMENT_DEPEND);
+                    }
+                    else
+                        stmt_graph.erase(out_branch);
                 }
                 cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
             }

@@ -217,7 +217,7 @@ int fork_for_transaction_test(dbms_info& d_info)
 
             exit(-1);
         }
-        if (exit_code == 255 || exit_code == 1)
+        if (exit_code == 255)
             exit(-1);
     }
 
