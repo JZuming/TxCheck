@@ -95,7 +95,7 @@ public:
 
     bool check_txn_normal_result();
 
-    bool fork_if_server_closed();
+    static bool fork_if_server_closed(dbms_info& d_info);
 
     void normal_test();
 

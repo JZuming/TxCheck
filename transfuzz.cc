@@ -79,6 +79,8 @@ void kill_process_signal(int signal)
         printf("child pid timeout, kill it\n"); 
         child_timed_out = true;
 		kill(child_pid, SIGKILL);
+        // also kill server process to restart
+        while (transaction_test::try_to_kill_server() == false) {}
 	}
 
     cerr << "get SIGALRM, stop the process" << endl;
@@ -88,12 +90,8 @@ void kill_process_signal(int signal)
 int fork_for_generating_database(dbms_info& d_info)
 {
     static itimerval itimer;
-    auto just_check_server = make_shared<transaction_test>(d_info);
-    auto restart = just_check_server->fork_if_server_closed();
-    if (restart)
-        throw runtime_error(string("restart server")); // need to generate database again
-    just_check_server.reset();
-
+    transaction_test::fork_if_server_closed(d_info);
+    
     write_op_id = 0;
     child_pid = fork();
     if (child_pid == 0) { // in child process
@@ -167,11 +165,7 @@ int fork_for_transaction_test(dbms_info& d_info)
 {
     static itimerval itimer;
 
-    auto just_check_server = make_shared<transaction_test>(d_info);
-    auto restart = just_check_server->fork_if_server_closed();
-    if (restart)
-        throw runtime_error(string("restart server")); // need to generate database again
-    just_check_server.reset();
+    transaction_test::fork_if_server_closed(d_info);
     
     child_pid = fork();
     if (child_pid == 0) { // in child process

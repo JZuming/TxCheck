@@ -642,14 +642,14 @@ bool transaction_test::try_to_kill_server()
     return flag;
 }
 
-bool transaction_test::fork_if_server_closed()
+bool transaction_test::fork_if_server_closed(dbms_info& d_info)
 {
     bool server_restart = false;
     auto time_begin = get_cur_time_ms();
 
     while (1) {
         try {
-            auto dut = dut_setup(test_dbms_info);
+            auto dut = dut_setup(d_info);
             if (server_restart)
                 sleep(3);
             break; // connect successfully, so break;
@@ -660,7 +660,7 @@ bool transaction_test::fork_if_server_closed()
                 cerr << "testing server die, restart it" << endl;
 
                 while (try_to_kill_server() == false) {} // just for safe
-                server_process_id = fork_db_server(test_dbms_info);
+                server_process_id = fork_db_server(d_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;
                 continue;
@@ -671,7 +671,7 @@ bool transaction_test::fork_if_server_closed()
                 cerr << "testing server hang, kill it and restart" << endl;
                 
                 while (try_to_kill_server() == false) {}
-                server_process_id = fork_db_server(test_dbms_info);
+                server_process_id = fork_db_server(d_info);
                 time_begin = get_cur_time_ms();
                 server_restart = true;
                 continue;
@@ -1332,7 +1332,7 @@ int transaction_test::test()
         throw std::runtime_error(string("system() error, return -1") + " in transaction_test::test!");
         
         // check whether the server is still alive
-        fork_if_server_closed();
+        fork_if_server_closed(test_dbms_info);
 
         // save database
         auto dut = dut_setup(test_dbms_info);
@@ -1352,6 +1352,8 @@ int transaction_test::test()
         cerr << "error captured by test: " << err << endl;
         if (err.find("INSTRUMENT_ERR") != string::npos) // it is cause by: after instrumented, the scheduling change and error in txn_test happens
             return 0;
+        if (err.find("still not executed") != string::npos) // cannot reproduce
+            return 0;
     }
 
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
@@ -1361,7 +1363,7 @@ int transaction_test::test()
         return 1;
 
     // check whether the server is still alive
-    fork_if_server_closed();
+    fork_if_server_closed(test_dbms_info);
 
     cerr << RED << "Saving database..." << RESET << endl;
     auto dut = dut_setup(test_dbms_info);
