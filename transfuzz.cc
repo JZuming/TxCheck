@@ -208,8 +208,6 @@ int fork_for_transaction_test(dbms_info& d_info)
         if (exit_code == FIND_BUG_EXIT) {
             cerr << RED << "a bug is found in fork process" << RESET << endl;
             transaction_test::record_bug_num++;
-
-            exit(-1);
         }
         if (exit_code == 255)
             exit(-1);
