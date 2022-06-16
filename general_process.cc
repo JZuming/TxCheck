@@ -573,9 +573,18 @@ bool minimize_testcase(dbms_info& d_info,
             tmp_tid_queue[i]--;
         }
 
-        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
-        if (ret == false)
+        int try_time = 30;
+        bool trigger_bug = false;
+        while (try_time--) {
+            trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
+            if (trigger_bug == true)
+                break;
+        }
+        if (trigger_bug == false)
             continue;
+        // auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
+        // if (ret == false)
+        //     continue;
 
         // reduction succeed
         cerr << "Succeed to delete txn " << tid << "\n\n\n" << endl;
@@ -605,39 +614,44 @@ bool minimize_testcase(dbms_info& d_info,
         if (tmp_stmt_str.find(dut->abort_stmt()) != string::npos)
             continue;
 
-        // do not delete BEFORE_WRITE_READ or AFTER_WRITE_READ seperately
-        if (tmp_usage_queue[i] == BEFORE_WRITE_READ || 
-            tmp_usage_queue[i] == AFTER_WRITE_READ ||
-            tmp_usage_queue[i] == VERSION_SET_READ)
+        // do not delete instrumented stmts
+        if (tmp_usage_queue[i].is_instrumented == true)
             continue;
         
         // delete possible AFTER_WRITE_READ
-        int goback_num = 0;
-        int delete_num = 0;
         if (i + 1 <= tmp_usage_queue.size() && tmp_usage_queue[i + 1] == AFTER_WRITE_READ) {
-            delete_num++;
             // deleting later stmt donot need to goback the "i"
             tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i + 1);
             tmp_tid_queue.erase(tmp_tid_queue.begin() + i + 1);
             tmp_usage_queue.erase(tmp_usage_queue.begin() + i + 1);
+            stmt_num--;
         }
+
         // delete the statement
-        goback_num++;
-        delete_num++;
         tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
         tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
         tmp_usage_queue.erase(tmp_usage_queue.begin() + i);
-        // delete possible BEFORE_WRITE_READ
-        if (i - 1 >= 0 && tmp_usage_queue[i - 1] == BEFORE_WRITE_READ) {
-            goback_num++;
-            delete_num++;
-            tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i - 1);
-            tmp_tid_queue.erase(tmp_tid_queue.begin() + i - 1);
-            tmp_usage_queue.erase(tmp_usage_queue.begin() + i - 1);
+        stmt_num--;
+        i--;
+
+        // delete possible BEFORE_WRITE_READ and VERSION_SET_READ, note that i point the element before its original position
+        while (i >= 0 && (tmp_usage_queue[i] == BEFORE_WRITE_READ ||
+                            tmp_usage_queue[i] == VERSION_SET_READ)) {
+            tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
+            tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
+            tmp_usage_queue.erase(tmp_usage_queue.begin() + i);
+            stmt_num--;
+            i--;
         }
 
-        auto ret = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
-        if (ret == false)
+        int try_time = 10;
+        bool trigger_bug = false;
+        while (try_time--) {
+            trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
+            if (trigger_bug == true)
+                break;
+        }
+        if (trigger_bug == false)
             continue;
         
         // reduction succeed
@@ -645,8 +659,6 @@ bool minimize_testcase(dbms_info& d_info,
         final_stmt_queue = tmp_stmt_queue;
         final_tid_queue = tmp_tid_queue;
         final_usage_queue = tmp_usage_queue;
-        i = i - goback_num;
-        stmt_num = stmt_num - delete_num;
     }
 
     if (final_stmt_queue.size() == stmt_queue.size())
@@ -734,24 +746,39 @@ bool reproduce_routine(dbms_info& d_info,
     }
     
     try {
-        while (1) {
-            re_test.trans_test();
-            shared_ptr<dependency_analyzer> tmp_da;
-            if (re_test.analyze_txn_dependency(tmp_da)) {
-                cerr << RED << "Find Bugs!!" << RESET << endl;
-                return true;
-            }
-            if (re_test.refine_txn_as_txn_order() == false)
-                break; // have been stable
-        }
-        re_test.normal_test();
-        if (!re_test.check_txn_normal_result()) {
+        re_test.trans_test(false);
+        shared_ptr<dependency_analyzer> tmp_da;
+        if (re_test.analyze_txn_dependency(tmp_da)) {
             cerr << RED << "Find Bugs!!" << RESET << endl;
             return true;
         }
+        auto longest_stmt_path = tmp_da->longest_stmt_path();
+        cerr << RED << "stmt path for normal test: " << RESET;
+        print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
+
+        re_test.normal_stmt_test(longest_stmt_path);
+        if (re_test.check_normal_stmt_result(longest_stmt_path) == false)
+            return true;
+        // while (1) {
+        //     re_test.trans_test();
+        //     shared_ptr<dependency_analyzer> tmp_da;
+        //     if (re_test.analyze_txn_dependency(tmp_da)) {
+        //         cerr << RED << "Find Bugs!!" << RESET << endl;
+        //         return true;
+        //     }
+        //     if (re_test.refine_txn_as_txn_order() == false)
+        //         break; // have been stable
+        // }
         // re_test.normal_test();
-        // if (!re_test.check_result()) {
+        // if (!re_test.check_txn_normal_result()) {
+        //     cerr << RED << "Find Bugs!!" << RESET << endl;
+        //     return true;
+        // }
     } catch (exception &e) {
+        string err_info = e.what();
+        cerr << "error captured by test: " << err_info << endl;
+        if (err_info.find("INSTRUMENT_ERR") != string::npos) // it is cause by: after instrumented, the scheduling change and error in txn_test happens
+            return false;
         cerr << "reproduce successfully" << endl;
         return true;
     }

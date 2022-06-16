@@ -109,4 +109,6 @@ private:
     void save_test_case(string dir_name);
 };
 
+void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set<dependency_type>>& stmt_graph);
+
 #endif

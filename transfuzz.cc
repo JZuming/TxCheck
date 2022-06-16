@@ -414,15 +414,30 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
         int use;
         while (stmt_usage_file >> use) {
             switch (use) {
-            // case 0:
-            //     stmt_usage_queue.push_back(NORMAL);
-            //     break;
-            // case 1:
-            //     stmt_usage_queue.push_back(BEFORE_WRITE_READ);
-            //     break;
-            // case 2:
-            //     stmt_usage_queue.push_back(AFTER_WRITE_READ);
-            //     break;
+            case 0:
+                stmt_usage_queue.push_back(stmt_usage(INIT_TYPE, false, "t_***"));
+                break;
+            case 1:
+                stmt_usage_queue.push_back(stmt_usage(SELECT_READ, false, "t_***"));
+                break;
+            case 2:
+                stmt_usage_queue.push_back(stmt_usage(UPDATE_WRITE, false, "t_***"));
+                break;
+            case 3:
+                stmt_usage_queue.push_back(stmt_usage(INSERT_WRITE, false, "t_***"));
+                break;
+            case 4:
+                stmt_usage_queue.push_back(stmt_usage(DELETE_WRITE, false, "t_***"));
+                break;
+            case 5:
+                stmt_usage_queue.push_back(stmt_usage(BEFORE_WRITE_READ, true, "t_***"));
+                break;
+            case 6:
+                stmt_usage_queue.push_back(stmt_usage(AFTER_WRITE_READ, true, "t_***"));
+                break;
+            case 7:
+                stmt_usage_queue.push_back(stmt_usage(VERSION_SET_READ, true, "t_***"));
+                break;
             default:
                 cerr << "unknown stmt usage: " << use << endl;
                 exit(-1);
