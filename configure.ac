@@ -29,7 +29,13 @@ AC_CHECK_LIB(sqlite3, sqlite3_open_v2)
 AM_CONDITIONAL([DUT_SQLITE], [test x$ac_cv_lib_sqlite3_sqlite3_open_v2 = xyes])
 
 AC_CHECK_LIB(mysqlclient, mysql_init)
-AM_CONDITIONAL([DUT_MYSQL], [test x$ac_cv_lib_mysqlclient_mysql_init = xyes])
+AM_CONDITIONAL([DUT_TIDB], [test x$ac_cv_lib_mysqlclient_mysql_init = xyes])
+
+AC_CHECK_LIB(mysqlclient, mysql_real_query_start)
+AM_CONDITIONAL([DUT_MARIADB], [test x$ac_cv_lib_mysqlclient_mysql_real_query_start = xyes])
+
+AC_CHECK_LIB(mysqlclient, mysql_real_query_nonblocking)
+AM_CONDITIONAL([DUT_MYSQL], [test x$ac_cv_lib_mysqlclient_mysql_real_query_nonblocking = xyes])
 
 AC_SUBST(REVISION)
 

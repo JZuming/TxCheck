@@ -1,9 +1,10 @@
 #include <stdexcept>
 #include <cassert>
 #include <cstring>
-#include "mysql.hh"
+#include "mariadb.hh"
 #include <iostream>
 #include <set>
+#include <poll.h>
 
 #ifndef HAVE_BOOST_REGEX
 #include <regex>
@@ -26,13 +27,15 @@ extern "C"  {
 
 #define debug_info (string(__func__) + "(" + string(__FILE__) + ":" + to_string(__LINE__) + ")")
 
-mysql_connection::mysql_connection(string db, unsigned int port)
+mariadb_connection::mariadb_connection(string db, unsigned int port)
 {
     test_db = db;
     test_port = port;
     
     if (!mysql_init(&mysql))
         throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
+    
+    mysql_options(&mysql, MYSQL_OPT_NONBLOCK, 0);
 
     // password null: blank (empty) password field
     if (mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
@@ -62,13 +65,13 @@ mysql_connection::mysql_connection(string db, unsigned int port)
     mysql_free_result(res);
 }
 
-mysql_connection::~mysql_connection()
+mariadb_connection::~mariadb_connection()
 {
     mysql_close(&mysql);
 }
 
-schema_mysql::schema_mysql(string db, unsigned int port)
-  : mysql_connection(db, port)
+schema_mariadb::schema_mariadb(string db, unsigned int port)
+  : mariadb_connection(db, port)
 {
     // Loading tables...;
     string get_table_query = "SELECT DISTINCT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES \
@@ -410,8 +413,8 @@ schema_mysql::schema_mysql(string db, unsigned int port)
     }
 }
 
-dut_mysql::dut_mysql(string db, unsigned int port)
-  : mysql_connection(db, port)
+dut_mariadb::dut_mariadb(string db, unsigned int port)
+  : mariadb_connection(db, port)
 {
     sent_sql = "";
     has_sent_sql = false;
@@ -429,9 +432,9 @@ static unsigned long long get_cur_time_ms(void) {
 	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
 }
 
-bool dut_mysql::check_whether_block()
+bool dut_mariadb::check_whether_block()
 {
-    dut_mysql another_dut(test_db, test_port);
+    dut_mariadb another_dut(test_db, test_port);
     string get_block_tid = "SELECT waiting_pid FROM sys.innodb_lock_waits;";
     vector<string> output;
     another_dut.block_test(get_block_tid, &output);
@@ -447,7 +450,7 @@ bool dut_mysql::check_whether_block()
     return false;
 }
 
-void dut_mysql::block_test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
+void dut_mariadb::block_test(const std::string &stmt, std::vector<std::string>* output, int* affected_row_num)
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
@@ -491,9 +494,36 @@ void dut_mysql::block_test(const std::string &stmt, std::vector<std::string>* ou
     return;
 }
 
-void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* affected_row_num)
+static int wait_for_mysql(MYSQL *mysql, int status) {
+    struct pollfd pfd;
+    int timeout, res;
+
+    pfd.fd = mysql_get_socket(mysql);
+    pfd.events =
+        (status & MYSQL_WAIT_READ ? POLLIN : 0) |
+        (status & MYSQL_WAIT_WRITE ? POLLOUT : 0) |
+        (status & MYSQL_WAIT_EXCEPT ? POLLPRI : 0);
+    if (status & MYSQL_WAIT_TIMEOUT)
+        timeout = 1000 * mysql_get_timeout_value(mysql);
+    else
+        timeout = -1;
+    res = poll(&pfd, 1, timeout);
+    if (res == 0)
+        return MYSQL_WAIT_TIMEOUT;
+    else if (res < 0)
+        return MYSQL_WAIT_TIMEOUT;
+    else {
+        int status = 0;
+        if (pfd.revents & POLLIN) status |= MYSQL_WAIT_READ;
+        if (pfd.revents & POLLOUT) status |= MYSQL_WAIT_WRITE;
+        if (pfd.revents & POLLPRI) status |= MYSQL_WAIT_EXCEPT;
+        return status;
+    }
+}
+
+void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {
-    net_async_status status;
+    int err, status;
     if (txn_abort == true) {
         auto tmp_stmt = stmt;
         if (stmt == "COMMIT;") 
@@ -504,7 +534,7 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
     }
 
     if (has_sent_sql == false) {
-        status = mysql_real_query_nonblocking(&mysql, stmt.c_str(), stmt.size());
+        status = mysql_real_query_start(&err, &mysql, stmt.c_str(), stmt.size());
         sent_sql = stmt;
         has_sent_sql = true;
     }
@@ -516,11 +546,11 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
 
     auto begin_time = get_cur_time_ms();
     while (1) {
-        status = mysql_real_query_nonblocking(&mysql, stmt.c_str(), stmt.size());
-        if (status != NET_ASYNC_NOT_READY) {
+        status = wait_for_mysql(&mysql, status);
+        status = mysql_real_query_cont(&err, &mysql, status);
+        if (status == 0) 
             break;
-        }
-            
+        
         auto cur_time = get_cur_time_ms();
         if (cur_time - begin_time >= MYSQL_STMT_BLOCK_MS) {
             auto blocked = check_whether_block();
@@ -530,13 +560,13 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
         }
     }
 
-    if (status == NET_ASYNC_ERROR) {
+    if (status & MYSQL_WAIT_EXCEPT) {
         string err = mysql_error(&mysql);
         has_sent_sql = false;
         sent_sql = "";
         if (err.find("Deadlock found") != string::npos) 
             txn_abort = true;
-        throw std::runtime_error("NET_ASYNC_ERROR(skipped): " + err + "\nLocation: " + debug_info); 
+        throw std::runtime_error("MYSQL_WAIT_EXCEPT(skipped): " + err + "\nLocation: " + debug_info); 
     }
 
     if (affected_row_num)
@@ -582,7 +612,7 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
     return;
 }
 
-void dut_mysql::reset(void)
+void dut_mariadb::reset(void)
 {
     string drop_sql = "drop database if exists " + test_db + "; ";
     if (mysql_real_query(&mysql, drop_sql.c_str(), drop_sql.size())) {
@@ -609,7 +639,7 @@ void dut_mysql::reset(void)
     mysql_free_result(res_sql);
 }
 
-void dut_mysql::backup(void)
+void dut_mariadb::backup(void)
 {
     string mysql_dump = "/usr/local/mysql/bin/mysqldump -h 127.0.0.1 -P " + to_string(test_port) + " -u root " + test_db + " > /tmp/mysql_bk.sql";
     int ret = system(mysql_dump.c_str());
@@ -619,7 +649,7 @@ void dut_mysql::backup(void)
     }
 }
 
-void dut_mysql::reset_to_backup(void)
+void dut_mariadb::reset_to_backup(void)
 {
     reset();
     string bk_file = "/tmp/mysql_bk.sql";
@@ -636,13 +666,13 @@ void dut_mysql::reset_to_backup(void)
         throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
 }
 
-int dut_mysql::save_backup_file(string path)
+int dut_mariadb::save_backup_file(string path)
 {
     string cp_cmd = "cp /tmp/mysql_bk.sql " + path;
     return system(cp_cmd.c_str());
 }
 
-void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
+void dut_mariadb::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
 {
     for (auto& table:tables_name) {
         vector<vector<string>> table_content;
@@ -677,19 +707,19 @@ void dut_mysql::get_content(vector<string>& tables_name, map<string, vector<vect
     }
 }
 
-string dut_mysql::begin_stmt() {
+string dut_mariadb::begin_stmt() {
     return "START TRANSACTION";
 }
 
-string dut_mysql::commit_stmt() {
+string dut_mariadb::commit_stmt() {
     return "COMMIT";
 }
 
-string dut_mysql::abort_stmt() {
+string dut_mariadb::abort_stmt() {
     return "ROLLBACK";
 }
 
-pid_t dut_mysql::fork_db_server()
+pid_t dut_mariadb::fork_db_server()
 {
     pid_t child = fork();
     if (child < 0) {

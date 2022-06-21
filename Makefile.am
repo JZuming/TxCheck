@@ -14,9 +14,21 @@ if DUT_SQLITE
 DUT += sqlite.cc
 endif
 
-if DUT_MYSQL
+AM_CPPFLAGS = -Dtest1
+
+if DUT_TIDB
 DUT += tidb.cc
+AM_CPPFLAGS += -DHAVE_TIDB
+endif
+
+if DUT_MYSQL
 DUT += mysql.cc
+AM_CPPFLAGS += -DHAVE_MYSQL
+endif
+
+if DUT_MARIADB
+DUT += mariadb.cc
+AM_CPPFLAGS += -DHAVE_MARIADB
 endif
 
 sqlsmith_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
@@ -33,7 +45,7 @@ transfuzz_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
 transfuzz_LDADD = $(LIBPQXX_LIBS) $(MONETDB_MAPI_LIBS) $(BOOST_REGEX_LIB) $(POSTGRESQL_LIBS) -lpthread
 
 AM_LDFLAGS = $(BOOST_LDFLAGS) $(POSTGRESQL_LDFLAGS) -fsanitize=address -fno-omit-frame-pointer
-AM_CPPFLAGS = $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wno-sign-compare -Wextra -fPIC -fsanitize=address
+AM_CPPFLAGS += $(BOOST_CPPFLAGS) $(LIBPQXX_CFLAGS) $(POSTGRESQL_CPPFLAGS) $(MONETDB_MAPI_CFLAGS) -Wall -Wno-sign-compare -Wextra -fPIC -fsanitize=address
 
 EXTRA_DIST = gitrev.h dump.hh expr.hh grammar.hh log.hh prod.hh		\
     random.hh relmodel.hh schema.hh impedance.hh known.txt known_re.txt log.sql	\

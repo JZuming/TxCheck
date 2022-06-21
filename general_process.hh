@@ -17,8 +17,17 @@
 #endif
 
 #ifdef HAVE_LIBMYSQLCLIENT
-#include "tidb.hh"
-#include "mysql.hh"
+    #ifdef HAVE_TIDB
+    #include "tidb.hh"
+    #endif
+    
+    #ifdef HAVE_MYSQL
+    #include "mysql.hh"
+    #endif
+
+    #ifdef HAVE_MARIADB
+    #include "mariadb.hh"
+    #endif
 #endif
 
 #ifdef HAVE_MONETDB

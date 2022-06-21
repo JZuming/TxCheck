@@ -24,10 +24,18 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
         #endif
 
         #ifdef HAVE_LIBMYSQLCLIENT
+        #ifdef HAVE_MYSQL
         else if (d_info.dbms_name == "mysql") 
             schema = make_shared<schema_mysql>(d_info.test_db, d_info.test_port);
+        #endif
+        #ifdef HAVE_MARIADB
+        else if (d_info.dbms_name == "mariadb") 
+            schema = make_shared<schema_mariadb>(d_info.test_db, d_info.test_port);
+        #endif
+        #ifdef HAVE_TIDB
         else if (d_info.dbms_name == "tidb") 
             schema = make_shared<schema_tidb>(d_info.test_db, d_info.test_port);
+        #endif
         #endif
 
         else if (d_info.dbms_name == "cockroach")
@@ -60,10 +68,18 @@ shared_ptr<dut_base> dut_setup(dbms_info& d_info)
     #endif
 
     #ifdef HAVE_LIBMYSQLCLIENT
+    #ifdef HAVE_MYSQL
     else if (d_info.dbms_name == "mysql")
         dut = make_shared<dut_mysql>(d_info.test_db, d_info.test_port);
+    #endif
+    #ifdef HAVE_MARIADB
+    else if (d_info.dbms_name == "mariadb")
+        dut = make_shared<dut_mariadb>(d_info.test_db, d_info.test_port);
+    #endif
+    #ifdef HAVE_TIDB
     else if (d_info.dbms_name == "tidb")
         dut = make_shared<dut_tidb>(d_info.test_db, d_info.test_port);
+    #endif
     #endif
 
     else if (d_info.dbms_name == "cockroach")
@@ -86,10 +102,18 @@ pid_t fork_db_server(dbms_info& d_info)
     #endif
     
     #ifdef HAVE_LIBMYSQLCLIENT
+    #ifdef HAVE_MYSQL
     else if (d_info.dbms_name == "mysql")
         fork_pid = dut_mysql::fork_db_server();
+    #endif
+    #ifdef HAVE_MARIADB
+    else if (d_info.dbms_name == "mariadb")
+        fork_pid = dut_mariadb::fork_db_server();
+    #endif
+    #ifdef HAVE_TIDB
     else if (d_info.dbms_name == "tidb")
         fork_pid = dut_tidb::fork_db_server();
+    #endif
     #endif
 
     else if (d_info.dbms_name == "cockroach")
