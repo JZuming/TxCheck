@@ -30,7 +30,7 @@ extern "C"  {
 mariadb_connection::mariadb_connection(string db, unsigned int port)
 {
     test_db = db;
-    test_port = port;
+    // test_port = port;
     
     if (!mysql_init(&mysql))
         throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
@@ -38,7 +38,7 @@ mariadb_connection::mariadb_connection(string db, unsigned int port)
     mysql_options(&mysql, MYSQL_OPT_NONBLOCK, 0);
 
     // password null: blank (empty) password field
-    if (mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
+    if (mysql_real_connect(&mysql, "localhost", "root", NULL, test_db.c_str(), 0, NULL, 0)) 
         return; // success
     
     string err = mysql_error(&mysql);
@@ -47,7 +47,7 @@ mariadb_connection::mariadb_connection(string db, unsigned int port)
 
     // error caused by unknown database, so create one
     std::cerr << test_db + " does not exist, use default db" << endl;
-    if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, NULL, port, NULL, 0))
+    if (!mysql_real_connect(&mysql, "localhost", "root", NULL, NULL, 0, NULL, 0))
         throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
     
     std::cerr << "create database " + test_db << endl;
@@ -434,7 +434,7 @@ static unsigned long long get_cur_time_ms(void) {
 
 bool dut_mariadb::check_whether_block()
 {
-    dut_mariadb another_dut(test_db, test_port);
+    dut_mariadb another_dut(test_db, 0);
     string get_block_tid = "SELECT waiting_pid FROM sys.innodb_lock_waits;";
     vector<string> output;
     another_dut.block_test(get_block_tid, &output);
@@ -641,7 +641,7 @@ void dut_mariadb::reset(void)
 
 void dut_mariadb::backup(void)
 {
-    string mysql_dump = "/usr/local/mysql/bin/mysqldump -h 127.0.0.1 -P " + to_string(test_port) + " -u root " + test_db + " > /tmp/mysql_bk.sql";
+    string mysql_dump = "/usr/local/mysql/bin/mysqldump -u root " + test_db + " > /tmp/mysql_bk.sql";
     int ret = system(mysql_dump.c_str());
     if (ret != 0) {
         std::cerr << "backup fail \nLocation: " + debug_info << endl;
@@ -658,11 +658,16 @@ void dut_mariadb::reset_to_backup(void)
     
     mysql_close(&mysql);
     
-    string mysql_source = "/usr/local/mysql/bin/mysql -h 127.0.0.1 -P " + to_string(test_port) + " -u root -D " + test_db + " < /tmp/mysql_bk.sql";
+    string mysql_source = "/usr/local/mysql/bin/mysql -u root -D " + test_db + " < /tmp/mysql_bk.sql";
     if (system(mysql_source.c_str()) == -1) 
         throw std::runtime_error(string("system() error, return -1") + "\nLocation: " + debug_info);
+    
+    if (!mysql_init(&mysql))
+        throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
+    
+    mysql_options(&mysql, MYSQL_OPT_NONBLOCK, 0);
 
-    if (!mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
+    if (!mysql_real_connect(&mysql, "localhost", "root", NULL, test_db.c_str(), 0, NULL, 0)) 
         throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
 }
 

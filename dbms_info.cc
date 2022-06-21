@@ -16,7 +16,7 @@ dbms_info::dbms_info(map<string,string>& options)
         throw runtime_error("Does not support SQLite");
         #endif
     } else if (options.count("tidb-db") && options.count("tidb-port")) {
-        #ifdef HAVE_LIBMYSQLCLIENT
+        #ifdef HAVE_TIDB
         
         dbms_name = "tidb";
         serializable = false;
@@ -29,12 +29,25 @@ dbms_info::dbms_info(map<string,string>& options)
         throw runtime_error("Does not support TiDB");
         #endif
     } else if (options.count("mysql-db") && options.count("mysql-port")) {
-        #ifdef HAVE_LIBMYSQLCLIENT
+        #ifdef HAVE_MYSQL
         
         dbms_name = "mysql";
         serializable = true;
         test_port = stoi(options["mysql-port"]);
         test_db = options["mysql-db"];
+        can_trigger_error_in_txn = true;
+        
+        #else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
+        throw runtime_error("Does not support MySQL");
+        #endif
+    } else if (options.count("mariadb-db") && options.count("mariadb-port")) {
+        #ifdef HAVE_MARIADB
+        
+        dbms_name = "mariadb";
+        serializable = true;
+        test_port = stoi(options["mariadb-port"]);
+        test_db = options["mariadb-db"];
         can_trigger_error_in_txn = true;
         
         #else

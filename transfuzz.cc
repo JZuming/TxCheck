@@ -290,6 +290,7 @@ int main(int argc, char *argv[])
 (help|min|postgres|sqlite|monetdb|random-seed|\
 tidb-db|tidb-port|\
 mysql-db|mysql-port|\
+mariadb-db|mariadb-port|\
 cockroach-db|cockroach-port|\
 output-or-affect-num|\
 reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
@@ -315,10 +316,18 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
             #endif
             #ifdef HAVE_LIBMYSQLCLIENT
+            #ifdef HAVE_TIDB
             "    --tidb-db=constr   tidb database name to send queries to (should used with" << endl << 
             "    --tidb-port=int    tidb server port number" << endl << 
+            #endif
+            #ifdef HAVE_MARIADB
+            "    --mariadb-db=constr   mariadb database name to send queries to (should used with" << endl << 
+            "    --mariadb-port=int    mariadb server port number" << endl <<
+            #endif
+            #ifdef HAVE_MYSQL
             "    --mysql-db=constr  mysql database name to send queries to (should used with" << endl << 
             "    --mysql-port=int   mysql server port number" << endl << 
+            #endif
             #endif
             "    --cockroach-db=constr  cockroach database name to send queries to (should used with" << endl << 
             "    --cockroach-port=int   cockroach server port number" << endl << 

@@ -16,7 +16,7 @@ extern "C"  {
 struct mariadb_connection {
     MYSQL mysql;
     string test_db;
-    unsigned int test_port;
+    // unsigned int test_port;
     mariadb_connection(string db, unsigned int port);
     ~mariadb_connection();
 };
