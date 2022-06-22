@@ -1299,7 +1299,7 @@ void transaction_test::block_scheduling()
     int round = 0;
     while (1) {
         cerr << RED << "scheduling: " << round << RESET << endl;
-        trans_test(false);
+        trans_test();
         if (tid_queue == real_tid_queue // no blocking
                 && stmt_use == real_stmt_usage) // no failing 
             break;
@@ -1318,7 +1318,6 @@ int transaction_test::test()
         assign_txn_id();
         assign_txn_status();
         gen_txn_stmts();
-        block_scheduling();
     } catch(exception &e) {
         cerr << RED << "Trigger a normal bugs when inializing the stmts" << RESET << endl;
         cerr << "Bug info: " << e.what() << endl;
@@ -1342,9 +1341,9 @@ int transaction_test::test()
     }
     
     try {
+        block_scheduling();
         // if (multi_round_test() == false)
         //     return 0;
-        // multi_stmt_round_test();
         if (multi_stmt_round_test() == false)
             return 0;
     } catch(exception &e) {

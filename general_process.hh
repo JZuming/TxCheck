@@ -116,7 +116,8 @@ void kill_process_with_SIGTERM(pid_t process_id);
 bool reproduce_routine(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue,
-                        vector<stmt_usage> usage_queue);
+                        vector<stmt_usage> usage_queue,
+                        string& err_info);
 
 bool minimize_testcase(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 

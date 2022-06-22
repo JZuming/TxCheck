@@ -48,6 +48,7 @@ struct dut_mariadb : dut_base, mariadb_connection {
     void block_test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
     bool check_whether_block();
     bool has_sent_sql;
+    int query_status;
     string sent_sql;
     bool txn_abort;
     unsigned long thread_id;

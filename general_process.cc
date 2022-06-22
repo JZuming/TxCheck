@@ -552,7 +552,8 @@ bool minimize_testcase(dbms_info& d_info,
                         vector<stmt_usage> usage_queue)
 {
     cerr << "Check reproduce..." << endl;
-    auto r_check = reproduce_routine(d_info, stmt_queue, tid_queue, usage_queue);
+    string original_err;
+    auto r_check = reproduce_routine(d_info, stmt_queue, tid_queue, usage_queue, original_err);
     if (!r_check) {
         cerr << "No" << endl;
         return false;
@@ -600,7 +601,7 @@ bool minimize_testcase(dbms_info& d_info,
         int try_time = 30;
         bool trigger_bug = false;
         while (try_time--) {
-            trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
+            trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue, original_err);
             if (trigger_bug == true)
                 break;
         }
@@ -671,7 +672,7 @@ bool minimize_testcase(dbms_info& d_info,
         int try_time = 10;
         bool trigger_bug = false;
         while (try_time--) {
-            trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue);
+            trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue, original_err);
             if (trigger_bug == true)
                 break;
         }
@@ -720,11 +721,11 @@ bool minimize_testcase(dbms_info& d_info,
     return true;
 }
 
-
 bool reproduce_routine(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue,
-                        vector<stmt_usage> usage_queue)
+                        vector<stmt_usage> usage_queue,
+                        string& err_info)
 {
     transaction_test re_test(d_info);
     re_test.stmt_queue = stmt_queue;
@@ -770,10 +771,16 @@ bool reproduce_routine(dbms_info& d_info,
     }
     
     try {
-        re_test.trans_test(false);
+        re_test.trans_test();
         shared_ptr<dependency_analyzer> tmp_da;
         if (re_test.analyze_txn_dependency(tmp_da)) {
-            cerr << RED << "Find Bugs!!" << RESET << endl;
+            string bug_str = "Find bugs in analyze_txn_dependency";
+            cerr << RED << bug_str << RESET << endl;
+            if (err_info != "" && err_info != bug_str) {
+                cerr << "not same as the original bug" << endl;
+                return false;
+            }
+            err_info = bug_str;
             return true;
         }
         auto longest_stmt_path = tmp_da->longest_stmt_path();
@@ -781,29 +788,26 @@ bool reproduce_routine(dbms_info& d_info,
         print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
 
         re_test.normal_stmt_test(longest_stmt_path);
-        if (re_test.check_normal_stmt_result(longest_stmt_path) == false)
+        if (re_test.check_normal_stmt_result(longest_stmt_path) == false) {
+            string bug_str = "Find bugs in check_normal_stmt_result";
+            cerr << RED << bug_str << RESET << endl;
+            if (err_info != "" && err_info != bug_str) {
+                cerr << "not same as the original bug" << endl;
+                return false;
+            }
+            err_info = bug_str;
             return true;
-        // while (1) {
-        //     re_test.trans_test();
-        //     shared_ptr<dependency_analyzer> tmp_da;
-        //     if (re_test.analyze_txn_dependency(tmp_da)) {
-        //         cerr << RED << "Find Bugs!!" << RESET << endl;
-        //         return true;
-        //     }
-        //     if (re_test.refine_txn_as_txn_order() == false)
-        //         break; // have been stable
-        // }
-        // re_test.normal_test();
-        // if (!re_test.check_txn_normal_result()) {
-        //     cerr << RED << "Find Bugs!!" << RESET << endl;
-        //     return true;
-        // }
+        }
     } catch (exception &e) {
-        string err_info = e.what();
-        cerr << "error captured by test: " << err_info << endl;
-        if (err_info.find("INSTRUMENT_ERR") != string::npos) // it is cause by: after instrumented, the scheduling change and error in txn_test happens
+        string cur_err_info = e.what();
+        cerr << "exception captured by test: " << cur_err_info << endl;
+        if (cur_err_info.find("INSTRUMENT_ERR") != string::npos) // it is cause by: after instrumented, the scheduling change and error in txn_test happens
             return false;
-        cerr << "reproduce successfully" << endl;
+        if (err_info != "" && err_info != cur_err_info) {
+            cerr << "not same as the original bug" << endl;
+            return false;
+        }
+        err_info = cur_err_info;
         return true;
     }
 

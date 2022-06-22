@@ -455,8 +455,11 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
 
         if (options.count("min"))
             minimize_testcase(d_info, stmt_queue, tid_queue, stmt_usage_queue);
-        else
-            reproduce_routine(d_info, stmt_queue, tid_queue, stmt_usage_queue);
+        else {
+            string empty_str;
+            reproduce_routine(d_info, stmt_queue, tid_queue, stmt_usage_queue, empty_str);
+        }
+            
 
         return 0;
     }

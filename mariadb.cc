@@ -4,7 +4,6 @@
 #include "mariadb.hh"
 #include <iostream>
 #include <set>
-#include <poll.h>
 
 #ifndef HAVE_BOOST_REGEX
 #include <regex>
@@ -418,6 +417,7 @@ dut_mariadb::dut_mariadb(string db, unsigned int port)
 {
     sent_sql = "";
     has_sent_sql = false;
+    query_status = 0;
     txn_abort = false;
     thread_id = mysql_thread_id(&mysql);
     block_test("SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED;");
@@ -494,36 +494,9 @@ void dut_mariadb::block_test(const std::string &stmt, std::vector<std::string>* 
     return;
 }
 
-static int wait_for_mysql(MYSQL *mysql, int status) {
-    struct pollfd pfd;
-    int timeout, res;
-
-    pfd.fd = mysql_get_socket(mysql);
-    pfd.events =
-        (status & MYSQL_WAIT_READ ? POLLIN : 0) |
-        (status & MYSQL_WAIT_WRITE ? POLLOUT : 0) |
-        (status & MYSQL_WAIT_EXCEPT ? POLLPRI : 0);
-    if (status & MYSQL_WAIT_TIMEOUT)
-        timeout = 1000 * mysql_get_timeout_value(mysql);
-    else
-        timeout = -1;
-    res = poll(&pfd, 1, timeout);
-    if (res == 0)
-        return MYSQL_WAIT_TIMEOUT;
-    else if (res < 0)
-        return MYSQL_WAIT_TIMEOUT;
-    else {
-        int status = 0;
-        if (pfd.revents & POLLIN) status |= MYSQL_WAIT_READ;
-        if (pfd.revents & POLLOUT) status |= MYSQL_WAIT_WRITE;
-        if (pfd.revents & POLLPRI) status |= MYSQL_WAIT_EXCEPT;
-        return status;
-    }
-}
-
 void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {
-    int err, status;
+    int err;
     if (txn_abort == true) {
         auto tmp_stmt = stmt;
         if (stmt == "COMMIT;") 
@@ -534,8 +507,14 @@ void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* 
     }
 
     if (has_sent_sql == false) {
-        status = mysql_real_query_start(&err, &mysql, stmt.c_str(), stmt.size());
-        sent_sql = stmt;
+        query_status = mysql_real_query_start(&err, &mysql, stmt.c_str(), stmt.size());
+        if (mysql_errno(&mysql) != 0) {
+            string err = mysql_error(&mysql);
+            has_sent_sql = false;
+            sent_sql = "";
+            throw std::runtime_error("mysql_real_query_start fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
+        }
+	    sent_sql = stmt;
         has_sent_sql = true;
     }
 
@@ -546,10 +525,17 @@ void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* 
 
     auto begin_time = get_cur_time_ms();
     while (1) {
-        status = wait_for_mysql(&mysql, status);
-        status = mysql_real_query_cont(&err, &mysql, status);
-        if (status == 0) 
-            break;
+        query_status = mysql_real_query_cont(&err, &mysql, query_status);
+        if (mysql_errno(&mysql) != 0) {
+            string err = mysql_error(&mysql);
+            has_sent_sql = false;
+            sent_sql = "";
+            if (err.find("Deadlock found") != string::npos) 
+                txn_abort = true;
+            throw std::runtime_error("mysql_real_query_cont fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
+        }
+        if (query_status == 0) 
+                break;
         
         auto cur_time = get_cur_time_ms();
         if (cur_time - begin_time >= MYSQL_STMT_BLOCK_MS) {
@@ -558,15 +544,6 @@ void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* 
                 throw std::runtime_error("blocked in " + debug_info); 
             begin_time = cur_time;
         }
-    }
-
-    if (status & MYSQL_WAIT_EXCEPT) {
-        string err = mysql_error(&mysql);
-        has_sent_sql = false;
-        sent_sql = "";
-        if (err.find("Deadlock found") != string::npos) 
-            txn_abort = true;
-        throw std::runtime_error("MYSQL_WAIT_EXCEPT(skipped): " + err + "\nLocation: " + debug_info); 
     }
 
     if (affected_row_num)
