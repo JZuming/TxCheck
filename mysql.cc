@@ -517,9 +517,8 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
     auto begin_time = get_cur_time_ms();
     while (1) {
         status = mysql_real_query_nonblocking(&mysql, stmt.c_str(), stmt.size());
-        if (status != NET_ASYNC_NOT_READY) {
+        if (status != NET_ASYNC_NOT_READY)
             break;
-        }
             
         auto cur_time = get_cur_time_ms();
         if (cur_time - begin_time >= MYSQL_STMT_BLOCK_MS) {

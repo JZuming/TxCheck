@@ -34,7 +34,7 @@ struct dut_mysql : dut_base, mysql_connection {
 
     virtual void backup(void);
     virtual void reset_to_backup(void);
-    virtual int save_backup_file(string path);
+    
     
     virtual string commit_stmt();
     virtual string abort_stmt();
@@ -45,6 +45,7 @@ struct dut_mysql : dut_base, mysql_connection {
     virtual void get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content);
     dut_mysql(string db, unsigned int port);
 
+    static int save_backup_file(string path);
     void block_test(const std::string &stmt, std::vector<std::string>* output = NULL, int* affected_row_num = NULL);
     bool check_whether_block();
     bool has_sent_sql;

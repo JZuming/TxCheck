@@ -52,7 +52,6 @@ struct dut_base {
 
   virtual void backup(void) = 0;
   virtual void reset_to_backup(void) = 0;
-  virtual int save_backup_file(string path) = 0;
 
   virtual string commit_stmt() = 0;
   virtual string abort_stmt() = 0;

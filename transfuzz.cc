@@ -174,10 +174,9 @@ int fork_for_transaction_test(dbms_info& d_info)
             transaction_test tt(d_info);
             auto ret = tt.test();
             if (ret == 1) {
-                cerr << RED << "find a bug" << RESET << endl;
+                cerr << RED << "Find a bug !!!" << RESET << endl;
                 exit(FIND_BUG_EXIT);
             }
-
         } catch(std::exception &e) { // ignore runtime error
             cerr << "in test: " << e.what() << endl;
         }

@@ -92,6 +92,39 @@ shared_ptr<dut_base> dut_setup(dbms_info& d_info)
     return dut;
 }
 
+int save_backup_file(string path, dbms_info& d_info)
+{
+    if (false) {}
+    #ifdef HAVE_LIBSQLITE3
+    else if (d_info.dbms_name == "sqlite")
+        return dut_sqlite::save_backup_file(path, d_info.test_db);
+    #endif
+
+    #ifdef HAVE_LIBMYSQLCLIENT
+    #ifdef HAVE_MYSQL
+    else if (d_info.dbms_name == "mysql")
+        return dut_mysql::save_backup_file(path);
+    #endif
+    
+    #ifdef HAVE_MARIADB
+    else if (d_info.dbms_name == "mariadb")
+        return dut_mariadb::save_backup_file(path);
+    #endif
+    
+    #ifdef HAVE_TIDB
+    else if (d_info.dbms_name == "tidb")
+        return dut_tidb::save_backup_file(path);
+    #endif
+    #endif
+
+    else if (d_info.dbms_name == "cockroach")
+        return dut_cockroachdb::save_backup_file(path);
+    else {
+        cerr << d_info.dbms_name << " is not supported yet" << endl;
+        throw runtime_error("Unsupported DBMS");
+    }
+}
+
 pid_t fork_db_server(dbms_info& d_info)
 {
     pid_t fork_pid;

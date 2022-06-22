@@ -35,7 +35,7 @@ struct dut_sqlite : dut_base, sqlite_connection {
     
     virtual void backup(void);
     virtual void reset_to_backup(void);
-    virtual int save_backup_file(string path);
+    static int save_backup_file(string path, string db_name);
 
     virtual string commit_stmt();
     virtual string abort_stmt();

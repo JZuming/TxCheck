@@ -607,6 +607,7 @@ void kill_process_with_SIGTERM(pid_t process_id)
     }
 }
 
+// cannot be called by child process
 bool transaction_test::try_to_kill_server()
 {
     cerr << "try killing the server..." << endl;
@@ -1321,22 +1322,21 @@ int transaction_test::test()
     } catch(exception &e) {
         cerr << RED << "Trigger a normal bugs when inializing the stmts" << RESET << endl;
         cerr << "Bug info: " << e.what() << endl;
-
+        cerr << "Found normal bug " << record_bug_num << "!!!" << endl;
+        
         string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_normal/"; 
         record_bug_num++;
-
         make_dir_error_exit(dir_name);
-        string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
-        if (system(cmd.c_str()) == -1) 
-        throw std::runtime_error(string("system() error, return -1") + " in transaction_test::test!");
+        if (make_dir_error_exit(dir_name) == 1)
+            return 255;
         
-        // check whether the server is still alive
-        fork_if_server_closed(test_dbms_info);
+        string cmd = "mv " + string(NORMAL_BUG_FILE) + " " + dir_name;
+        if (system(cmd.c_str()) == -1) {
+            cerr << "system() error, return -1 in transaction_test::test!" << endl;
+            return 255;
+        }
 
-        // save database
-        auto dut = dut_setup(test_dbms_info);
-        dut->save_backup_file(dir_name);
-
+        save_backup_file(dir_name, test_dbms_info); // save database
         return 1; // not need to do other transaction thing
     }
     
@@ -1355,18 +1355,13 @@ int transaction_test::test()
             return 0;
     }
 
+    cerr << "Found transaction bug " << record_bug_num << "!!!" << endl;
     string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_trans/"; 
     record_bug_num++;
-    auto make_dir_ret = make_dir_error_exit(dir_name);
-    if (make_dir_ret == 1)
-        return 1;
+    if (make_dir_error_exit(dir_name) == 1)
+        return 255;
 
-    // check whether the server is still alive
-    fork_if_server_closed(test_dbms_info);
-
-    cerr << RED << "Saving database..." << RESET << endl;
-    auto dut = dut_setup(test_dbms_info);
-    dut->save_backup_file(dir_name);
+    save_backup_file(dir_name, test_dbms_info);
     save_test_case(dir_name);
     
     return 1;

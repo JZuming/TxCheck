@@ -526,9 +526,9 @@ void dut_sqlite::reset_to_backup(void)
     return;
 }
 
-int dut_sqlite::save_backup_file(string path)
+int dut_sqlite::save_backup_file(string path, string db_name)
 {
-    auto bk_db = db_file;
+    auto bk_db = db_name;
     auto pos = bk_db.find(".db");
     if (pos != string::npos) {
         bk_db.erase(pos, 3);
