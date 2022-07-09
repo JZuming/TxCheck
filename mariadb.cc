@@ -498,7 +498,6 @@ void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* 
 {
     int err;
     if (txn_abort == true) {
-        auto tmp_stmt = stmt;
         if (stmt == "COMMIT;") 
             throw std::runtime_error("txn aborted, can only rollback \nLocation: " + debug_info);
         if (stmt == "ROLLBACK;")
