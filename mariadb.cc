@@ -700,12 +700,20 @@ string dut_mariadb::abort_stmt() {
     return "ROLLBACK";
 }
 
+#define TRY_FORK_TIME 5
 pid_t dut_mariadb::fork_db_server()
 {
-    pid_t child = fork();
-    if (child < 0) {
-        throw std::runtime_error(string("Fork db server fail") + "\nLocation: " + debug_info);
+    pid_t child = -1;
+    int try_time = 0;
+    while (child < 0 && try_time < TRY_FORK_TIME) {
+        child = fork();
+        if (child < 0) 
+            cerr << "fork function fails " << endl;
+        try_time++;
     }
+     
+    if (child < 0) 
+        throw std::runtime_error(string("Fork db server fail") + "\nLocation: " + debug_info);
 
     if (child == 0) {
         char *server_argv[128];

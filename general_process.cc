@@ -579,6 +579,38 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
     }
 }
 
+void save_current_testcase(vector<shared_ptr<prod>>& stmt_queue,
+                            vector<int>& tid_queue,
+                            vector<stmt_usage>& usage_queue,
+                            string stmt_file_name,
+                            string tid_file_name,
+                            string usage_file_name)
+{
+    // save stmt queue
+    ofstream mimimized_stmt_output(stmt_file_name);
+    for (int i = 0; i < stmt_queue.size(); i++) {
+        mimimized_stmt_output << print_stmt_to_string(stmt_queue[i]) << endl;
+        mimimized_stmt_output << endl;
+    }
+    mimimized_stmt_output.close();
+
+    // save tid queue
+    ofstream minimized_tid_output(tid_file_name);
+    for (int i = 0; i < tid_queue.size(); i++) {
+        minimized_tid_output << tid_queue[i] << endl;
+    }
+    minimized_tid_output.close();
+
+    // save stmt usage queue
+    ofstream minimized_usage_output(usage_file_name);
+    for (int i = 0; i < usage_queue.size(); i++) {
+        minimized_usage_output << usage_queue[i] << endl;
+    }
+    minimized_usage_output.close();
+    
+    return;
+}
+
 bool minimize_testcase(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue,
@@ -651,6 +683,9 @@ bool minimize_testcase(dbms_info& d_info,
         final_usage_queue = tmp_usage_queue;
         tid--;
         txn_num--;
+
+        save_current_testcase(final_stmt_queue, final_tid_queue, final_usage_queue, 
+                            "min_stmts.sql", "min_tid.txt", "min_usage.txt");
     }
 
     // stmt level minimize
@@ -717,6 +752,8 @@ bool minimize_testcase(dbms_info& d_info,
         final_stmt_queue = tmp_stmt_queue;
         final_tid_queue = tmp_tid_queue;
         final_usage_queue = tmp_usage_queue;
+        save_current_testcase(final_stmt_queue, final_tid_queue, final_usage_queue, 
+                            "min_stmts.sql", "min_tid.txt", "min_usage.txt");
     }
 
     if (final_stmt_queue.size() == stmt_queue.size())
@@ -726,30 +763,8 @@ bool minimize_testcase(dbms_info& d_info,
     tid_queue = final_tid_queue;
     usage_queue = final_usage_queue;
 
-    string mimimized_stmt_file = "min_stmts.sql";
-    // save stmt queue
-    ofstream mimimized_stmt_output(mimimized_stmt_file);
-    for (int i = 0; i < stmt_queue.size(); i++) {
-        mimimized_stmt_output << print_stmt_to_string(stmt_queue[i]) << endl;
-        mimimized_stmt_output << endl;
-    }
-    mimimized_stmt_output.close();
-
-    // save tid queue
-    string minimized_tid_file = "min_tid.txt";
-    ofstream minimized_tid_output(minimized_tid_file);
-    for (int i = 0; i < tid_queue.size(); i++) {
-        minimized_tid_output << tid_queue[i] << endl;
-    }
-    minimized_tid_output.close();
-
-    // save stmt usage queue
-    string minimized_usage_file = "min_usage.txt";
-    ofstream minimized_usage_output(minimized_usage_file);
-    for (int i = 0; i < usage_queue.size(); i++) {
-        minimized_usage_output << usage_queue[i] << endl;
-    }
-    minimized_usage_output.close();
+    save_current_testcase(stmt_queue, tid_queue, usage_queue, 
+                            "min_stmts.sql", "min_tid.txt", "min_usage.txt");
 
     return true;
 }
@@ -760,6 +775,8 @@ bool reproduce_routine(dbms_info& d_info,
                         vector<stmt_usage> usage_queue,
                         string& err_info)
 {
+    transaction_test::fork_if_server_closed(d_info);
+    
     transaction_test re_test(d_info);
     re_test.stmt_queue = stmt_queue;
     re_test.tid_queue = tid_queue;
@@ -805,6 +822,7 @@ bool reproduce_routine(dbms_info& d_info,
     
     try {
         re_test.trans_test();
+        /* only check memory bugs
         shared_ptr<dependency_analyzer> tmp_da;
         if (re_test.analyze_txn_dependency(tmp_da)) {
             string bug_str = "Find bugs in analyze_txn_dependency";
@@ -831,6 +849,7 @@ bool reproduce_routine(dbms_info& d_info,
             err_info = bug_str;
             return true;
         }
+        */
     } catch (exception &e) {
         string cur_err_info = e.what();
         cerr << "exception captured by test: " << cur_err_info << endl;
