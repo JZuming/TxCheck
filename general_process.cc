@@ -822,7 +822,7 @@ bool reproduce_routine(dbms_info& d_info,
     
     try {
         re_test.trans_test();
-        /* only check memory bugs
+        // /* only check memory bugs
         shared_ptr<dependency_analyzer> tmp_da;
         if (re_test.analyze_txn_dependency(tmp_da)) {
             string bug_str = "Find bugs in analyze_txn_dependency";
@@ -849,7 +849,7 @@ bool reproduce_routine(dbms_info& d_info,
             err_info = bug_str;
             return true;
         }
-        */
+        // */
     } catch (exception &e) {
         string cur_err_info = e.what();
         cerr << "exception captured by test: " << cur_err_info << endl;

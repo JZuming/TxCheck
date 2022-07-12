@@ -710,6 +710,7 @@ pid_t dut_mariadb::fork_db_server()
         if (child < 0) 
             cerr << "fork function fails " << endl;
         try_time++;
+        sleep(3);
     }
      
     if (child < 0) 
