@@ -87,7 +87,7 @@ public:
     bool multi_stmt_round_test(); // true: find bugs; false: no bug
     bool refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<dependency_analyzer>& da);
     void normal_stmt_test(vector<stmt_id>& stmt_path);
-    bool check_normal_stmt_result(vector<stmt_id>& stmt_path);
+    bool check_normal_stmt_result(vector<stmt_id>& stmt_path, bool debug = false);
     
     void trans_test(bool debug_mode = true);
     void retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue, bool debug_mode = true);

@@ -663,7 +663,7 @@ bool minimize_testcase(dbms_info& d_info,
             tmp_tid_queue[i]--;
         }
 
-        int try_time = 30;
+        int try_time = 1;
         bool trigger_bug = false;
         while (try_time--) {
             trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue, original_err);
@@ -687,7 +687,7 @@ bool minimize_testcase(dbms_info& d_info,
         save_current_testcase(final_stmt_queue, final_tid_queue, final_usage_queue, 
                             "min_stmts.sql", "min_tid.txt", "min_usage.txt");
     }
-
+    
     // stmt level minimize
     auto stmt_num = final_tid_queue.size();
     auto dut = dut_setup(d_info);
@@ -737,7 +737,7 @@ bool minimize_testcase(dbms_info& d_info,
             i--;
         }
 
-        int try_time = 10;
+        int try_time = 1;
         bool trigger_bug = false;
         while (try_time--) {
             trigger_bug = reproduce_routine(d_info, tmp_stmt_queue, tmp_tid_queue, tmp_usage_queue, original_err);
@@ -839,7 +839,7 @@ bool reproduce_routine(dbms_info& d_info,
         print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
 
         re_test.normal_stmt_test(longest_stmt_path);
-        if (re_test.check_normal_stmt_result(longest_stmt_path) == false) {
+        if (re_test.check_normal_stmt_result(longest_stmt_path, true) == false) {
             string bug_str = "Find bugs in check_normal_stmt_result";
             cerr << RED << bug_str << RESET << endl;
             if (err_info != "" && err_info != bug_str) {

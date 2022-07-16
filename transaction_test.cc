@@ -950,12 +950,12 @@ void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
             normal_dut->test(stmt, &output);
             normal_stmt_output.push_back(output);
             normal_stmt_err_info.push_back("");
-            cerr << "T" << tid << "P" << stmt_pos << ": " << show_str << endl;
+            cerr << "T" << tid << " S" << stmt_pos << ": " << show_str << endl;
         } catch (exception &e) {
             string err = e.what();
             stmt_output empty_output;
             cerr << RED 
-                << "T" << tid << "P" << stmt_pos << ": " << show_str << ": fail, err: " 
+                << "T" << tid << " S" << stmt_pos << ": " << show_str << ": fail, err: " 
                 << err << RESET << endl;
             if (err.find("skipped") != string::npos) {
                 normal_stmt_output.push_back(empty_output);
@@ -982,7 +982,7 @@ void print_stmt_output(stmt_output& output)
     cerr << endl;
 }
 
-bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
+bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path, bool debug)
 {
     if (!compare_content(trans_db_content, normal_stmt_db_content)) {
         cerr << "trans_db_content is not equal to normal_stmt_db_content" << endl;
@@ -1000,12 +1000,14 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path)
         path_txn_err_info.push_back(trans_arr[tid].stmt_err_info[stmt_pos]);
     }
 
-    // for (int i = 0; i < path_length; i++) {
-    //     cerr << "txn output: " << endl;
-    //     print_stmt_output(path_txn_output[i]);
-    //     cerr << "normal output: " << endl;
-    //     print_stmt_output(normal_stmt_output[i]);
-    // }
+    if (debug) {
+        for (int i = 0; i < path_length; i++) {
+            cerr << "txn output: " << endl;
+            print_stmt_output(path_txn_output[i]);
+            cerr << "normal output: " << endl;
+            print_stmt_output(normal_stmt_output[i]);
+        }
+    }
 
     if (!compare_output(path_txn_output, normal_stmt_output)) {
         cerr << "txn output is not equal to normal stmt one" << endl;
