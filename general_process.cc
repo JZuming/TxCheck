@@ -4,9 +4,16 @@ extern int write_op_id;
 
 int make_dir_error_exit(string folder)
 {
-    if (mkdir(folder.c_str(), 0700)) {
+    cerr << "mkdir " << folder << endl;
+    int fail_time = 0;
+    while (mkdir(folder.c_str(), 0700)) {
         cout << "fail to mkdir "<< folder << endl;
-        return 1;
+        if (folder.length() < 2)
+            return 1;
+        folder = folder.substr(0, folder.length() - 2) + "_tmp/";
+        fail_time++;
+        if (fail_time > 5)
+            return 1;
     }
 
     return 0;

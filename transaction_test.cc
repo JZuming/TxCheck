@@ -1328,7 +1328,6 @@ int transaction_test::test()
         
         string dir_name = output_path_dir + "bug_" + to_string(record_bug_num) + "_normal/"; 
         record_bug_num++;
-        make_dir_error_exit(dir_name);
         if (make_dir_error_exit(dir_name) == 1)
             return 255;
         
