@@ -333,8 +333,9 @@ void dependency_analyzer::build_OW_dependency()
             cerr << err_info << endl;
             throw runtime_error(err_info);
         }
-        if (f_stmt_usage[orginal_index] == UPDATE_WRITE) {
-            orginal_index++; // use after_write_read (SELECT_READ and DELETE_WRITE donot have awr, INSERT_WRITE donot version_set)
+        if (f_stmt_usage[orginal_index] == UPDATE_WRITE ||
+                f_stmt_usage[orginal_index] == INSERT_WRITE) {
+            orginal_index++; // use after_write_read (SELECT_READ and DELETE_WRITE donot have awr)
             if (f_stmt_usage[orginal_index] != AFTER_WRITE_READ) {
                 auto err_info = "[INSTRUMENT_ERR] build_OW_dependency: orginal_index + 1 is not AFTER_WRITE_READ, orginal_index = " + to_string(orginal_index);
                 cerr << err_info << endl;

@@ -195,6 +195,17 @@ instrumentor::instrumentor(vector<shared_ptr<prod>>& stmt_queue,
             // init the select
             auto select_stmt = make_shared<query_spec>((struct prod *)0, &used_scope, table, equal_op, wkey_column, wkey_value);
             
+            /*---- version_set select (select * from t where 1=1) ---*/
+            // the inserted value may be determined by other table's row.
+            auto involved_tables = extract_words_begin_with(print_stmt_to_string(stmt), "t_");
+            involved_tables.erase(table->ident());
+            for (auto& table_str:involved_tables) {
+                auto version_set_select_stmt = make_shared<txn_string_stmt>((prod *)0, "SELECT * FROM " + table_str);
+                final_tid_queue.push_back(tid); // version_set select, build predicate-WW
+                final_stmt_queue.push_back(version_set_select_stmt);
+                final_stmt_usage.push_back(stmt_usage(VERSION_SET_READ, true, table_str));
+            }
+            
             // item does not exist, so no need for ealier dependency
             final_tid_queue.push_back(tid);
             final_tid_queue.push_back(tid); // get the later value to build WR and WW dependency
