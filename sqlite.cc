@@ -78,6 +78,7 @@ sqlite_connection::sqlite_connection(std::string &conninfo)
         throw std::runtime_error(sqlite3_errmsg(db));
     }
     db_file = conninfo;
+    cerr << "SQLITE_VERSION: " << SQLITE_VERSION << endl;
     // cerr << pthread_self() << ": connect" << endl;
 }
 
@@ -149,188 +150,232 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     }
 
     // cerr << "done." << endl;
+    booltype = sqltype::get("BOOLEAN");
+    inttype = sqltype::get("INTEGER");
+    realtype = sqltype::get("DOUBLE");
+    texttype = sqltype::get("TEXT");
 
 #define BINOP(n, a, b, r) do {\
-    op o(#n, \
-         sqltype::get(#a), \
-         sqltype::get(#b), \
-         sqltype::get(#r)); \
+    op o(#n, a, b, r); \
     register_operator(o); \
 } while(0)
 
-    BINOP(||, TEXT, TEXT, TEXT);
-    BINOP(*, INTEGER, INTEGER, INTEGER);
-    BINOP(/, INTEGER, INTEGER, INTEGER);
-    BINOP(%, INTEGER, INTEGER, INTEGER);
-    BINOP(+, INTEGER, INTEGER, INTEGER);
-    BINOP(-, INTEGER, INTEGER, INTEGER);
-    BINOP(>>, INTEGER, INTEGER, INTEGER);
-    BINOP(<<, INTEGER, INTEGER, INTEGER);
+    BINOP(||, texttype, texttype, texttype);
+    BINOP(*, inttype, inttype, inttype);
+    BINOP(/, inttype, inttype, inttype);
+    BINOP(%, inttype, inttype, inttype);
+    BINOP(+, inttype, inttype, inttype);
+    BINOP(-, inttype, inttype, inttype);
+    BINOP(>>, inttype, inttype, inttype);
+    BINOP(<<, inttype, inttype, inttype);
 
-    BINOP(&, INTEGER, INTEGER, INTEGER);
-    BINOP(|, INTEGER, INTEGER, INTEGER);
+    BINOP(&, inttype, inttype, inttype);
+    BINOP(|, inttype, inttype, inttype);
 
-    BINOP(<, INTEGER, INTEGER, BOOLEAN);
-    BINOP(<=, INTEGER, INTEGER, BOOLEAN);
-    BINOP(>, INTEGER, INTEGER, BOOLEAN);
-    BINOP(>=, INTEGER, INTEGER, BOOLEAN);
+    BINOP(<, inttype, inttype, booltype);
+    BINOP(<=, inttype, inttype, booltype);
+    BINOP(>, inttype, inttype, booltype);
+    BINOP(>=, inttype, inttype, booltype);
 
-    BINOP(=, INTEGER, INTEGER, BOOLEAN);
-    BINOP(<>, INTEGER, INTEGER, BOOLEAN);
-    BINOP(IS, INTEGER, INTEGER, BOOLEAN);
-    BINOP(IS NOT, INTEGER, INTEGER, BOOLEAN);
+    BINOP(=, inttype, inttype, booltype);
+    BINOP(<>, inttype, inttype, booltype);
+    BINOP(IS, inttype, inttype, booltype);
+    BINOP(IS NOT, inttype, inttype, booltype);
 
-    BINOP(AND, BOOLEAN, BOOLEAN, BOOLEAN);
-    BINOP(OR, BOOLEAN, BOOLEAN, BOOLEAN);
+    BINOP(AND, booltype, booltype, booltype);
+    BINOP(OR, booltype, booltype, booltype);
   
 #define FUNC(n, r) do {							\
-    routine proc("", "", sqltype::get(#r), #n);				\
+    routine proc("", "", r, #n);				\
     register_routine(proc);						\
 } while(0)
 
 #define FUNC1(n, r, a) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
     register_routine(proc);						\
 } while(0)
 
 #define FUNC2(n, r, a, b) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
     register_routine(proc);						\
 } while(0)
 
 #define FUNC3(n, r, a, b, c) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
-    proc.argtypes.push_back(sqltype::get(#c));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
     register_routine(proc);						\
 } while(0)
 
-    // FUNC(last_insert_rowid, INTEGER);
-    // FUNC(random, INTEGER);
-    FUNC(sqlite_source_id, TEXT);
-    FUNC(sqlite_version, TEXT);
-    // FUNC(total_changes, INTEGER);
+#define FUNC4(n, r, a, b, c, d) do {						\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
+    register_routine(proc);						\
+} while(0)
 
-    FUNC1(abs, INTEGER, INTEGER);
-    FUNC1(abs, REAL, REAL);
-    FUNC1(hex, TEXT, TEXT);
+#define FUNC5(n, r, a, b, c, d, e) do {						\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
+    proc.argtypes.push_back(e);				\
+    register_routine(proc);						\
+} while(0)
 
-    FUNC1(length, INTEGER, TEXT);
-    FUNC1(lower, TEXT, TEXT);
-    FUNC1(ltrim, TEXT, TEXT);
-    FUNC1(quote, TEXT, TEXT);
-    // FUNC1(randomblob, TEXT, INTEGER);
-    FUNC1(round, INTEGER, REAL);
-    FUNC1(rtrim, TEXT, TEXT);
+    FUNC(sqlite_source_id, texttype);
+    FUNC(sqlite_version, texttype);
 
-    FUNC1(sqlite_compileoption_get, TEXT, INTEGER);
-    FUNC1(sqlite_compileoption_used, INTEGER, TEXT);
-    FUNC1(trim, TEXT, TEXT);
+    FUNC1(abs, inttype, inttype);
+    FUNC1(abs, realtype, realtype);
 
-    FUNC1(typeof, TEXT, INTEGER);
-    FUNC1(typeof, TEXT, NUMERIC);
-    FUNC1(typeof, TEXT, REAL);
-    FUNC1(typeof, TEXT, TEXT);
-    FUNC1(unicode, INTEGER, TEXT);
-    FUNC1(upper, TEXT, TEXT);
+    FUNC1(char, texttype, inttype);
+    FUNC2(char, texttype, inttype, inttype);
+    FUNC3(char, texttype, inttype, inttype, inttype);
 
-    FUNC1(zeroblob, TEXT, INTEGER);
+    FUNC2(coalesce, texttype, texttype, texttype);
+    FUNC2(coalesce, inttype, inttype, inttype);
+    FUNC2(coalesce, realtype, realtype, realtype);
 
-    FUNC2(glob, INTEGER, TEXT, TEXT);
-    FUNC2(instr, INTEGER, TEXT, TEXT);
-    FUNC2(like, INTEGER, TEXT, TEXT);
-    FUNC2(ltrim, TEXT, TEXT, TEXT);
-    FUNC2(rtrim, TEXT, TEXT, TEXT);
-    FUNC2(trim, TEXT, TEXT, TEXT);
-    FUNC2(round, INTEGER, REAL, INTEGER);
-    FUNC2(substr, TEXT, TEXT, INTEGER);
-    FUNC3(substr, TEXT, TEXT, INTEGER, INTEGER);
-    FUNC3(replace, TEXT, TEXT, TEXT, TEXT);
+    FUNC1(hex, texttype, texttype);
+
+    FUNC3(iif, texttype, booltype, texttype, texttype);
+    FUNC3(iif, inttype, booltype, inttype, inttype);
+    FUNC3(iif, realtype, booltype, realtype, realtype);
+
+    FUNC2(instr, inttype, texttype, texttype);
+    FUNC1(length, inttype, texttype);
+    FUNC1(lower, texttype, texttype);
+    FUNC1(ltrim, texttype, texttype);
+
+    FUNC2(max, inttype, inttype, inttype);
+    FUNC2(max, realtype, realtype, realtype);
+    FUNC2(min, inttype, inttype, inttype);
+    FUNC2(min, realtype, realtype, realtype);
+
+    FUNC2(nullif, inttype, inttype, inttype);
+    FUNC2(nullif, realtype, realtype, realtype);
+    FUNC2(nullif, texttype, texttype, texttype);
+
+    FUNC1(quote, texttype, texttype);
+    FUNC1(round, inttype, realtype);
+    FUNC2(round, inttype, realtype, inttype);
+
+    FUNC1(rtrim, texttype, texttype);
+    FUNC1(sign, inttype, realtype);
+    FUNC1(sign, inttype, inttype);
+
+    FUNC1(sqlite_compileoption_get, texttype, inttype);
+    FUNC1(sqlite_compileoption_used, inttype, texttype);
+    FUNC1(trim, texttype, texttype);
+
+    FUNC1(typeof, texttype, inttype);
+    FUNC1(typeof, texttype, realtype);
+    FUNC1(typeof, texttype, texttype);
+    FUNC1(unicode, inttype, texttype);
+    FUNC1(upper, texttype, texttype);
+
+    FUNC1(zeroblob, texttype, inttype);
+
+    FUNC2(glob, inttype, texttype, texttype);
+    
+    FUNC2(like, inttype, texttype, texttype);
+    FUNC2(ltrim, texttype, texttype, texttype);
+    FUNC2(rtrim, texttype, texttype, texttype);
+    FUNC2(trim, texttype, texttype, texttype);
+    
+    FUNC2(substr, texttype, texttype, inttype);
+    FUNC3(substr, texttype, texttype, inttype, inttype);
+    FUNC3(replace, texttype, texttype, texttype, texttype);
 
 #define AGG1(n, r, a) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
     register_aggregate(proc);						\
 } while(0)
 
 #define AGG3(n, r, a, b, c, d) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
-    proc.argtypes.push_back(sqltype::get(#c));				\
-    proc.argtypes.push_back(sqltype::get(#d));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
+    proc.argtypes.push_back(c);				\
+    proc.argtypes.push_back(d);				\
     register_aggregate(proc);						\
 } while(0)
 
 #define AGG(n, r) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
+    routine proc("", "", r, #n);				\
     register_aggregate(proc);						\
 } while(0)
 
-    AGG1(avg, INTEGER, INTEGER);
-    AGG1(avg, REAL, REAL);
-    AGG(count, INTEGER);
-    AGG1(count, INTEGER, REAL);
-    AGG1(count, INTEGER, TEXT);
-    AGG1(count, INTEGER, INTEGER);
+    AGG1(avg, inttype, inttype);
+    AGG1(avg, realtype, realtype);
+    AGG(count, inttype);
+    AGG1(count, inttype, realtype);
+    AGG1(count, inttype, texttype);
+    AGG1(count, inttype, inttype);
 
-    AGG1(group_concat, TEXT, TEXT);
-    AGG1(max, REAL, REAL);
-    AGG1(max, INTEGER, INTEGER);
-    AGG1(min, REAL, REAL);
-    AGG1(min, INTEGER, INTEGER);
-    AGG1(sum, REAL, REAL);
-    AGG1(sum, INTEGER, INTEGER);
-    AGG1(total, REAL, INTEGER);
-    AGG1(total, REAL, REAL);
+    AGG1(group_concat, texttype, texttype);
+    AGG1(max, realtype, realtype);
+    AGG1(max, inttype, inttype);
+    AGG1(min, realtype, realtype);
+    AGG1(min, inttype, inttype);
+    AGG1(sum, realtype, realtype);
+    AGG1(sum, inttype, inttype);
+    AGG1(total, realtype, inttype);
+    AGG1(total, realtype, realtype);
 
 #define WIN(n, r) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
+    routine proc("", "", r, #n);				\
     register_windows(proc);						\
 } while(0)
 
 #define WIN1(n, r, a) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
     register_windows(proc);						\
 } while(0)
 
 #define WIN2(n, r, a, b) do {						\
-    routine proc("", "", sqltype::get(#r), #n);				\
-    proc.argtypes.push_back(sqltype::get(#a));				\
-    proc.argtypes.push_back(sqltype::get(#b));				\
+    routine proc("", "", r, #n);				\
+    proc.argtypes.push_back(a);				\
+    proc.argtypes.push_back(b);				\
     register_windows(proc);						\
 } while(0)
 
-    // ranking window function
-    WIN(CUME_DIST, REAL);
-    WIN(DENSE_RANK, INTEGER);
-    WIN1(NTILE, INTEGER, INTEGER);
-    WIN(RANK, INTEGER);
-    WIN(ROW_NUMBER, INTEGER);
-    WIN(PERCENT_RANK, REAL);
-
-    // value window function
-    WIN1(FIRST_VALUE, INTEGER, INTEGER);
-    WIN1(FIRST_VALUE, REAL, REAL);
-    WIN1(FIRST_VALUE, TEXT, TEXT);
-    WIN1(LAST_VALUE, INTEGER, INTEGER);
-    WIN1(LAST_VALUE, REAL, REAL);
-    WIN1(LAST_VALUE, TEXT, TEXT);
-    WIN1(LAG, INTEGER, INTEGER);
-    WIN1(LAG, REAL, REAL);
-    WIN1(LAG, TEXT, TEXT);
-    WIN2(LEAD, INTEGER, INTEGER, INTEGER);
-    WIN2(LEAD, REAL, REAL, INTEGER);
-    WIN2(LEAD, TEXT, TEXT, INTEGER);
+    WIN(row_number, inttype);
+    WIN(rank, inttype);
+    WIN(dense_rank, inttype);
+    WIN(percent_rank, realtype);
+    WIN(cume_dist, realtype);
+    WIN1(ntile, inttype, inttype);
     
-    booltype = sqltype::get("BOOLEAN");
-    inttype = sqltype::get("INTEGER");
+    WIN1(lag, inttype, inttype);
+    WIN1(lag, realtype, realtype);
+    WIN1(lag, texttype, texttype);
 
+    WIN2(lead, inttype, inttype, inttype);
+    WIN2(lead, realtype, realtype, inttype);
+    WIN2(lead, texttype, texttype, inttype);
+    
+    WIN1(first_value, inttype, inttype);
+    WIN1(first_value, realtype, realtype);
+    WIN1(first_value, texttype, texttype);
+    WIN1(last_value, inttype, inttype);
+    WIN1(last_value, realtype, realtype);
+    WIN1(last_value, texttype, texttype);
+
+    WIN2(nth_value, inttype, inttype, inttype);
+    WIN2(nth_value, realtype, realtype, inttype);
+    WIN2(nth_value, texttype, texttype, inttype);
+    
     internaltype = sqltype::get("internal");
     arraytype = sqltype::get("ARRAY");
 
