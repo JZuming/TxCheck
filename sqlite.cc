@@ -78,7 +78,7 @@ sqlite_connection::sqlite_connection(std::string &conninfo)
         throw std::runtime_error(sqlite3_errmsg(db));
     }
     db_file = conninfo;
-    cerr << "SQLITE_VERSION: " << SQLITE_VERSION << endl;
+    // cerr << "SQLITE_VERSION: " << SQLITE_VERSION << endl;
     // cerr << pthread_self() << ": connect" << endl;
 }
 
