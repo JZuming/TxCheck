@@ -474,6 +474,14 @@ void transaction_test::trans_test(bool debug_mode)
     for (int i = 0; i < stmt_num; i++) 
         status_queue[i] = 0;
     
+    /* 
+    Note: for sqlite, after using dut_reset_to_backup(), 
+    original connection is broken and the database only 
+    can be read. We need to reconnect to the new one.
+    */
+    for (int i = 0; i < trans_num; i++) 
+        trans_arr[i].dut = dut_setup(test_dbms_info);
+    
     for (int stmt_index = 0; stmt_index < stmt_num; stmt_index++) {
         auto tid = tid_queue[stmt_index];
         auto& stmt = stmt_queue[stmt_index];
@@ -1298,13 +1306,12 @@ bool transaction_test::multi_stmt_round_test()
 
 void transaction_test::block_scheduling()
 {
-    cerr << RED << "block scheduling" << RESET << endl;
+    cerr << endl << RED << "block scheduling" << RESET << endl;
     int round = 0;
     while (1) {
         cerr << RED << "scheduling: " << round << RESET << endl;
         trans_test();
-        if (tid_queue == real_tid_queue // no blocking
-                && stmt_use == real_stmt_usage) // no failing 
+        if (stmt_queue == real_stmt_queue) // no failing 
             break;
         stmt_queue = real_stmt_queue;
         stmt_use = real_stmt_usage;
@@ -1313,6 +1320,7 @@ void transaction_test::block_scheduling()
         round++;
     }
     clear_execution_status();
+    cerr << RED << "block scheduling finish" << RESET << endl << endl;
 }
 
 int transaction_test::test()

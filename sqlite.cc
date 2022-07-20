@@ -463,22 +463,31 @@ void dut_sqlite::test(const std::string &stmt, vector<vector<string>>* output, i
 {
     // alarm(6);
     rc = sqlite3_exec(db, stmt.c_str(), content_callback, (void *)output, &zErrMsg);
-    if(rc != SQLITE_OK){
-        try {
-            if (regex_match(zErrMsg, e_syntax)) {
-                throw dut::syntax(zErrMsg);
-            }
-            else if (regex_match(zErrMsg, e_user_abort)) {
-	            sqlite3_free(zErrMsg);
-	            return;
-            } else {
-                throw dut::failure(zErrMsg);
-            }
-        } catch (dut::failure &e) {
-            sqlite3_free(zErrMsg);
-            throw e;
-        }
+    if (rc != SQLITE_OK) {
+        string err = zErrMsg;
+        if (stmt.find("COMMIT") != string::npos)
+            throw runtime_error("fail to commit, can only rollback: " + err); // commit cannot be block. if so, just rollback
+        if (err.find("database is locked") != string::npos)
+            throw std::runtime_error("blocked: " + err); 
+        throw std::runtime_error("sqlite3_exec fails(skipped): " + err); 
     }
+    
+    // if(rc != SQLITE_OK){
+    //     try {
+    //         if (regex_match(zErrMsg, e_syntax)) {
+    //             throw dut::syntax(zErrMsg);
+    //         }
+    //         else if (regex_match(zErrMsg, e_user_abort)) {
+	//             sqlite3_free(zErrMsg);
+	//             return;
+    //         } else {
+    //             throw dut::failure(zErrMsg);
+    //         }
+    //     } catch (dut::failure &e) {
+    //         sqlite3_free(zErrMsg);
+    //         throw e;
+    //     }
+    // }
 
     if (affected_row_num)
         *affected_row_num = sqlite3_changes(db);
