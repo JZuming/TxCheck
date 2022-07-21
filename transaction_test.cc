@@ -375,7 +375,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
     return 0;
 }
 
-void transaction_test::retry_block_stmt(int cur_stmt_num, shared_ptr<int[]> status_queue, bool debug_mode)
+void transaction_test::retry_block_stmt(int cur_stmt_num, int* status_queue, bool debug_mode)
 {
     if (debug_mode)
         cerr << YELLOW << "retrying process begin..." << RESET << endl;
@@ -469,7 +469,7 @@ void transaction_test::trans_test(bool debug_mode)
     if (debug_mode)
         cerr << YELLOW << "transaction test" << RESET << endl;
     // status_queue: 0 -> blocked, 1->executed (succeed or fail)
-    shared_ptr<int[]> status_queue(new int[stmt_num]);
+    int status_queue[stmt_num];
     
     for (int i = 0; i < stmt_num; i++) 
         status_queue[i] = 0;

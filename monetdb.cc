@@ -58,8 +58,6 @@ monetdb_connection::~monetdb_connection()
 //load schema from MonetDB
 schema_monetdb::schema_monetdb(std::string &conninfo):monetdb_connection(conninfo)
 {
-
-
 	cerr << "init booltype, inttype, internaltype, arraytype here" << endl;
 	booltype = sqltype::get("boolean");
 	inttype = sqltype::get("int");
