@@ -54,6 +54,19 @@ dbms_info::dbms_info(map<string,string>& options)
         cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
         throw runtime_error("Does not support MySQL");
         #endif
+    }  else if (options.count("monetdb-db") && options.count("monetdb-port")) {
+        #ifdef HAVE_MONETDB
+        
+        dbms_name = "monetdb";
+        serializable = true;
+        test_port = stoi(options["mariadb-port"]);
+        test_db = options["mariadb-db"];
+        can_trigger_error_in_txn = false;
+        
+        #else
+        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
+        throw runtime_error("Does not support MySQL");
+        #endif
     } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
         dbms_name = "cockroach";
         serializable = true;

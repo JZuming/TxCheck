@@ -26,18 +26,6 @@ using boost::regex_match;
 #include "impedance.hh"
 #include "dut.hh"
 
-#ifdef HAVE_LIBSQLITE3
-#include "sqlite.hh"
-#endif
-
-#ifdef HAVE_LIBMYSQLCLIENT
-#include "tidb.hh"
-#endif
-
-#ifdef HAVE_MONETDB
-#include "monetdb.hh"
-#endif
-
 #include "postgres.hh"
 
 #include <sys/time.h>
@@ -312,7 +300,8 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             "    --sqlite=URI         SQLite database to send queries to" << endl <<
             #endif
             #ifdef HAVE_MONETDB
-            "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
+            "    --monetdb-db=connstr  MonetDB database to send queries to" <<endl <<
+            "    --monetdb-port=int    MonetDB server port number" <<endl <<
             #endif
             #ifdef HAVE_LIBMYSQLCLIENT
             #ifdef HAVE_TIDB

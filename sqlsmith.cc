@@ -82,7 +82,8 @@ int main(int argc, char *argv[])
             "    --sqlite=URI         SQLite database to send queries to" << endl <<
 #endif
 #ifdef HAVE_MONETDB
-            "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
+            "    --monetdb-db=connstr  MonetDB database to send queries to" <<endl <<
+            "    --monetdb-port=int    MonetDB server port number" <<endl <<
 #endif
             "    --log-to=connstr     log errors to postgres database" << endl <<
             "    --seed=int           seed RNG with specified int instead of PID" << endl <<
@@ -109,13 +110,9 @@ int main(int argc, char *argv[])
 	        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
 	        return 1;
 #endif
-        } else if(options.count("monetdb")) {
-#ifdef HAVE_MONETDB
-	        schema = make_shared<schema_monetdb>(options["monetdb"]);
-#else
+        } else if(options.count("monetdb-db")) {
 	        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
 	        return 1;
-#endif
         } else
 	        schema = make_shared<schema_pqxx>(options["target"], options.count("exclude-catalog"));
 
@@ -180,12 +177,8 @@ int main(int argc, char *argv[])
 	        return 1;
 #endif
         } else if(options.count("monetdb")) {
-#ifdef HAVE_MONETDB	   
-	        dut = make_shared<dut_monetdb>(options["monetdb"]);
-#else
 	        cerr << "Sorry, " PACKAGE_NAME " was compiled without MonetDB support." << endl;
 	        return 1;
-#endif
         } else
 	        dut = make_shared<dut_libpq>(options["target"]);
 

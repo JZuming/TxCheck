@@ -4,6 +4,7 @@ BUILT_SOURCES = gitrev.h
 
 bin_PROGRAMS = sqlsmith transfuzz
 
+AM_CPPFLAGS = -Dtest1
 DUT = postgres.cc
 
 if DUT_MONETDB
@@ -13,8 +14,6 @@ endif
 if DUT_SQLITE
 DUT += sqlite.cc
 endif
-
-AM_CPPFLAGS = -Dtest1
 
 if DUT_TIDB
 DUT += tidb.cc

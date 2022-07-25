@@ -19,25 +19,29 @@ extern "C" {
 #include <unistd.h>
 }
 
+#define debug_info (string(__func__) + "(" + string(__FILE__) + ":" + to_string(__LINE__) + ")")
+
 // connect montetdb
-monetdb_connection::monetdb_connection(std::string &conninfo)
+monetdb_connection::monetdb_connection(string db, unsigned int port)
 {
-	dbh = mapi_mapiuri(conninfo.c_str(), "monetdb", "monetdb", "sql");
+	test_db = db;
+	test_port = port;
+	dbh = mapi_connect(NULL, port, "monetdb", "monetdb", "sql", db.c_str());
 	if (mapi_error(dbh)) {
 		if (dbh != NULL) {
-                         mapi_explain(dbh, stderr);
-                         mapi_destroy(dbh);
-                } else {
-                         fprintf(stderr, "command failed\n");
-                }
-                exit(-1);
-        }
+        	mapi_explain(dbh, stderr);
+            mapi_destroy(dbh);
+    	} else {
+            fprintf(stderr, "command failed\n");
+    	}
+        exit(-1);
+    }
 	mapi_reconnect(dbh);
 	if (mapi_error(dbh)) {
 		mapi_explain(dbh, stderr);
 		mapi_destroy(dbh);
-                exit(-1);
-        }
+        exit(-1);
+    }
 }
 
 // execute queries on MonetDB
@@ -56,7 +60,7 @@ monetdb_connection::~monetdb_connection()
 }
 
 //load schema from MonetDB
-schema_monetdb::schema_monetdb(std::string &conninfo):monetdb_connection(conninfo)
+schema_monetdb::schema_monetdb(string db, unsigned int port):monetdb_connection(db, port)
 {
 	cerr << "init booltype, inttype, internaltype, arraytype here" << endl;
 	booltype = sqltype::get("boolean");
@@ -64,7 +68,7 @@ schema_monetdb::schema_monetdb(std::string &conninfo):monetdb_connection(conninf
 	internaltype = sqltype::get("internal");
 	arraytype = sqltype::get("ARRAY");
 
-	cerr << "Loading tables from database: " << conninfo << endl;
+	cerr << "Loading tables from database: " << db << endl;
 //	string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id and t.system=false";
 	string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id ";
 	MapiHdl hdl = mapi_query(dbh,qry.c_str());
@@ -106,7 +110,6 @@ schema_monetdb::schema_monetdb(std::string &conninfo):monetdb_connection(conninf
 	mapi_close_handle(hdl);
 	cerr << " done." << endl;
 
-
 	cerr << "Loading routines...";
 	string routq("select s.name, f.id, a.type, f.name from sys.schemas s, sys.args a, sys.types t, sys.functions f where f.schema_id = s.id and f.id=a.func_id and a.number=0 and a.type = t.sqlname and f.mod<>'aggr'");
 	hdl = mapi_query(dbh,routq.c_str());
@@ -131,8 +134,6 @@ schema_monetdb::schema_monetdb(std::string &conninfo):monetdb_connection(conninf
 		mapi_close_handle(hdl);
 	}
 	cerr << " done."<< endl;
-
-
 
 	cerr << "Loading aggregates...";
 	string aggq("select s.name, f.id, a.type, f.name from sys.schemas s, sys.args a, sys.types t, sys.functions f where f.schema_id = s.id and f.id=a.func_id and a.number=0 and a.type = t.sqlname and f.mod='aggr'");
@@ -161,71 +162,172 @@ schema_monetdb::schema_monetdb(std::string &conninfo):monetdb_connection(conninf
 
 	mapi_destroy(dbh);
 	generate_indexes();
-
-//	cerr << "print loaded information to check correctness" << endl;
-//	cerr << "Loaded tables.... " << endl;
-/*  	for (auto item : tables) {
-		cerr << item.name << "; " << item.schema << "; " << item.is_insertable << "; " << item.is_base_table << endl;
-  	}
-*/
-//	cerr << "Loaded columns... " << endl;
-/*  	for (auto tab : tables) {
-		for (auto col: tab.columns())
-			cerr << tab.name << "; " << col.name << "; "<<col.type->name << endl;
-	}
-*/
-//	cerr << "Loaded aggregates and parameters... " << endl;
-/* 	for (auto &proc : aggregates) {
-		cerr << proc.specific_name << "; " << proc.schema << "; " << proc.name <<"; " << proc.restype->name ;
-		for (auto item : proc.argtypes)
-			cerr << "; " << item->name;
-		cerr << endl;
- 	}
-*/
 }
 
-dut_monetdb::dut_monetdb(std::string &conninfo):monetdb_connection(conninfo)
+dut_monetdb::dut_monetdb(string db, unsigned int port):monetdb_connection(db, port)
 {
 	//build connection
 }
 
-void dut_monetdb::test(const std::string &stmt)
+void dut_monetdb::test(const string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {
-	MapiHdl hdl = mapi_query(dbh,"CALL sys.settimeout(1)");
-	mapi_close_handle(hdl);
-	hdl = mapi_query(dbh,stmt.c_str());
+	// MapiHdl hdl = mapi_query(dbh,"CALL sys.settimeout(1)");
+	// mapi_close_handle(hdl);
+	auto hdl = mapi_query(dbh, stmt.c_str());
+	if (mapi_error(dbh) != MOK) {
+		auto err_str = mapi_result_error(hdl);
+		if (!err_str)
+		    err_str = "unknown error";
+		string err_string = err_str;
+		
+		if (stmt.find("COMMIT") != string::npos)
+            throw runtime_error("fail to commit, can only rollback: " + err_string); // commit cannot be block. if so, just rollback
+		if (err_string.find("conflict with another transaction") != string::npos)
+            throw std::runtime_error("blocked: " + err_string);
+		throw std::runtime_error("mapi_query fails(skipped): " + err_string); 
+	}
 
-	if (mapi_error(dbh)!=MOK) {
+	if (affected_row_num)
+        *affected_row_num = mapi_rows_affected(hdl);
 
-	     try {
-		  const char *error_string = mapi_result_error(hdl);
-
-		  if (!error_string)
-		       error_string = "unknown error";
-
-		  const char *sqlstate = mapi_result_errorcode(hdl);
-		  if (!sqlstate)
-		       sqlstate = "XXXXX";
-
-		  /* monetdb appears to report sqlstate 42000 for all
-		     errors, so we need to match the error string to
-		     figure out actual syntax errors */
-
-		  static regex re_syntax("^syntax error,.*", regex::extended);
-		  
-		  if (mapi_error(dbh)==MERROR)
-		       throw dut::syntax(error_string, sqlstate);
-		  else if (mapi_error(dbh)==MTIMEOUT)
-		       throw dut::timeout(error_string, sqlstate);
-		  else if (regex_match(error_string, re_syntax))
-		       throw dut::syntax(error_string, sqlstate);
-		  else
-		       throw dut::failure(error_string, sqlstate);
-
-	     }  catch (dut::failure &e) {
-		  mapi_close_handle(hdl);
-		  throw;
-	     }
+	if (output) {
+		auto column_num = mapi_get_field_count(hdl);
+		while (mapi_fetch_row(hdl)) {
+			vector<string> row_output;
+			for (int i = 0; i < column_num; i++) {
+                string str;
+				auto char_str = mapi_fetch_field(hdl, i);
+                if (char_str == NULL)
+                    str = "NULL";
+                else
+                    str = char_str;
+                row_output.push_back(str);
+            }
+            output->push_back(row_output);
+		}
 	}
 	mapi_close_handle(hdl);
+	return;
+}
+
+void dut_monetdb::reset(void)
+{
+    mapi_destroy(dbh);
+
+	string stop_cmd = "monetdb stop " + test_db;
+	string destroy_cmd = "monetdb destroy -f " + test_db;
+	string create_cmd = "monetdb create " + test_db;
+	string start_cmd = "monetdb start " + test_db;
+	
+	system(stop_cmd.c_str()); // may fail when no database started
+	system(destroy_cmd.c_str()); // may fail when no database created
+	if (system(create_cmd.c_str()) != 0) {
+        std::cerr << "create monetdb database fail" << endl;
+        throw std::runtime_error("create monetdb database fail"); 
+    }
+	if (system(start_cmd.c_str()) != 0) {
+        std::cerr << "start monetdb database fail" << endl;
+        throw std::runtime_error("start monetdb database fail"); 
+    }
+
+	monetdb_connection(test_db, test_port);
+	return;
+}
+
+void dut_monetdb::backup(void)
+{
+	string dump_cmd = "echo -e 'user=monetdb\npassword=monetdb' > .monetdb; msqldump -q " + test_db + " > /tmp/monetdb_bk.sql";
+    if (system(dump_cmd.c_str()) != 0) {
+        std::cerr << "backup monetdb fail" << endl;
+        throw std::runtime_error("backup monetdb fail"); 
+    }
+	return;
+}
+
+void dut_monetdb::reset_to_backup(void)
+{
+    reset();
+    string bk_file = "/tmp/monetdb_bk.sql";
+    if (access(bk_file.c_str(), F_OK ) == -1) 
+        return;
+    
+    string monetdb_source = "echo -e 'user=monetdb\npassword=monetdb' > .monetdb; mclient -d " + test_db + "/tmp/monetdb_bk.sql";
+    if (system(monetdb_source.c_str()) == -1) 
+        throw std::runtime_error("system(monetdb_source) error, return -1");
+}
+
+string dut_monetdb::begin_stmt() {
+    return "START TRANSACTION ISOLATION LEVEL READ COMMITTED";
+}
+
+string dut_monetdb::commit_stmt() {
+    return "COMMIT";
+}
+
+string dut_monetdb::abort_stmt() {
+    return "ROLLBACK";
+}
+
+void dut_monetdb::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
+{
+    for (auto& table:tables_name) {
+        vector<vector<string>> table_content;
+        auto query = "SELECT * FROM " + table + " ORDER BY 1;";
+
+		auto hdl = mapi_query(dbh, query.c_str());
+		if (mapi_error(dbh) != MOK) {
+            string err = mapi_result_error(hdl);
+            cerr << "Cannot get content of " + table << endl;
+            cerr << "Error: " + err << endl;
+            continue;
+        }
+
+		auto column_num = mapi_get_field_count(hdl);
+		while (mapi_fetch_row(hdl)) {
+			vector<string> row_output;
+			for (int i = 0; i < column_num; i++) {
+                string str;
+				auto char_str = mapi_fetch_field(hdl, i);
+                if (char_str == NULL)
+                    str = "NULL";
+                else
+                    str = char_str;
+                row_output.push_back(str);
+            }
+            table_content.push_back(row_output);
+		}
+		mapi_close_handle(hdl);
+        content[table] = table_content;
+    }
+	return;
+}
+
+pid_t dut_monetdb::fork_db_server()
+{
+    pid_t child = fork();
+    if (child < 0) {
+        throw std::runtime_error(string("Fork monetdb server fail") + "\nLocation: " + debug_info);
+    }
+
+    if (child == 0) {
+        char *server_argv[128];
+        int i = 0;
+        server_argv[i++] = (char *)"/usr/local/bin/monetdbd"; // path of tiup
+        server_argv[i++] = (char *)"start";
+        server_argv[i++] = (char *)"-n ";
+        server_argv[i++] = (char *)"monetdb_farm";
+        server_argv[i++] = NULL;
+        execv(server_argv[0], server_argv);
+        cerr << "fork mysql server fail \nLocation: " + debug_info << endl; 
+    }
+    
+    sleep(3);
+    cout << "server pid: " << child << endl;
+    return child;
+}
+
+int dut_monetdb::save_backup_file(string path)
+{
+    string cp_cmd = "cp /tmp/monetdb_bk.sql " + path;
+    return system(cp_cmd.c_str());
 }

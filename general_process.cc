@@ -45,6 +45,11 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
         #endif
         #endif
 
+        #ifdef HAVE_MONETDB
+        else if (d_info.dbms_name == "monetdb") 
+            schema = make_shared<schema_monetdb>(d_info.test_db, d_info.test_port);
+        #endif
+
         else if (d_info.dbms_name == "cockroach")
             schema = make_shared<schema_cockroachdb>(d_info.test_db, d_info.test_port);
         else {
@@ -89,10 +94,15 @@ shared_ptr<dut_base> dut_setup(dbms_info& d_info)
     #endif
     #endif
 
+    #ifdef HAVE_MONETDB
+    else if (d_info.dbms_name == "monetdb")
+        dut = make_shared<dut_monetdb>(d_info.test_db, d_info.test_port);
+    #endif
+
     else if (d_info.dbms_name == "cockroach")
         dut = make_shared<dut_cockroachdb>(d_info.test_db, d_info.test_port);
     else {
-        cerr << d_info.dbms_name << " is not supported yet" << endl;
+        cerr << d_info.dbms_name << " is not installed, or it is not supported yet" << endl;
         throw runtime_error("Unsupported DBMS");
     }
 
@@ -112,16 +122,19 @@ int save_backup_file(string path, dbms_info& d_info)
     else if (d_info.dbms_name == "mysql")
         return dut_mysql::save_backup_file(path);
     #endif
-    
     #ifdef HAVE_MARIADB
     else if (d_info.dbms_name == "mariadb")
         return dut_mariadb::save_backup_file(path);
     #endif
-    
     #ifdef HAVE_TIDB
     else if (d_info.dbms_name == "tidb")
         return dut_tidb::save_backup_file(path);
     #endif
+    #endif
+
+    #ifdef HAVE_MONETDB
+    else if (d_info.dbms_name == "monetdb")
+        return dut_monetdb::save_backup_file(path);
     #endif
 
     else if (d_info.dbms_name == "cockroach")
@@ -154,6 +167,11 @@ pid_t fork_db_server(dbms_info& d_info)
     else if (d_info.dbms_name == "tidb")
         fork_pid = dut_tidb::fork_db_server();
     #endif
+    #endif
+
+    #ifdef HAVE_MONETDB
+    else if (d_info.dbms_name == "monetdb")
+        fork_pid = dut_monetdb::fork_db_server();
     #endif
 
     else if (d_info.dbms_name == "cockroach")
