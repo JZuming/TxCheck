@@ -59,8 +59,8 @@ dbms_info::dbms_info(map<string,string>& options)
         
         dbms_name = "monetdb";
         serializable = true;
-        test_port = stoi(options["mariadb-port"]);
-        test_db = options["mariadb-db"];
+        test_port = stoi(options["monetdb-port"]);
+        test_db = options["monetdb-db"];
         can_trigger_error_in_txn = false;
         
         #else

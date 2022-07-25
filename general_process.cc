@@ -57,9 +57,9 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
             throw runtime_error("Unsupported DBMS");
         }
     } catch (exception &e) { // may occur occastional error
+        cerr << "exception: " << e.what() << endl;
         if (try_time >= 128) {
             cerr << "Fail in get_schema() " << try_time << " times, return" << endl;
-            cerr << "exception: " << e.what() << endl;
 	        throw e;
         }
         try_time++;

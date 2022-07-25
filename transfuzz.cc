@@ -278,6 +278,7 @@ int main(int argc, char *argv[])
 tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 mariadb-db|mariadb-port|\
+monetdb-db|monetdb-port|\
 cockroach-db|cockroach-port|\
 output-or-affect-num|\
 reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");

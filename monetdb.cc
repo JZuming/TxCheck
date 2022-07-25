@@ -27,7 +27,25 @@ monetdb_connection::monetdb_connection(string db, unsigned int port)
 	test_db = db;
 	test_port = port;
 	dbh = mapi_connect(NULL, port, "monetdb", "monetdb", "sql", db.c_str());
-	if (mapi_error(dbh)) {
+	auto err = mapi_error(dbh);
+	if (err) {
+		string err_msg = mapi_error_str(dbh);
+		if (err_msg.find("no such database") != string::npos) {
+			string create_cmd = "monetdb create " + test_db;
+			string start_cmd = "monetdb start " + test_db;
+			if (system(create_cmd.c_str()) != 0) {
+				std::cerr << "create monetdb database fail" << endl;
+				exit(-1);
+			}
+			if (system(start_cmd.c_str()) != 0) {
+				std::cerr << "start monetdb database fail" << endl;
+				exit(-1);
+			}
+			dbh = mapi_connect(NULL, port, "monetdb", "monetdb", "sql", db.c_str());
+			err = mapi_error(dbh);
+		}
+    }
+	if (err) {
 		if (dbh != NULL) {
         	mapi_explain(dbh, stderr);
             mapi_destroy(dbh);
@@ -35,7 +53,8 @@ monetdb_connection::monetdb_connection(string db, unsigned int port)
             fprintf(stderr, "command failed\n");
     	}
         exit(-1);
-    }
+	}
+
 	mapi_reconnect(dbh);
 	if (mapi_error(dbh)) {
 		mapi_explain(dbh, stderr);
@@ -62,11 +81,14 @@ monetdb_connection::~monetdb_connection()
 //load schema from MonetDB
 schema_monetdb::schema_monetdb(string db, unsigned int port):monetdb_connection(db, port)
 {
-	cerr << "init booltype, inttype, internaltype, arraytype here" << endl;
+	// cerr << "init booltype, inttype, internaltype, arraytype here" << endl;
 	booltype = sqltype::get("boolean");
 	inttype = sqltype::get("int");
 	internaltype = sqltype::get("internal");
 	arraytype = sqltype::get("ARRAY");
+
+    realtype = sqltype::get("double");
+    texttype = sqltype::get("text");
 
 	cerr << "Loading tables from database: " << db << endl;
 //	string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id and t.system=false";
@@ -160,7 +182,7 @@ schema_monetdb::schema_monetdb(string db, unsigned int port):monetdb_connection(
 	}
 	cerr << " done."<< endl;
 
-	mapi_destroy(dbh);
+	// mapi_destroy(dbh);
 	generate_indexes();
 }
 
@@ -230,16 +252,21 @@ void dut_monetdb::reset(void)
         throw std::runtime_error("start monetdb database fail"); 
     }
 
-	monetdb_connection(test_db, test_port);
+	dbh = mapi_connect(NULL, test_port, "monetdb", "monetdb", "sql", test_db.c_str());
 	return;
 }
 
 void dut_monetdb::backup(void)
 {
-	string dump_cmd = "echo -e 'user=monetdb\npassword=monetdb' > .monetdb; msqldump -q " + test_db + " > /tmp/monetdb_bk.sql";
+	string echo_cmd = "echo 'user=monetdb\npassword=monetdb' > .monetdb"; // do not need -e because the "-n" will be transferred automatically
+	if (system(echo_cmd.c_str()) != 0) {
+        std::cerr << "backup (echo_cmd) monetdb fail" << endl;
+        throw std::runtime_error("backup (echo_cmd) monetdb fail"); 
+    }
+	string dump_cmd = "msqldump -q " + test_db + " > /tmp/monetdb_bk.sql";
     if (system(dump_cmd.c_str()) != 0) {
-        std::cerr << "backup monetdb fail" << endl;
-        throw std::runtime_error("backup monetdb fail"); 
+        std::cerr << "backup (dump_cmd) monetdb fail" << endl;
+        throw std::runtime_error("backup (dump_cmd) monetdb fail"); 
     }
 	return;
 }
@@ -251,9 +278,14 @@ void dut_monetdb::reset_to_backup(void)
     if (access(bk_file.c_str(), F_OK ) == -1) 
         return;
     
-    string monetdb_source = "echo -e 'user=monetdb\npassword=monetdb' > .monetdb; mclient -d " + test_db + "/tmp/monetdb_bk.sql";
-    if (system(monetdb_source.c_str()) == -1) 
-        throw std::runtime_error("system(monetdb_source) error, return -1");
+    string echo_cmd = "echo 'user=monetdb\npassword=monetdb' > .monetdb";
+	if (system(echo_cmd.c_str()) != 0) {
+        std::cerr << "reset_to_backup (echo_cmd) monetdb fail" << endl;
+        throw std::runtime_error("reset_to_backup (echo_cmd) monetdb fail"); 
+    }
+	string monetdb_source = "mclient -d " + test_db + "/tmp/monetdb_bk.sql";
+    if (system(monetdb_source.c_str()) != 0) 
+        throw std::runtime_error("reset_to_backup (monetdb_source) error, return -1");
 }
 
 string dut_monetdb::begin_stmt() {
