@@ -23,6 +23,7 @@ struct monetdb_connection {
 
 struct schema_monetdb : schema, monetdb_connection {
 	schema_monetdb(string db, unsigned int port);
+	virtual void update_schema();
 	virtual std::string quote_name(const std::string &id) {
 		return id;
 	}

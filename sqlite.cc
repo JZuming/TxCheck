@@ -111,7 +111,6 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 
 //   sqlite3_busy_handler(db, my_sqlite3_busy_handler, 0);
     // cerr << "Loading tables...";
-
     rc = sqlite3_exec(db, query.c_str(), table_callback, (void *)&tables, &zErrMsg);
     if (rc!=SQLITE_OK) {
         auto e = std::runtime_error(zErrMsg);
@@ -124,7 +123,6 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
 		table tab("sqlite_master", "main", false, false);
 		tables.push_back(tab);
     }
-  
     // cerr << "done." << endl;
 
     // cerr << "Loading indexes...";
@@ -135,6 +133,7 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
         sqlite3_free(zErrMsg);
         throw e;
     }
+    // cerr << "done." << endl;
 
     // cerr << "Loading columns and constraints...";
     for (auto t = tables.begin(); t != tables.end(); ++t) {
@@ -148,8 +147,8 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
             throw e;
         }
     }
-
     // cerr << "done." << endl;
+
     booltype = sqltype::get("BOOLEAN");
     inttype = sqltype::get("INTEGER");
     realtype = sqltype::get("DOUBLE");
@@ -423,6 +422,44 @@ schema_sqlite::schema_sqlite(std::string &conninfo, bool no_catalog)
     }
     sqlite3_close(db);
     db = 0;
+}
+
+void schema_sqlite::update_schema()
+{
+    // cerr << "Loading tables...";
+    string query = "SELECT * FROM main.sqlite_master where type in ('table', 'view')";
+    rc = sqlite3_exec(db, query.c_str(), table_callback, (void *)&tables, &zErrMsg);
+    if (rc!=SQLITE_OK) {
+        auto e = std::runtime_error(zErrMsg);
+        sqlite3_free(zErrMsg);
+        throw e;
+    }
+    // cerr << "done." << endl;
+
+    // cerr << "Loading indexes...";
+    string query_index = "SELECT name FROM sqlite_master WHERE type='index' ORDER BY 1;";
+    rc = sqlite3_exec(db, query_index.c_str(), index_callback, (void *)&indexes, &zErrMsg);
+    if (rc!=SQLITE_OK) {
+        auto e = std::runtime_error(zErrMsg);
+        sqlite3_free(zErrMsg);
+        throw e;
+    }
+    // cerr << "done." << endl;
+
+    // cerr << "Loading columns and constraints...";
+    for (auto t = tables.begin(); t != tables.end(); ++t) {
+        string q("pragma table_info(");
+        q += t->name;
+        q += ");";
+        rc = sqlite3_exec(db, q.c_str(), column_callback, (void *)&*t, &zErrMsg);
+        if (rc!=SQLITE_OK) {
+            auto e = std::runtime_error(zErrMsg);
+            sqlite3_free(zErrMsg);
+            throw e;
+        }
+    }
+    // cerr << "done." << endl;
+    return;
 }
 
 dut_sqlite::dut_sqlite(std::string &conninfo)

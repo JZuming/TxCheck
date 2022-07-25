@@ -21,8 +21,15 @@ int make_dir_error_exit(string folder)
 
 shared_ptr<schema> get_schema(dbms_info& d_info)
 {
-    shared_ptr<schema> schema;
+    static shared_ptr<schema> schema;
+    static bool first_time = true;
     static int try_time = 0;
+
+    if (first_time == false) {
+        schema->update_schema();
+        return schema;
+    }
+
     try {
         if (false) {}
         #ifdef HAVE_LIBSQLITE3
@@ -65,8 +72,10 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
         try_time++;
         schema = get_schema(d_info);
         try_time--;
+        first_time = false;
         return schema;
     }
+    first_time = false;
     return schema;
 }
 
@@ -236,17 +245,21 @@ void interect_test(dbms_info& d_info,
     auto schema = get_schema(d_info);
     scope scope;
     schema->fill_scope(scope);
-
+    cerr << 111 << endl;
+    
     shared_ptr<prod> gen = tmp_statement_factory(&scope);
     ostringstream s;
     gen->out(s);
+    cerr << 222 << endl;
 
     static int try_time = 0;
     try {
         auto dut = dut_setup(d_info);
+        cerr << 333 << endl;
         auto sql = s.str() + ";";
         int affect_num = 0;
         dut->test(sql, NULL, &affect_num);
+        cerr << 444 << endl;
         
         if (need_affect && affect_num <= 0)
             throw runtime_error(string("affect result empty"));
@@ -255,6 +268,7 @@ void interect_test(dbms_info& d_info,
 
     } catch(std::exception &e) { // ignore runtime error
         string err = e.what();
+        cerr << "err: " << e.what() << endl;
         if (err.find("syntax") != string::npos) {
             cerr << "\n" << e.what() << "\n" << endl;
             cerr << s.str() << endl;

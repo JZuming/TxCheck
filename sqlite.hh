@@ -23,7 +23,8 @@ struct sqlite_connection {
 };
 
 struct schema_sqlite : schema, sqlite_connection {
-    schema_sqlite(std::string &conninfo, bool no_catalog);
+    schema_sqlite(std::string &conninfo, bool no_catalog);\
+    virtual void update_schema();
     virtual std::string quote_name(const std::string &id) {
         return id;
     }

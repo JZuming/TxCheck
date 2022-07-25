@@ -1812,6 +1812,7 @@ shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
         return make_shared<insert_stmt>((struct prod *)0, s, (table *)0, true);
 
     } catch (runtime_error &e) {
+        cerr << "err: " << e.what() << endl;
         cerr << "catch a runtime error in " << __FUNCTION__  << endl;
         return basic_dml_statement_factory(s);
     }

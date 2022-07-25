@@ -23,6 +23,7 @@ struct mysql_connection {
 
 struct schema_mysql : schema, mysql_connection {
     schema_mysql(string db, unsigned int port);
+    virtual void update_schema();
     virtual std::string quote_name(const std::string &id) {
         return id;
     }

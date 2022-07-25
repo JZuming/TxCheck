@@ -25,6 +25,7 @@ struct cockroachdb_connection {
 
 struct schema_cockroachdb : schema, cockroachdb_connection {
     schema_cockroachdb(string db, unsigned int port);
+    virtual void update_schema();
     virtual std::string quote_name(const std::string &id) {
         return id;
     }

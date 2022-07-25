@@ -285,6 +285,11 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog) : c(conninfo)
   generate_indexes();
 }
 
+void schema_pqxx::update_schema()
+{
+  return;
+}
+
 extern "C" {
     void dut_libpq_notice_rx(void *arg, const PGresult *res);
 }

@@ -47,6 +47,7 @@ struct schema_pqxx : public schema {
     return c.quote_name(id);
   }
   schema_pqxx(std::string &conninfo, bool no_catalog);
+  virtual void update_schema();
 };
 
 struct dut_pqxx : dut_base {

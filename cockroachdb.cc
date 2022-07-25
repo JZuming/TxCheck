@@ -276,6 +276,73 @@ schema_cockroachdb::schema_cockroachdb(string db, unsigned int port)
     }
 }
 
+void schema_cockroachdb::update_schema()
+{
+    // cerr << "Loading tables...";
+    string get_table_query = "select table_name from information_schema.tables \
+        where table_type = 'BASE TABLE' and table_schema = 'public';";
+    
+    auto res = PQexec(conn, get_table_query.c_str());
+    auto status = PQresultStatus(res);
+    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+        string err = PQerrorMessage(conn);
+        PQclear(res);
+        throw runtime_error(err + " in get_table_query");
+    }
+
+    auto row_num = PQntuples(res);
+    for (int i = 0; i < row_num; i++) {
+        table tab(PQgetvalue(res, i, 0), "main", true, true);
+        tables.push_back(tab);
+    }
+    PQclear(res);
+    // cerr << "done." << endl;
+
+    // cerr << "Loading views...";
+    string get_view_query = "select table_name from information_schema.tables \
+        where table_type = 'VIEW' and table_schema = 'public';";
+
+    res = PQexec(conn, get_view_query.c_str());
+    status = PQresultStatus(res);
+    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+        string err = PQerrorMessage(conn);
+        PQclear(res);
+        throw runtime_error(err + " in get_view_query");
+    }
+
+    row_num = PQntuples(res);
+    for (int i = 0; i < row_num; i++) {
+        table tab(PQgetvalue(res, i, 0), "main", false, false);
+        tables.push_back(tab);
+    }
+    PQclear(res);
+    // cerr << "done." << endl;
+
+    // cerr << "Loading columns and constraints...";
+    for (auto& t : tables) {
+        string get_column_query = "select column_name, data_type from information_schema.columns \
+            where table_name='" + t.ident() + "' order by ordinal_position;";
+        
+        res = PQexec(conn, get_column_query.c_str());
+        status = PQresultStatus(res);
+        if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+            string err = PQerrorMessage(conn);
+            PQclear(res);
+            throw runtime_error(err + " in get_column_query");
+        }
+        
+        row_num = PQntuples(res);
+        for (int i = 0; i < row_num; i++) {
+            column c(PQgetvalue(res, i, 0), sqltype::get(PQgetvalue(res, i, 1)));
+            t.columns().push_back(c);
+        }
+        PQclear(res);
+    }
+    // cerr << "done." << endl;
+
+    return;
+}
+
 dut_cockroachdb::dut_cockroachdb(string db, unsigned int port)
   : cockroachdb_connection(db, port)
 {

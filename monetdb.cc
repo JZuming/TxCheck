@@ -91,8 +91,8 @@ schema_monetdb::schema_monetdb(string db, unsigned int port):monetdb_connection(
     texttype = sqltype::get("text");
 
 	cerr << "Loading tables from database: " << db << endl;
-//	string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id and t.system=false";
-	string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id ";
+	string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id and t.system=false";
+	// string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id ";
 	MapiHdl hdl = mapi_query(dbh,qry.c_str());
 	while (mapi_fetch_row(hdl)) {
 		tables.push_back(table(mapi_fetch_field(hdl,0),mapi_fetch_field(hdl,1),strcmp(mapi_fetch_field(hdl,2),"false")==0 ? true : false , atoi(mapi_fetch_field(hdl,3))==0 ? false : true));
@@ -184,6 +184,47 @@ schema_monetdb::schema_monetdb(string db, unsigned int port):monetdb_connection(
 
 	// mapi_destroy(dbh);
 	generate_indexes();
+}
+
+void schema_monetdb::update_schema()
+{
+	tables.clear();
+	cerr << "Loading tables from database: " << test_db << "...";
+	string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id and t.system=false";
+	// string qry = "select t.name, s.name, t.system, t.type from sys.tables t,  sys.schemas s where t.schema_id=s.id ";
+	MapiHdl hdl = mapi_query(dbh,qry.c_str());
+	while (mapi_fetch_row(hdl)) {
+		string table_name = mapi_fetch_field(hdl,0);
+		string table_schema = mapi_fetch_field(hdl,1);
+		auto insertable = strcmp(mapi_fetch_field(hdl,2),"false")==0 ? true : false;
+		auto base_table = atoi(mapi_fetch_field(hdl,3))==0 ? false : true;
+		// cerr << "table: " << table_name << " " << table_schema << " " << insertable << " " << base_table << endl;
+		tables.push_back(table(table_name, table_schema, insertable, base_table));
+	}
+	mapi_close_handle(hdl);
+	cerr << " done." << endl;
+
+	cerr << "Loading columns and constraints...";
+	for (auto t = tables.begin(); t!=tables.end(); t++) {
+		string q("select col.name,"
+			" col.type "
+			" from sys.columns col, sys.tables tab"
+			" where tab.name= '");
+		q += t->name;
+		q += "' and tab.id = col.table_id";
+
+		hdl = mapi_query(dbh,q.c_str());
+		while (mapi_fetch_row(hdl)) {
+			column c(mapi_fetch_field(hdl,0), sqltype::get(mapi_fetch_field(hdl,1)));
+			t->columns().push_back(c);
+		}
+		mapi_close_handle(hdl);
+	}
+	// TODO: confirm with Martin or Stefan about column
+	// constraints in MonetDB
+	cerr << " done." << endl;
+
+	return;
 }
 
 dut_monetdb::dut_monetdb(string db, unsigned int port):monetdb_connection(db, port)
