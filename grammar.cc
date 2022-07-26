@@ -1820,6 +1820,7 @@ shared_ptr<prod> basic_dml_statement_factory(struct scope *s)
 
 shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
 {
+    static int recur_time = 0;
     try {
         s->new_stmt();
         if (choice == -1)
@@ -1844,6 +1845,11 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
     } catch (runtime_error &e) {
         string err = e.what();
         cerr << "catch a runtime error: " << err << endl;
-        return txn_statement_factory(s, choice);
+        recur_time++;
+        if (recur_time > 10)
+            exit(-1);
+        auto ret = txn_statement_factory(s, choice);
+        recur_time--;
+        return ret;
     }
 }

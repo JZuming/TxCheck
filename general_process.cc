@@ -245,21 +245,17 @@ void interect_test(dbms_info& d_info,
     auto schema = get_schema(d_info);
     scope scope;
     schema->fill_scope(scope);
-    cerr << 111 << endl;
     
     shared_ptr<prod> gen = tmp_statement_factory(&scope);
     ostringstream s;
     gen->out(s);
-    cerr << 222 << endl;
 
     static int try_time = 0;
     try {
         auto dut = dut_setup(d_info);
-        cerr << 333 << endl;
         auto sql = s.str() + ";";
         int affect_num = 0;
         dut->test(sql, NULL, &affect_num);
-        cerr << 444 << endl;
         
         if (need_affect && affect_num <= 0)
             throw runtime_error(string("affect result empty"));
@@ -602,10 +598,10 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                     throw e;
                 }
                 cerr << "err: " << e.what() << ", try again" << endl;
-                if (err.find("syntax") != string::npos && err.find("error") != string::npos) {
-                    cerr << RED << "The error statement: " << RESET << endl;
-                    cerr << stmt << endl;
-                }
+                // if (err.find("syntax") != string::npos && err.find("error") != string::npos) {
+                //     cerr << RED << "The error statement: " << RESET << endl;
+                //     cerr << stmt << endl;
+                // }
                 continue;
             }
         }
