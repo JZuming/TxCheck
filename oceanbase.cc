@@ -1,29 +1,8 @@
-#include <stdexcept>
-#include <cassert>
-#include <cstring>
 #include "oceanbase.hh"
-#include <iostream>
-#include <set>
-
-#ifndef HAVE_BOOST_REGEX
-#include <regex>
-#else
-#include <boost/regex.hpp>
-using boost::regex;
-using boost::smatch;
-using boost::regex_match;
-#endif
-
-using namespace std;
 
 static regex e_unknown_database(".*Unknown database.*");
 static regex e_crash(".*Lost connection.*");
   
-extern "C"  {
-#include <mysql/mysql.h>
-#include <unistd.h>
-}
-
 #define debug_info (string(__func__) + "(" + string(__FILE__) + ":" + to_string(__LINE__) + ")")
 
 oceanbase_connection::oceanbase_connection(string db, unsigned int port)
@@ -699,7 +678,7 @@ void dut_oceanbase::reset_to_backup(void)
     
     mysql_close(&mysql);
     
-    string mysql_source = "/u01/obclient/bin/obclient --force -uroot -h 127.0.0.1 -P2881 -D " + test_db + " < /tmp/mysql_bk.sql";
+    string mysql_source = "/u01/obclient/bin/obclient --force -uroot -h 127.0.0.1 -P2881 -D " + test_db + " < /tmp/mysql_bk.sql 2>/dev/null";
     if (system(mysql_source.c_str()) == -1) 
         throw std::runtime_error(string("system() error, return -1") + "\nLocation: " + debug_info);
     

@@ -15,10 +15,10 @@ if DUT_SQLITE
 DUT += sqlite.cc
 endif
 
-if DUT_TIDB
-DUT += tidb.cc
-AM_CPPFLAGS += -DHAVE_TIDB
-endif
+# if DUT_TIDB
+# DUT += tidb.cc
+# AM_CPPFLAGS += -DHAVE_TIDB
+# endif
 
 if DUT_MYSQL
 DUT += mysql.cc
@@ -26,9 +26,10 @@ AM_CPPFLAGS += -DHAVE_MYSQL
 endif
 
 if DUT_MARIADB
-DUT += mariadb.cc
+# DUT += mariadb.cc
+# AM_CPPFLAGS += -DHAVE_MARIADB
 DUT += oceanbase.cc
-AM_CPPFLAGS += -DHAVE_MARIADB
+AM_CPPFLAGS += -DHAVE_OCEANBASE -I/u01/obclient/include/
 endif
 
 sqlsmith_SOURCES = relmodel.cc schema.cc $(DUT)	 			\

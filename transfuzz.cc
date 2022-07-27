@@ -313,6 +313,8 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             #ifdef HAVE_MARIADB
             "    --mariadb-db=constr   mariadb database name to send queries to (should used with" << endl << 
             "    --mariadb-port=int    mariadb server port number" << endl <<
+            #endif
+            #ifdef HAVE_OCEANBASE
             "    --oceanbase-db=constr   oceanbase database name to send queries to (should used with" << endl << 
             "    --oceanbase-port=int    oceanbase server port number" << endl <<
             #endif
@@ -363,10 +365,14 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
 
     dbms_info d_info(options);
 
+    cerr << "-------------Test Info------------" << endl;
     cerr << "Test DBMS: " << d_info.dbms_name << endl;
+    cerr << "Test database: " << d_info.test_db << endl;
+    cerr << "Test port: " << d_info.test_port << endl;
     cerr << "Serializablility: " << d_info.serializable << endl;
     cerr << "Can trigger error in transaction: " << d_info.can_trigger_error_in_txn << endl;
     cerr << "Output or affect num: " << d_info.ouput_or_affect_num << endl;
+    cerr << "----------------------------------" << endl;
 
     if (options.count("reproduce-sql")) {
         cerr << "enter reproduce mode" << endl;

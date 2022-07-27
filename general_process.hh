@@ -27,6 +27,9 @@
 
     #ifdef HAVE_MARIADB
     #include "mariadb.hh"
+    #endif
+    
+    #ifdef HAVE_OCEANBASE
     #include "oceanbase.hh"
     #endif
 #endif

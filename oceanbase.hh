@@ -2,16 +2,30 @@
 #define OCEANBASE_HH
 
 extern "C"  {
-#include <mysql/mysql.h>
+#include <mysql.h>
+#include <unistd.h>
 }
+
+#ifndef HAVE_BOOST_REGEX
+#include <regex>
+#else
+#include <boost/regex.hpp>
+using boost::regex;
+using boost::smatch;
+using boost::regex_match;
+#endif
 
 #include "schema.hh"
 #include "relmodel.hh"
 #include "dut.hh"
 
 #include <sys/time.h> // for gettimeofday
+#include <iostream>
+#include <set>
 
 #define MYSQL_STMT_BLOCK_MS 100
+
+using namespace std;
 
 struct oceanbase_connection {
     MYSQL mysql;

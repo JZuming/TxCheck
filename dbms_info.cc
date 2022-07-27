@@ -38,6 +38,8 @@ dbms_info::dbms_info(map<string,string>& options)
         test_db = options["mariadb-db"];
         can_trigger_error_in_txn = true;
     }
+    #endif
+    #ifdef HAVE_OCEANBASE
     else if (options.count("oceanbase-db") && options.count("oceanbase-port")) {
         dbms_name = "oceanbase";
         serializable = true;

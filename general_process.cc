@@ -45,6 +45,8 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
         #ifdef HAVE_MARIADB
         else if (d_info.dbms_name == "mariadb") 
             schema = make_shared<schema_mariadb>(d_info.test_db, d_info.test_port);
+        #endif
+        #ifdef HAVE_OCEANBASE
         else if (d_info.dbms_name == "oceanbase") 
             schema = make_shared<schema_oceanbase>(d_info.test_db, d_info.test_port);
         #endif
@@ -98,6 +100,8 @@ shared_ptr<dut_base> dut_setup(dbms_info& d_info)
     #ifdef HAVE_MARIADB
     else if (d_info.dbms_name == "mariadb")
         dut = make_shared<dut_mariadb>(d_info.test_db, d_info.test_port);
+    #endif
+    #ifdef HAVE_OCEANBASE
     else if (d_info.dbms_name == "oceanbase")
         dut = make_shared<dut_oceanbase>(d_info.test_db, d_info.test_port);
     #endif
@@ -138,6 +142,8 @@ int save_backup_file(string path, dbms_info& d_info)
     #ifdef HAVE_MARIADB
     else if (d_info.dbms_name == "mariadb")
         return dut_mariadb::save_backup_file(path);
+    #endif
+    #ifdef HAVE_OCEANBASE
     else if (d_info.dbms_name == "oceanbase")
         return dut_oceanbase::save_backup_file(path);
     #endif
@@ -177,6 +183,8 @@ pid_t fork_db_server(dbms_info& d_info)
     #ifdef HAVE_MARIADB
     else if (d_info.dbms_name == "mariadb")
         fork_pid = dut_mariadb::fork_db_server();
+    #endif
+    #ifdef HAVE_OCEANBASE
     else if (d_info.dbms_name == "oceanbase")
         fork_pid = dut_oceanbase::fork_db_server();
     #endif
@@ -599,13 +607,14 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                 if (err.find("CONNECTION FAIL") != string::npos ||
                         err.find("BUG") != string::npos) {
                     
+                    cerr << err << endl;
                     ofstream bug_file(NORMAL_BUG_FILE);
                     for (auto& stmt : all_tested_stmts) 
                         bug_file << print_stmt_to_string(stmt) << "\n" << endl;
                     bug_file.close();
                     throw e;
                 }
-                cerr << "err: " << e.what() << ", try again" << endl;
+                cerr << err << ", try again" << endl;
                 // if (err.find("syntax") != string::npos && err.find("error") != string::npos) {
                 //     cerr << RED << "The error statement: " << RESET << endl;
                 //     cerr << stmt << endl;
