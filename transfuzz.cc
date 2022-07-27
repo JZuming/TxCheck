@@ -278,6 +278,7 @@ int main(int argc, char *argv[])
 tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 mariadb-db|mariadb-port|\
+oceanbase-db|oceanbase-port|\
 monetdb-db|monetdb-port|\
 cockroach-db|cockroach-port|\
 output-or-affect-num|\
@@ -312,6 +313,8 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             #ifdef HAVE_MARIADB
             "    --mariadb-db=constr   mariadb database name to send queries to (should used with" << endl << 
             "    --mariadb-port=int    mariadb server port number" << endl <<
+            "    --oceanbase-db=constr   oceanbase database name to send queries to (should used with" << endl << 
+            "    --oceanbase-port=int    oceanbase server port number" << endl <<
             #endif
             #ifdef HAVE_MYSQL
             "    --mysql-db=constr  mysql database name to send queries to (should used with" << endl << 

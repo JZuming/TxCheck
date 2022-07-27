@@ -45,6 +45,8 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
         #ifdef HAVE_MARIADB
         else if (d_info.dbms_name == "mariadb") 
             schema = make_shared<schema_mariadb>(d_info.test_db, d_info.test_port);
+        else if (d_info.dbms_name == "oceanbase") 
+            schema = make_shared<schema_oceanbase>(d_info.test_db, d_info.test_port);
         #endif
         #ifdef HAVE_TIDB
         else if (d_info.dbms_name == "tidb") 
@@ -96,6 +98,8 @@ shared_ptr<dut_base> dut_setup(dbms_info& d_info)
     #ifdef HAVE_MARIADB
     else if (d_info.dbms_name == "mariadb")
         dut = make_shared<dut_mariadb>(d_info.test_db, d_info.test_port);
+    else if (d_info.dbms_name == "oceanbase")
+        dut = make_shared<dut_oceanbase>(d_info.test_db, d_info.test_port);
     #endif
     #ifdef HAVE_TIDB
     else if (d_info.dbms_name == "tidb")
@@ -134,6 +138,8 @@ int save_backup_file(string path, dbms_info& d_info)
     #ifdef HAVE_MARIADB
     else if (d_info.dbms_name == "mariadb")
         return dut_mariadb::save_backup_file(path);
+    else if (d_info.dbms_name == "oceanbase")
+        return dut_oceanbase::save_backup_file(path);
     #endif
     #ifdef HAVE_TIDB
     else if (d_info.dbms_name == "tidb")
@@ -171,6 +177,8 @@ pid_t fork_db_server(dbms_info& d_info)
     #ifdef HAVE_MARIADB
     else if (d_info.dbms_name == "mariadb")
         fork_pid = dut_mariadb::fork_db_server();
+    else if (d_info.dbms_name == "oceanbase")
+        fork_pid = dut_oceanbase::fork_db_server();
     #endif
     #ifdef HAVE_TIDB
     else if (d_info.dbms_name == "tidb")

@@ -1,5 +1,5 @@
-#ifndef MARIADB_HH
-#define MARIADB_HH
+#ifndef OCEANBASE_HH
+#define OCEANBASE_HH
 
 extern "C"  {
 #include <mysql/mysql.h>

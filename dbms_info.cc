@@ -2,72 +2,60 @@
 
 dbms_info::dbms_info(map<string,string>& options)
 {    
-    if (options.count("sqlite")) {
-        #ifdef HAVE_LIBSQLITE3
-
+    if (false) {}
+    #ifdef HAVE_LIBSQLITE3
+    else if (options.count("sqlite")) {
         dbms_name = "sqlite";
         serializable = true;
         test_port = 0; // no port
         test_db = options["sqlite"];
         can_trigger_error_in_txn = true;
-        
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without SQLite support." << endl;
-        throw runtime_error("Does not support SQLite");
-        #endif
-    } else if (options.count("tidb-db") && options.count("tidb-port")) {
-        #ifdef HAVE_TIDB
-        
+    }
+    #endif 
+    #ifdef HAVE_TIDB
+    else if (options.count("tidb-db") && options.count("tidb-port")) {
         dbms_name = "tidb";
         serializable = false;
         test_port = stoi(options["tidb-port"]);
         test_db = options["tidb-db"];
         can_trigger_error_in_txn = true;
-        
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
-        throw runtime_error("Does not support TiDB");
-        #endif
-    } else if (options.count("mysql-db") && options.count("mysql-port")) {
-        #ifdef HAVE_MYSQL
-        
+    }
+    #endif
+    #ifdef HAVE_MYSQL
+    else if (options.count("mysql-db") && options.count("mysql-port")) {
         dbms_name = "mysql";
         serializable = true;
         test_port = stoi(options["mysql-port"]);
         test_db = options["mysql-db"];
         can_trigger_error_in_txn = true;
-        
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
-        throw runtime_error("Does not support MySQL");
-        #endif
-    } else if (options.count("mariadb-db") && options.count("mariadb-port")) {
-        #ifdef HAVE_MARIADB
-        
+    }
+    #endif
+    #ifdef HAVE_MARIADB
+    else if (options.count("mariadb-db") && options.count("mariadb-port")) {
         dbms_name = "mariadb";
         serializable = true;
         test_port = stoi(options["mariadb-port"]);
         test_db = options["mariadb-db"];
         can_trigger_error_in_txn = true;
-        
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
-        throw runtime_error("Does not support MySQL");
-        #endif
-    }  else if (options.count("monetdb-db") && options.count("monetdb-port")) {
-        #ifdef HAVE_MONETDB
-        
+    }
+    else if (options.count("oceanbase-db") && options.count("oceanbase-port")) {
+        dbms_name = "oceanbase";
+        serializable = true;
+        test_port = stoi(options["oceanbase-port"]);
+        test_db = options["oceanbase-db"];
+        can_trigger_error_in_txn = true;
+    }
+    #endif 
+    #ifdef HAVE_MONETDB
+    else if (options.count("monetdb-db") && options.count("monetdb-port")) {
         dbms_name = "monetdb";
         serializable = true;
         test_port = stoi(options["monetdb-port"]);
         test_db = options["monetdb-db"];
         can_trigger_error_in_txn = false;
-        
-        #else
-        cerr << "Sorry, " PACKAGE_NAME " was compiled without MySQL support." << endl;
-        throw runtime_error("Does not support MySQL");
-        #endif
-    } else if (options.count("cockroach-db") && options.count("cockroach-port")) {
+    } 
+    #endif
+    else if (options.count("cockroach-db") && options.count("cockroach-port")) {
         dbms_name = "cockroach";
         serializable = true;
         test_port = stoi(options["cockroach-port"]);
