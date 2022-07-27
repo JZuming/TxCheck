@@ -23,6 +23,7 @@ struct mariadb_connection {
 
 struct schema_mariadb : schema, mariadb_connection {
     schema_mariadb(string db, unsigned int port);
+    virtual void update_schema();
     virtual std::string quote_name(const std::string &id) {
         return id;
     }

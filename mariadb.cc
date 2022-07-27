@@ -412,6 +412,71 @@ schema_mariadb::schema_mariadb(string db, unsigned int port)
     }
 }
 
+void schema_mariadb::update_schema()
+{
+    tables.clear();
+    indexes.clear();
+    // Loading tables...;
+    string get_table_query = "SELECT DISTINCT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES \
+        WHERE TABLE_SCHEMA='" + test_db + "' AND \
+              TABLE_TYPE='BASE TABLE' ORDER BY 1;";
+    
+    if (mysql_real_query(&mysql, get_table_query.c_str(), get_table_query.size()))
+        throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
+    
+    auto result = mysql_store_result(&mysql);
+    while (auto row = mysql_fetch_row(result)) {
+        table tab(row[0], "main", true, true);
+        tables.push_back(tab);
+    }
+    mysql_free_result(result);
+
+    // Loading views...;
+    string get_view_query = "select distinct table_name from information_schema.views \
+        where table_schema='" + test_db + "' order by 1;";
+    if (mysql_real_query(&mysql, get_view_query.c_str(), get_view_query.size()))
+        throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
+    
+    result = mysql_store_result(&mysql);
+    while (auto row = mysql_fetch_row(result)) {
+        table tab(row[0], "main", false, false);
+        tables.push_back(tab);
+    }
+    mysql_free_result(result);
+
+    // Loading indexes...;
+    string get_index_query = "SELECT DISTINCT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS \
+                WHERE TABLE_SCHEMA='" + test_db + "' AND \
+                    NON_UNIQUE=1 AND \
+                    INDEX_NAME <> COLUMN_NAME AND \
+                    INDEX_NAME <> 'PRIMARY' ORDER BY 1;";
+    if (mysql_real_query(&mysql, get_index_query.c_str(), get_index_query.size()))
+        throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
+
+    result = mysql_store_result(&mysql);
+    while (auto row = mysql_fetch_row(result)) {
+        indexes.push_back(row[0]);
+    }
+    mysql_free_result(result);
+
+    // Loading columns and constraints...;
+    for (auto& t : tables) {
+        string get_column_query = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS \
+                WHERE TABLE_NAME='" + t.ident() + "' AND \
+                    TABLE_SCHEMA='" + test_db + "'  ORDER BY ORDINAL_POSITION;";
+        if (mysql_real_query(&mysql, get_column_query.c_str(), get_column_query.size()))
+            throw std::runtime_error(string(mysql_error(&mysql)) + "\nLocation: " + debug_info + "\nTable: " + t.ident());
+        result = mysql_store_result(&mysql);
+        while (auto row = mysql_fetch_row(result)) {
+            column c(row[0], sqltype::get(row[1]));
+            t.columns().push_back(c);
+        }
+        mysql_free_result(result);
+    }
+
+    return;
+}
+
 dut_mariadb::dut_mariadb(string db, unsigned int port)
   : mariadb_connection(db, port)
 {
