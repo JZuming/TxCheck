@@ -27,6 +27,7 @@ endif
 
 if DUT_MARIADB
 DUT += mariadb.cc
+DUT += oceanbase.cc
 AM_CPPFLAGS += -DHAVE_MARIADB
 endif
 
