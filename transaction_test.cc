@@ -633,8 +633,15 @@ bool transaction_test::try_to_kill_server()
         int status;
         auto res = waitpid(server_process_id, &status, WNOHANG);
         if (res < 0) {
-            cerr << "waitpid() fail: " <<  res << endl;
-            throw runtime_error(string("waitpid() fail"));
+            if (errno == ECHILD) {
+                cerr << "there is no child process to wait" << endl;
+                flag = true;
+                break;
+            }
+            else {
+                cerr << "waitpid() fail: " <<  res << endl;
+                throw runtime_error(string("waitpid() fail"));
+            }
         }
         if (res == server_process_id) { // the dead process is collected
             cerr << "waitpid succeed for the server process !!!" << endl;
