@@ -17,9 +17,23 @@ oceanbase_connection::oceanbase_connection(string db, unsigned int port)
 
     // password null: blank (empty) password field
     if (mysql_real_connect(&mysql, "127.0.0.1", "root", NULL, test_db.c_str(), test_port, NULL, 0)) 
-        return; // success
+        return; // succeed
     
     string err = mysql_error(&mysql);
+    int connect_fail_time = 0;
+    while (err.find("Can't connect to MySQL server") != string::npos ||
+            err.find("MySQL server has gone away") != string::npos) { // sometime it may fail
+        cerr << "Can't connect to MySQL server, reconnect" << endl;
+        connect_fail_time++;
+        usleep(500000);
+        auto ret = mariadb_reconnect(&mysql);
+        if (ret == 0)
+            return; // succeed
+        err = mysql_error(&mysql);
+        if (connect_fail_time > 8) // fail 5 times, stop trying
+            break;
+    }
+
     if (!regex_match(err, e_unknown_database))
         throw std::runtime_error("BUG!!!" + string(mysql_error(&mysql)) + "\nLocation: " + debug_info);
 
@@ -499,7 +513,11 @@ void dut_oceanbase::block_test(const std::string &stmt, std::vector<std::string>
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
         if (regex_match(err, e_crash)) {
-            throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
+            mariadb_reconnect(&mysql);
+            if (mariadb_reconnect(&mysql) != 0) {
+                throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
+            }
+            // throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
         }
         throw std::runtime_error(err + " in mysql::test"); 
     }
@@ -760,6 +778,7 @@ pid_t dut_oceanbase::fork_db_server()
     ifile >> child;
     ifile.close();
 
+    sleep(3);
     cout << "server pid: " << child << endl;
     return child;
 }
