@@ -1,6 +1,6 @@
 #include "transaction_test.hh"
 
-#define MAX_CONCURRENT_TXN_NUM  5
+#define MAX_CONCURRENT_TXN_NUM  3
 
 void transaction_test::assign_txn_id()
 {
@@ -1393,7 +1393,7 @@ int transaction_test::test()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = 15; // 12
+    trans_num = MAX_CONCURRENT_TXN_NUM * 2; // 12
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];
