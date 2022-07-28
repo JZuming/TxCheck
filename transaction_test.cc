@@ -518,6 +518,7 @@ void transaction_test::trans_test(bool debug_mode)
         }
     }
 
+    int no_change = 0;
     while (1) {
         int old_executed = 0;
         for (int i = 0; i < stmt_num; i++) {
@@ -533,8 +534,15 @@ void transaction_test::trans_test(bool debug_mode)
                 new_executed++;
         }
 
-        if (old_executed == new_executed)
+        if (new_executed == stmt_num)
             break;
+        
+        if (old_executed == new_executed) {
+            no_change++;
+            sleep(1);
+            if (no_change > 10)
+                break;
+        }
     }
     
     for (int i = 0; i < stmt_num; i++) {

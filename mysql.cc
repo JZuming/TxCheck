@@ -566,6 +566,9 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
     }
 
     if (has_sent_sql == false) {
+        auto clear_results = mysql_store_result(&mysql);
+        mysql_free_result(clear_results);
+
         status = mysql_real_query_nonblocking(&mysql, stmt.c_str(), stmt.size());
         sent_sql = stmt;
         has_sent_sql = true;
@@ -595,6 +598,11 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
         string err = mysql_error(&mysql);
         has_sent_sql = false;
         sent_sql = "";
+        auto result = mysql_store_result(&mysql);
+        mysql_free_result(result);
+
+        if (err.find("Commands out of sync") != string::npos) // occasionally happens, just mark it as block
+            throw std::runtime_error("blocked, err: " + err + debug_info); 
         if (err.find("Deadlock found") != string::npos) 
             txn_abort = true;
         throw std::runtime_error("NET_ASYNC_ERROR(skipped): " + err + "\nLocation: " + debug_info); 
@@ -608,6 +616,7 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
         string err = mysql_error(&mysql);
         has_sent_sql = false;
         sent_sql = "";
+        mysql_free_result(result);
         if (err.find("Deadlock found") != string::npos) 
             txn_abort = true;
         throw std::runtime_error("mysql_store_result fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
