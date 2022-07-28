@@ -21,14 +21,8 @@ int make_dir_error_exit(string folder)
 
 shared_ptr<schema> get_schema(dbms_info& d_info)
 {
-    static shared_ptr<schema> schema;
-    static bool first_time = true;
+    shared_ptr<schema> schema;
     static int try_time = 0;
-
-    if (first_time == false) {
-        schema->update_schema();
-        return schema;
-    }
 
     try {
         if (false) {}
@@ -76,10 +70,8 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
         try_time++;
         schema = get_schema(d_info);
         try_time--;
-        first_time = false;
         return schema;
     }
-    first_time = false;
     return schema;
 }
 
