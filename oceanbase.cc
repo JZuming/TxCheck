@@ -490,12 +490,19 @@ static unsigned long long get_cur_time_ms(void) {
 	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
 }
 
+static shared_ptr<dut_oceanbase> another_dut;
+static bool another_dut_init = false;
+
 bool dut_oceanbase::check_whether_block()
 {
-    dut_oceanbase another_dut(test_db, 0);
+    // dut_oceanbase another_dut(test_db, 0);
+    if (another_dut_init == false) {
+        another_dut = make_shared<dut_oceanbase>(test_db, test_port);
+        another_dut_init = true;
+    }
     string get_block_tid = "select SESSION_ID from oceanbase.v$lock_wait_stat;";
     vector<string> output;
-    another_dut.block_test(get_block_tid, &output);
+    another_dut->block_test(get_block_tid, &output);
     
     // check output
     string tid_str = to_string(thread_id);
