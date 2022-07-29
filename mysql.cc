@@ -515,8 +515,8 @@ void dut_mysql::block_test(const std::string &stmt, std::vector<std::string>* ou
         string err = mysql_error(&mysql);
         auto result = mysql_store_result(&mysql);
         mysql_free_result(result);
-        if (err.find("block_test: Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
-            cerr << err << ", repeat the statement again" << endl;
+        if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
+            cerr << err << " in test, repeat the statement again" << endl;
             block_test(stmt, output, affected_row_num);
             return;
         }

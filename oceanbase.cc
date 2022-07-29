@@ -519,14 +519,20 @@ void dut_oceanbase::block_test(const std::string &stmt, std::vector<std::string>
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
-        if (regex_match(err, e_crash)) {
-            mariadb_reconnect(&mysql);
-            if (mariadb_reconnect(&mysql) != 0) {
-                throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
-            }
-            // throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
+        auto result = mysql_store_result(&mysql);
+        mysql_free_result(result);
+        if (err.find("Commands out of sync") != string::npos ||
+            err.find("No memory or reach tenant memory limit") != string::npos) {// occasionally happens, retry the statement again
+            cerr << err << " in block_test, repeat the statement again" << endl;
+            block_test(stmt, output, affected_row_num);
+            return;
         }
-        throw std::runtime_error(err + " in mysql::test"); 
+        if (regex_match(err, e_crash)) {
+            if (mariadb_reconnect(&mysql) != 0) {
+                throw std::runtime_error("BUG!!! " + err + " in " + debug_info); 
+            }
+        }
+        throw std::runtime_error(err + " in " + debug_info); 
     }
 
     if (affected_row_num)
@@ -535,6 +541,7 @@ void dut_oceanbase::block_test(const std::string &stmt, std::vector<std::string>
     auto result = mysql_store_result(&mysql);
     if (mysql_errno(&mysql) != 0) {
         string err = mysql_error(&mysql);
+        mysql_free_result(result);
         throw std::runtime_error("mysql_store_result fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
     }
 
@@ -578,6 +585,8 @@ void dut_oceanbase::test(const string &stmt, vector<vector<string>>* output, int
         query_status = mysql_real_query_start(&err, &mysql, stmt.c_str(), stmt.size());
         if (mysql_errno(&mysql) != 0) {
             string err = mysql_error(&mysql);
+            auto result = mysql_store_result(&mysql);
+            mysql_free_result(result);
             has_sent_sql = false;
             sent_sql = "";
             throw std::runtime_error("mysql_real_query_start fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
@@ -598,6 +607,14 @@ void dut_oceanbase::test(const string &stmt, vector<vector<string>>* output, int
             string err = mysql_error(&mysql);
             has_sent_sql = false;
             sent_sql = "";
+            auto result = mysql_store_result(&mysql);
+            mysql_free_result(result);
+            
+            if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
+                cerr << err << ", repeat the statement again" << endl;
+                test(stmt, output, affected_row_num);
+                return;
+            }
             if (err.find("Deadlock found") != string::npos) 
                 txn_abort = true;
             throw std::runtime_error("mysql_real_query_cont fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
@@ -620,6 +637,7 @@ void dut_oceanbase::test(const string &stmt, vector<vector<string>>* output, int
     auto result = mysql_store_result(&mysql);
     if (mysql_errno(&mysql) != 0) {
         string err = mysql_error(&mysql);
+        mysql_free_result(result);
         has_sent_sql = false;
         sent_sql = "";
         if (err.find("Deadlock found") != string::npos) 
@@ -786,6 +804,8 @@ pid_t dut_oceanbase::fork_db_server()
     ifile.close();
 
     sleep(3);
+    another_dut.reset();
+    another_dut_init = false;
     cout << "server pid: " << child << endl;
     return child;
 }
