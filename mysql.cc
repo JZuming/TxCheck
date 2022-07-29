@@ -601,8 +601,10 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
         auto result = mysql_store_result(&mysql);
         mysql_free_result(result);
 
-        if (err.find("Commands out of sync") != string::npos) // occasionally happens, just mark it as block
-            throw std::runtime_error("blocked, err: " + err + debug_info); 
+        if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
+            cerr << err << ", repeat the statement again" << endl;
+            test(stmt, output, affected_row_num);
+        }
         if (err.find("Deadlock found") != string::npos) 
             txn_abort = true;
         throw std::runtime_error("NET_ASYNC_ERROR(skipped): " + err + "\nLocation: " + debug_info); 
