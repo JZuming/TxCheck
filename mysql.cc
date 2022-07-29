@@ -513,10 +513,17 @@ void dut_mysql::block_test(const std::string &stmt, std::vector<std::string>* ou
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
-        if (regex_match(err, e_crash)) {
-            throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
+        auto result = mysql_store_result(&mysql);
+        mysql_free_result(result);
+        if (err.find("block_test: Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
+            cerr << err << ", repeat the statement again" << endl;
+            block_test(stmt, output, affected_row_num);
+            return;
         }
-        throw std::runtime_error(err + " in mysql::test"); 
+        if (regex_match(err, e_crash)) {
+            throw std::runtime_error("BUG!!! " + err + " in mysql::block_test"); 
+        }
+        throw std::runtime_error(err + " in mysql::block_test"); 
     }
 
     if (affected_row_num)
@@ -525,7 +532,7 @@ void dut_mysql::block_test(const std::string &stmt, std::vector<std::string>* ou
     auto result = mysql_store_result(&mysql);
     if (mysql_errno(&mysql) != 0) {
         string err = mysql_error(&mysql);
-        throw std::runtime_error("mysql_store_result fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
+        throw std::runtime_error("block_test: mysql_store_result fails (" + err + ")\nLocation: " + debug_info); 
     }
 
     if (output && result) {
@@ -604,6 +611,7 @@ void dut_mysql::test(const string &stmt, vector<vector<string>>* output, int* af
         if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
             cerr << err << ", repeat the statement again" << endl;
             test(stmt, output, affected_row_num);
+            return;
         }
         if (err.find("Deadlock found") != string::npos) 
             txn_abort = true;
