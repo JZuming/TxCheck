@@ -5,6 +5,8 @@ static regex e_crash(".*Lost connection.*");
   
 #define debug_info (string(__func__) + "(" + string(__FILE__) + ":" + to_string(__LINE__) + ")")
 
+#define RECONNECT_TRY_TIME 8
+
 oceanbase_connection::oceanbase_connection(string db, unsigned int port)
 {
     test_db = db;
@@ -30,7 +32,7 @@ oceanbase_connection::oceanbase_connection(string db, unsigned int port)
         if (ret == 0)
             return; // succeed
         err = mysql_error(&mysql);
-        if (connect_fail_time > 8) // fail 5 times, stop trying
+        if (connect_fail_time > RECONNECT_TRY_TIME) // fail 5 times, stop trying
             break;
     }
 
@@ -478,7 +480,7 @@ dut_oceanbase::dut_oceanbase(string db, unsigned int port)
     query_status = 0;
     txn_abort = false;
     thread_id = mysql_thread_id(&mysql);
-    block_test("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;");
+    // block_test("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;");
 }
 
 static unsigned long long get_cur_time_ms(void) {
@@ -522,15 +524,23 @@ void dut_oceanbase::block_test(const std::string &stmt, std::vector<std::string>
         auto result = mysql_store_result(&mysql);
         mysql_free_result(result);
         if (err.find("Commands out of sync") != string::npos ||
-            err.find("No memory or reach tenant memory limit") != string::npos) {// occasionally happens, retry the statement again
+                err.find("No memory or reach tenant memory limit") != string::npos) {// occasionally happens, retry the statement again
             cerr << err << " in block_test, repeat the statement again" << endl;
             block_test(stmt, output, affected_row_num);
             return;
         }
         if (regex_match(err, e_crash)) {
-            if (mariadb_reconnect(&mysql) != 0) {
-                throw std::runtime_error("BUG!!! " + err + " in " + debug_info); 
+            int reconnect_time = 0;
+            while (mariadb_reconnect(&mysql) != 0) {
+                reconnect_time++;
+                if (reconnect_time > RECONNECT_TRY_TIME) 
+                    throw std::runtime_error(err + " in " + debug_info); 
+                cerr << "Can't connect to OceanBase server, reconnecting:" << debug_info << endl;
+                usleep(500000);
             }
+            // succeed to reconnect
+            block_test(stmt, output, affected_row_num);
+            return;
         }
         throw std::runtime_error(err + " in " + debug_info); 
     }

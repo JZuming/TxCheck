@@ -519,30 +519,69 @@ void transaction_test::trans_test(bool debug_mode)
     }
 
     int no_change = 0;
-    while (1) {
-        int old_executed = 0;
-        for (int i = 0; i < stmt_num; i++) {
-            if (status_queue[i] == 1)
-                old_executed++;
-        }
-
+    int executed = 0;
+    for (int i = 0; i < stmt_num; i++) {
+        if (status_queue[i] == 1)
+            executed++;
+    }
+    if (executed < stmt_num) 
+        cerr << RED << "some stmt is still not executed, finish them" << RESET << endl;
+    
+    while (executed < stmt_num) {
         retry_block_stmt(stmt_num, status_queue, debug_mode);
-        
         int new_executed = 0;
         for (int i = 0; i < stmt_num; i++) {
             if (status_queue[i] == 1)
                 new_executed++;
         }
-
         if (new_executed == stmt_num)
             break;
-        
-        if (old_executed == new_executed) {
+        if (executed == new_executed) {
             no_change++;
-            sleep(1);
-            if (no_change > 10)
-                break;
+            if (no_change > 4) {
+                throw runtime_error("Transaction deadlock found");
+                // cerr << RED << "dead lock, they wait for each other, try to delete some stmt" << RESET << endl;
+                // no_change = 0;
+                // // get unexecuted stmt num of each txn
+                // int unexecuted_stmt_txn[trans_num];
+                // int last_stmt_idx_txn[trans_num];
+                // for (int i = 0; i < trans_num; i++) 
+                //     unexecuted_stmt_txn[i] = 0;
+                // for (int i = 0; i < stmt_num; i++) {
+                //     if (status_queue[i] != 1)
+                //         unexecuted_stmt_txn[tid_queue[i]]++;
+                //     last_stmt_idx_txn[tid_queue[i]] = i;
+                // }
+                // // get the txn that has least unexecuted stmts
+                // int least_stmt_txn = 0;
+                // int least_stmt = -1;
+                // for (int i = 0; i < trans_num; i++) {
+                //     // some txn has executed all stmts, we only focus on that not executed all
+                //     if (unexecuted_stmt_txn[i] <= 1) // if only commit (or abort) stmt not executed, do not target on them
+                //         continue;
+                //     if (least_stmt == -1 || unexecuted_stmt_txn[i] < least_stmt) {
+                //         least_stmt = unexecuted_stmt_txn[i];
+                //         least_stmt_txn = i;
+                //     }
+                // }
+                // // replace the unexecuted stmt with SPACE_HOLDER_STMT
+                // cerr << RED << "target txn: " << least_stmt_txn << " stmt_num: " << least_stmt << RESET << endl;
+                // int replace_num = 0;
+                // for (int i = 0; i < stmt_num; i++) {
+                //     if (tid_queue[i] != least_stmt_txn)
+                //         continue;
+                //     if (status_queue[i] == 1) // do not change the executed stmt
+                //         continue;
+                //     if (last_stmt_idx_txn[least_stmt_txn] == i) // do not change commit or abort
+                //         continue;
+                //     stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
+                //     stmt_use[i].stmt_type = INIT_TYPE;
+                //     replace_num++;
+                // }
+                // cerr << "replace " << replace_num << " stmts" << endl;
+            }
         }
+        executed = new_executed;
     }
     
     for (int i = 0; i < stmt_num; i++) {
