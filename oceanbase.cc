@@ -5,7 +5,7 @@ static regex e_crash(".*Lost connection.*");
   
 #define debug_info (string(__func__) + "(" + string(__FILE__) + ":" + to_string(__LINE__) + ")")
 
-#define RECONNECT_TRY_TIME 8
+#define RECONNECT_TRY_TIME 32
 
 oceanbase_connection::oceanbase_connection(string db, unsigned int port)
 {
@@ -529,12 +529,12 @@ void dut_oceanbase::block_test(const std::string &stmt, std::vector<std::string>
             block_test(stmt, output, affected_row_num);
             return;
         }
-        if (regex_match(err, e_crash)) {
+        if (regex_match(err, e_crash) || err.find("server has gone away")) {
             int reconnect_time = 0;
             while (mariadb_reconnect(&mysql) != 0) {
                 reconnect_time++;
                 if (reconnect_time > RECONNECT_TRY_TIME) 
-                    throw std::runtime_error(err + " in " + debug_info); 
+                    throw std::runtime_error("BUG!!!" + err + " in " + debug_info); 
                 cerr << "Can't connect to OceanBase server, reconnecting:" << debug_info << endl;
                 usleep(500000);
             }

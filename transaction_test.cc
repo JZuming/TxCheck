@@ -324,7 +324,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
         // if (debug_mode)
             cerr << RED << stmt_pos << " T" << tid << " S" << trans_arr[tid].stmt_outputs.size()  << ": " << show_str << ": fail, err: " << err << RESET << endl;
 
-        if (err.find("ost connection") != string::npos) // lost connection
+        if (err.find("ost connection") != string::npos || err.find("BUG") != string::npos) // lost connection
             throw e;
         if (err.find("blocked") != string::npos)
             return 0;

@@ -1771,8 +1771,8 @@ shared_ptr<prod> ddl_statement_factory(struct scope *s)
         auto choice = d6();
         #ifndef TEST_CLICKHOUSE
         #ifndef TEST_TIDB
-        if (choice == 1)
-            return make_shared<create_table_select_stmt>((struct prod *)0, s);
+        if (choice == 1) // create view
+            return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
         #else
             // do not use view because it will prevent write operation
             // return make_shared<create_table_select_stmt>((struct prod *)0, s, 0);
