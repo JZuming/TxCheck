@@ -519,6 +519,13 @@ void dut_mariadb::block_test(const std::string &stmt, std::vector<std::string>* 
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
+        auto result = mysql_store_result(&mysql);
+        mysql_free_result(result);
+        if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
+            cerr << err << " in test, repeat the statement again" << endl;
+            block_test(stmt, output, affected_row_num);
+            return;
+        }
         if (regex_match(err, e_crash)) {
             throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
         }
@@ -594,6 +601,14 @@ void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* 
             string err = mysql_error(&mysql);
             has_sent_sql = false;
             sent_sql = "";
+            auto result = mysql_store_result(&mysql);
+            mysql_free_result(result);
+
+            if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
+                cerr << err << ", repeat the statement again" << endl;
+                test(stmt, output, affected_row_num);
+                return;
+            }
             if (err.find("Deadlock found") != string::npos) 
                 txn_abort = true;
             throw std::runtime_error("mysql_real_query_cont fails, stmt skipped: " + err + "\nLocation: " + debug_info); 
