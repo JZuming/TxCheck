@@ -538,8 +538,9 @@ void transaction_test::trans_test(bool debug_mode)
             break;
         if (executed == new_executed) {
             no_change++;
-            if (no_change > 4) {
-                throw runtime_error("Transaction deadlock found");
+            if (no_change > 2) {
+                break;
+                // throw runtime_error("Transaction deadlock found");
                 // cerr << RED << "dead lock, they wait for each other, try to delete some stmt" << RESET << endl;
                 // no_change = 0;
                 // // get unexecuted stmt num of each txn
