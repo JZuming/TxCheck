@@ -501,6 +501,13 @@ void dut_tidb::test(const std::string &stmt, vector<vector<string>>* output, int
 {
     if (mysql_real_query(&mysql, stmt.c_str(), stmt.size())) {
         string err = mysql_error(&mysql);
+        auto result = mysql_store_result(&mysql);
+        mysql_free_result(result);
+        if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
+            cerr << err << ", repeat the statement again" << endl;
+            test(stmt, output, affected_row_num);
+            return;
+        }
         if (regex_match(err, e_crash)) {
             throw std::runtime_error("BUG!!! " + err + " in mysql::test"); 
         }

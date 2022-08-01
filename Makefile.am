@@ -15,10 +15,10 @@ if DUT_SQLITE
 DUT += sqlite.cc
 endif
 
-# if DUT_TIDB
-# DUT += tidb.cc
-# AM_CPPFLAGS += -DHAVE_TIDB
-# endif
+if DUT_TIDB
+DUT += tidb.cc
+AM_CPPFLAGS += -DHAVE_TIDB
+endif
 
 if DUT_MYSQL
 DUT += mysql.cc
