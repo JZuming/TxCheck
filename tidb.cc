@@ -652,21 +652,22 @@ string dut_tidb::begin_stmt() {
 
 pid_t dut_tidb::fork_db_server()
 {
-    pid_t child = fork();
-    if (child < 0) {
-        throw std::runtime_error(string("Fork db server fail") + " in dut_tidb::fork_db_server!");
-    }
+    // pid_t child = fork();
+    // if (child < 0) {
+    //     throw std::runtime_error(string("Fork db server fail") + " in dut_tidb::fork_db_server!");
+    // }
 
-    if (child == 0) {
-        char *server_argv[128];
-        int i = 0;
-        server_argv[i++] = (char *)"/root/.tiup/bin/tiup"; // path of tiup
-        server_argv[i++] = (char *)"playground";
-        server_argv[i++] = NULL;
-        execv(server_argv[0], server_argv);
-        cerr << "fork tidb server fail in dut_tidb::fork_db_server" << endl; 
-    }
-
-    cout << "server pid: " << child << endl;
-    return child;
+    // if (child == 0) {
+    //     char *server_argv[128];
+    //     int i = 0;
+    //     server_argv[i++] = (char *)"/root/.tiup/bin/tiup"; // path of tiup
+    //     server_argv[i++] = (char *)"playground";
+    //     server_argv[i++] = NULL;
+    //     execv(server_argv[0], server_argv);
+    //     cerr << "fork tidb server fail in dut_tidb::fork_db_server" << endl; 
+    // }
+    // sleep(30);
+    // cout << "server pid: " << child << endl;
+    // return child;
+    return -1;
 }
