@@ -755,6 +755,8 @@ bool minimize_testcase(dbms_info& d_info,
         if (tmp_usage_queue[i].is_instrumented == true)
             continue;
         
+        auto original_i = i;
+
         // delete possible AFTER_WRITE_READ
         if (i + 1 <= tmp_usage_queue.size() && tmp_usage_queue[i + 1] == AFTER_WRITE_READ) {
             // deleting later stmt donot need to goback the "i"
@@ -788,8 +790,10 @@ bool minimize_testcase(dbms_info& d_info,
             if (trigger_bug == true)
                 break;
         }
-        if (trigger_bug == false)
+        if (trigger_bug == false) {
+            i = original_i;
             continue;
+        }
         
         // reduction succeed
         cerr << "Succeed to delete stmt " << "\n\n\n" << endl;
