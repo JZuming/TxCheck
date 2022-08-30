@@ -92,7 +92,7 @@ struct schema {
     }
 
     schema() { }
-    virtual void update_schema() = 0; // only update dynamic information, e.g. table, columns, index
+    // virtual void update_schema() = 0; // only update dynamic information, e.g. table, columns, index
     void generate_indexes();
 };
 

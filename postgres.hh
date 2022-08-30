@@ -61,11 +61,11 @@ struct dut_pqxx : dut_base {
 
 struct dut_libpq : dut_base {
     PGconn *conn = 0;
-    // std::string conninfo_;
+    string conninfo_;
     string test_db;
     unsigned int test_port;
 
-    virtual void test(const std::string &stmt, vector<vector<string>>* output = NULL, int* affected_row_num = NULL);
+    virtual void test(const string &stmt, vector<vector<string>>* output = NULL, int* affected_row_num = NULL);
     virtual void reset(void);
 
     virtual void backup(void);
@@ -89,7 +89,9 @@ struct dut_libpq : dut_base {
 
     void command(const std::string &stmt);
     void connect(string db, unsigned int port);
+    void connect(string &conninfo);
     dut_libpq(string db, unsigned int port);
+    dut_libpq(string conninfo);
     ~dut_libpq();
 };
 

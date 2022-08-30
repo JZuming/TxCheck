@@ -294,12 +294,28 @@ void dut_libpq_notice_rx(void *arg, const PGresult *res)
     (void) res;
 }
 
+void dut_libpq::connect(string &conninfo)
+{
+    if (conn) 
+	    PQfinish(conn);
+    
+    conn = PQconnectdb(conninfo.c_str());
+    char *errmsg = PQerrorMessage(conn);
+    if (strlen(errmsg))
+	 throw dut::broken(errmsg, "08001");
+
+    // command("set statement_timeout to '1s'");
+    // command("set client_min_messages to 'ERROR';");
+    // command("set application_name to '" PACKAGE "::dut';");
+    // PQsetNoticeReceiver(conn, dut_libpq_notice_rx, (void *) 0);
+}
+
 void dut_libpq::connect(string db, unsigned int port)
 {
-    if (conn) {
+    if (conn) 
 	    PQfinish(conn);
-    }
-    conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, test_db.c_str(), "root", NULL);
+    
+    conn = PQsetdbLogin("localhost", to_string(port).c_str(), NULL, NULL, db.c_str(), "root", NULL);
     if (PQstatus(conn) != CONNECTION_OK) {
         string err = PQerrorMessage(conn);
         throw runtime_error("[CONNECTION FAIL] " + err + " in " + debug_info);
@@ -311,6 +327,15 @@ dut_libpq::dut_libpq(string db, unsigned int port)
     test_db = db;
     test_port = port;
     connect(test_db, test_port);
+    sent_sql = "";
+    has_sent_sql = false;
+    process_id = PQbackendPID(conn);
+}
+
+dut_libpq::dut_libpq(std::string conninfo)
+    : conninfo_(conninfo)
+{
+    connect(conninfo);
     sent_sql = "";
     has_sent_sql = false;
     process_id = PQbackendPID(conn);
@@ -605,7 +630,7 @@ void dut_libpq::test(const std::string &stmt, vector<vector<string>>* output, in
 
 void dut_libpq::reset(void)
 {
-    string use_defaultdb = "\connect postgres;";
+    string use_defaultdb = "\\connect postgres;";
     auto res = PQexec(conn, use_defaultdb.c_str());
     auto status = PQresultStatus(res);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
@@ -635,7 +660,7 @@ void dut_libpq::reset(void)
     }
     PQclear(res);
 
-    string use_sql = "\connect " + test_db + "; ";
+    string use_sql = "\\connect " + test_db + "; ";
     res = PQexec(conn, use_sql.c_str());
     status = PQresultStatus(res);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
