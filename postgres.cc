@@ -90,7 +90,6 @@ void dut_pqxx::test(const std::string &stmt)
     }
 }
 
-
 schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog) : c(conninfo)
 {
     c.set_variable("application_name", "'" PACKAGE "::schema'");
@@ -282,6 +281,12 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog) : c(conninfo)
     cerr << "done." << endl;
     c.disconnect();
     generate_indexes();
+}
+
+schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
+{
+    auto conninfo = "dbname=" + db + " port=" + to_string(port);
+    schema_pqxx(conninfo, no_catalog);
 }
 
 extern "C" {

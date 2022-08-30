@@ -57,6 +57,8 @@ shared_ptr<schema> get_schema(dbms_info& d_info)
 
         else if (d_info.dbms_name == "cockroach")
             schema = make_shared<schema_cockroachdb>(d_info.test_db, d_info.test_port);
+        else if (d_info.dbms_name == "postgres")
+            schema = make_shared<schema_pqxx>(d_info.test_db, d_info.test_port, true);
         else {
             cerr << d_info.dbms_name << " is not supported yet" << endl;
             throw runtime_error("Unsupported DBMS");
@@ -110,6 +112,8 @@ shared_ptr<dut_base> dut_setup(dbms_info& d_info)
 
     else if (d_info.dbms_name == "cockroach")
         dut = make_shared<dut_cockroachdb>(d_info.test_db, d_info.test_port);
+    else if (d_info.dbms_name == "postgres")
+        dut = make_shared<dut_libpq>(d_info.test_db, d_info.test_port);
     else {
         cerr << d_info.dbms_name << " is not installed, or it is not supported yet" << endl;
         throw runtime_error("Unsupported DBMS");
@@ -152,6 +156,8 @@ int save_backup_file(string path, dbms_info& d_info)
 
     else if (d_info.dbms_name == "cockroach")
         return dut_cockroachdb::save_backup_file(path);
+    else if (d_info.dbms_name == "postgres")
+        return dut_libpq::save_backup_file(path);
     else {
         cerr << d_info.dbms_name << " is not supported yet" << endl;
         throw runtime_error("Unsupported DBMS");
@@ -193,6 +199,8 @@ pid_t fork_db_server(dbms_info& d_info)
 
     else if (d_info.dbms_name == "cockroach")
         fork_pid = dut_cockroachdb::fork_db_server();
+    else if (d_info.dbms_name == "postgres")
+        fork_pid = dut_libpq::fork_db_server();
     else {
         cerr << d_info.dbms_name << " is not supported yet" << endl;
         throw runtime_error("Unsupported DBMS");

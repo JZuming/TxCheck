@@ -275,6 +275,7 @@ int main(int argc, char *argv[])
     map<string,string> options;
     regex optregex("--\
 (help|min|postgres|sqlite|monetdb|random-seed|\
+postgres-db|postgres-port|\
 tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 mariadb-db|mariadb-port|\
@@ -298,6 +299,8 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
     if (options.count("help")) {
         cerr <<
             "    --postgres=connstr   postgres database to send queries to" << endl <<
+            "    --postgres-db=connstr  Postgres database to send queries to, should used with --postgres-port" <<endl <<
+            "    --postgres-port=int    Postgres server port number, , should used with --postgres-port" <<endl <<
             #ifdef HAVE_LIBSQLITE3
             "    --sqlite=URI         SQLite database to send queries to" << endl <<
             #endif
@@ -369,7 +372,6 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
     cerr << "Test DBMS: " << d_info.dbms_name << endl;
     cerr << "Test database: " << d_info.test_db << endl;
     cerr << "Test port: " << d_info.test_port << endl;
-    cerr << "Serializablility: " << d_info.serializable << endl;
     cerr << "Can trigger error in transaction: " << d_info.can_trigger_error_in_txn << endl;
     cerr << "Output or affect num: " << d_info.ouput_or_affect_num << endl;
     cerr << "----------------------------------" << endl;
@@ -458,7 +460,6 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             reproduce_routine(d_info, stmt_queue, tid_queue, stmt_usage_queue, empty_str);
         }
             
-
         return 0;
     }
     
