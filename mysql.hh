@@ -36,7 +36,6 @@ struct dut_mysql : dut_base, mysql_connection {
     virtual void backup(void);
     virtual void reset_to_backup(void);
     
-    
     virtual string commit_stmt();
     virtual string abort_stmt();
     virtual string begin_stmt();
