@@ -32,261 +32,318 @@ bool pg_type::consistent(sqltype *rvalue)
         case 'd': /* domain */
         case 'r': /* range */
         case 'e': /* enum */
+        case 'm': /* multirange */
             return this == t;
         case 'p':
             if (name == "anyarray") {
                 return t->typelem_ != InvalidOid;
             } else if (name == "anynonarray") {
                 return t->typelem_ == InvalidOid;
-            } else if(name == "anyenum") {
-                return t->typtype_ == 'e';
-            } else if (name == "any") {
-                return true;
             } else if (name == "anyelement") {
                 return t->typelem_ == InvalidOid;
+            } else if(name == "anyenum") {
+                return t->typtype_ == 'e';
             } else if (name == "anyrange") {
                 return t->typtype_ == 'r';
             } else if (name == "record") {
                 return t->typtype_ == 'c';
             } else if (name == "cstring") {
                 return this == t;
+            } else if (name == "any") {
+                return true;
             } else {
                 return false;
             }
         default:
+            cerr << "error type: " << name << " " << oid_ << " " << typdelim_ << " "
+                << typrelid_ << " " << typelem_ << " " << typarray_ << " " << typtype_ << endl;
+            cerr << "t type: " << t->name << " " << t->oid_ << " " << t->typdelim_ << " "
+                << t->typrelid_ << " " << t->typelem_ << " " << t->typarray_ << " " << t->typtype_ << endl;
             throw std::logic_error("unknown typtype");
     }
 }
 
-dut_pqxx::dut_pqxx(std::string conninfo)
-  : c(conninfo)
+// dut_pqxx::dut_pqxx(std::string conninfo)
+//   : c(conninfo)
+// {
+//     c.set_variable("statement_timeout", "'1s'");
+//     c.set_variable("client_min_messages", "'ERROR'");
+//     c.set_variable("application_name", "'" PACKAGE "::dut'");
+// }
+
+// void dut_pqxx::test(const std::string &stmt)
+// {
+//     try {
+//         if(!c.is_open())
+//             c.activate();
+
+//         pqxx::work w(c);
+//         w.exec(stmt.c_str());
+//         w.abort();
+//     } catch (const pqxx::failure &e) {
+//         if ((dynamic_cast<const pqxx::broken_connection *>(&e))) {
+//         /* re-throw to outer loop to recover session. */
+//         throw dut::broken(e.what());
+//     }
+
+//     if (regex_match(e.what(), e_timeout))
+//         throw dut::timeout(e.what());
+//     else if (regex_match(e.what(), e_syntax))
+//         throw dut::syntax(e.what());
+//     else
+//         throw dut::failure(e.what());
+//     }
+// }
+
+static PGresult* pqexec_handle_error(PGconn *conn, string& query)
 {
-    c.set_variable("statement_timeout", "'1s'");
-    c.set_variable("client_min_messages", "'ERROR'");
-    c.set_variable("application_name", "'" PACKAGE "::dut'");
+    auto res = PQexec(conn, query.c_str());
+    auto status = PQresultStatus(res);
+    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+        string err = PQerrorMessage(conn);
+        PQclear(res);
+        throw runtime_error(err + " in " + debug_info);
+    }
+    return res;
 }
 
-void dut_pqxx::test(const std::string &stmt)
+schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
+    : pgsql_connection(db, port)
 {
-    try {
-        if(!c.is_open())
-            c.activate();
+    // c.set_variable("application_name", "'" PACKAGE "::schema'");
 
-        pqxx::work w(c);
-        w.exec(stmt.c_str());
-        w.abort();
-    } catch (const pqxx::failure &e) {
-        if ((dynamic_cast<const pqxx::broken_connection *>(&e))) {
-        /* re-throw to outer loop to recover session. */
-        throw dut::broken(e.what());
-    }
+    // pqxx::work w(c);
+    string version_sql = "select version();";
+    auto res = pqexec_handle_error(conn, version_sql);
+    version = PQgetvalue(res, 0, 0);
+    PQclear(res);
 
-    if (regex_match(e.what(), e_timeout))
-        throw dut::timeout(e.what());
-    else if (regex_match(e.what(), e_syntax))
-        throw dut::syntax(e.what());
-    else
-        throw dut::failure(e.what());
-    }
-}
-
-schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog) : c(conninfo)
-{
-    c.set_variable("application_name", "'" PACKAGE "::schema'");
-
-    pqxx::work w(c);
-    pqxx::result r = w.exec("select version()");
-    version = r[0][0].as<string>();
-
-    r = w.exec("SHOW server_version_num");
-    version_num = r[0][0].as<int>();
+    string version_num_sql = "SHOW server_version_num;";
+    res = pqexec_handle_error(conn, version_num_sql);
+    version_num = atoi(PQgetvalue(res, 0, 0));
+    PQclear(res);
 
     // address the schema change in postgresql 11 that replaced proisagg and proiswindow with prokind
     string procedure_is_aggregate = version_num < 110000 ? "proisagg" : "prokind = 'a'";
     string procedure_is_window = version_num < 110000 ? "proiswindow" : "prokind = 'w'";
 
     cerr << "Loading types...";
+    string load_type_sql = "select quote_ident(typname), oid, typdelim, typrelid, typelem, typarray, typtype "
+            "from pg_type ;";
+    res = pqexec_handle_error(conn, load_type_sql);
+    auto row_num = PQntuples(res);
+    for (int i = 0; i < row_num; i++) {
+        string name(PQgetvalue(res, i, 0));
+        OID oid = atol(PQgetvalue(res, i, 1));
+        string typdelim(PQgetvalue(res, i, 2));
+        OID typrelid = atol(PQgetvalue(res, i, 3));
+        OID typelem = atol(PQgetvalue(res, i, 4));
+        OID typarray = atol(PQgetvalue(res, i, 5));
+        string typtype(PQgetvalue(res, i, 6));
 
-    r = w.exec("select quote_ident(typname), oid, typdelim, typrelid, typelem, typarray, typtype "
-            "from pg_type ");
-  
-    for (auto row = r.begin(); row != r.end(); ++row) {
-        string name(row[0].as<string>());
-        OID oid(row[1].as<OID>());
-        string typdelim(row[2].as<string>());
-        OID typrelid(row[3].as<OID>());
-        OID typelem(row[4].as<OID>());
-        OID typarray(row[5].as<OID>());
-        string typtype(row[6].as<string>());
-        // if (schema == "pg_catalog")
-        //     continue;
-        // if (schema == "information_schema")
-        //     continue;
-
-        pg_type *t = new pg_type(name,oid,typdelim[0],typrelid, typelem, typarray, typtype[0]);
+        auto t = new pg_type(name,oid,typdelim[0],typrelid, typelem, typarray, typtype[0]);
+        // cerr << "new type: " << name << " " << oid << " " << typdelim << " "
+        //         << typrelid << " " << typelem << " " << typarray << " " << typtype << endl;
         oid2type[oid] = t;
         name2type[name] = t;
         types.push_back(t);
     }
+    PQclear(res);
 
-    booltype = name2type["bool"];
-    inttype = name2type["int4"];
+    if (name2type.count("_bool") > 0)
+        booltype = name2type["_bool"];
+    else
+        throw runtime_error("no booltype named _bool");
+    if (name2type.count("int4") > 0)
+        inttype = name2type["int4"];
+    else
+        throw runtime_error("no inttype named int4");
+    realtype = name2type["float8"];
+    texttype = name2type["text"];
 
     internaltype = name2type["internal"];
     arraytype = name2type["anyarray"];
-
+    true_literal = "1 = 1";
+    false_literal = "0 <> 0";
     cerr << "done." << endl;
 
     cerr << "Loading tables...";
-    r = w.exec("select table_name, "
-                "table_schema, "
-                    "is_insertable_into, "
-                    "table_type "
-            "from information_schema.tables");
-	     
-    for (auto row = r.begin(); row != r.end(); ++row) {
-        string schema(row[1].as<string>());
-        string insertable(row[2].as<string>());
-        string table_type(row[3].as<string>());
+    string load_table_sql = "select table_name, "
+                                "table_schema, "
+                                "is_insertable_into, "
+                                "table_type "
+                            "from information_schema.tables;";
+    res = pqexec_handle_error(conn, load_table_sql);
+    row_num = PQntuples(res);
+    for (int i = 0; i < row_num; i++) {
+        string table_name(PQgetvalue(res, i, 0));
+        string schema(PQgetvalue(res, i, 1));
+        string insertable(PQgetvalue(res, i, 2));
+        string table_type(PQgetvalue(res, i, 3));
 
         if (no_catalog && ((schema == "pg_catalog") || (schema == "information_schema")))
             continue;
-      
-        tables.push_back(table(row[0].as<string>(),
-                schema,
+        
+        tables.push_back(table(table_name, schema,
                 ((insertable == "YES") ? true : false),
                 ((table_type == "BASE TABLE") ? true : false)));
     }
-	     
+    PQclear(res);    
     cerr << "done." << endl;
 
     cerr << "Loading columns and constraints...";
-
     for (auto t = tables.begin(); t != tables.end(); ++t) {
+        // string q = "select column_name, data_type from information_schema.columns 
+        //     where table_name='" + t->ident() + "' order by ordinal_position;";
         string q("select attname, "
-            "atttypid "
-            "from pg_attribute join pg_class c on( c.oid = attrelid ) "
-            "join pg_namespace n on n.oid = relnamespace "
-            "where not attisdropped "
-            "and attname not in "
-            "('xmin', 'xmax', 'ctid', 'cmin', 'cmax', 'tableoid', 'oid') ");
-        q += " and relname = " + w.quote(t->name);
-        q += " and nspname = " + w.quote(t->schema);
+                    "atttypid "
+                "from pg_attribute join pg_class c on( c.oid = attrelid ) "
+                    "join pg_namespace n on n.oid = relnamespace "
+                "where not attisdropped "
+                    "and attname not in "
+                    "('xmin', 'xmax', 'ctid', 'cmin', 'cmax', 'tableoid', 'oid') ");
+        q += " and relname = '" + t->name + "'";
+        q += " and nspname = '" + t->schema + "';";
 
-        r = w.exec(q);
-        for (auto row : r) {
-            column c(row[0].as<string>(), oid2type[row[1].as<OID>()]);
+        res = pqexec_handle_error(conn, q);
+        row_num = PQntuples(res);
+        for (int i = 0; i < row_num; i++) {
+            string column_name(PQgetvalue(res, i, 0));
+            auto column_type = oid2type[atol(PQgetvalue(res, i, 1))];
+            cerr << "table: " << t->name << " col: " << column_name << "type: " << column_type->name << endl;
+            column c(column_name, column_type);
             t->columns().push_back(c);
         }
+        PQclear(res);
 
         q = "select conname from pg_class t "
-        "join pg_constraint c on (t.oid = c.conrelid) "
-        "where contype in ('f', 'u', 'p') ";
-        q += " and relnamespace = " " (select oid from pg_namespace where nspname = " + w.quote(t->schema) + ")";
-        q += " and relname = " + w.quote(t->name);
+                "join pg_constraint c on (t.oid = c.conrelid) "
+                "where contype in ('f', 'u', 'p') ";
+        q = q + " and relnamespace = (select oid from pg_namespace where nspname = '" + t->schema + "')";
+        q = q + " and relname = '" + t->name + "';";
 
-        for (auto row : w.exec(q)) {
-            t->constraints.push_back(row[0].as<string>());
+        res = pqexec_handle_error(conn, q);
+        row_num = PQntuples(res);
+        for (int i = 0; i < row_num; i++) {
+            t->constraints.push_back(PQgetvalue(res, i, 0));
         }
-    
+        PQclear(res);
     }
     cerr << "done." << endl;
 
     cerr << "Loading operators...";
-
-    r = w.exec("select oprname, oprleft,"
-                "oprright, oprresult "
-                "from pg_catalog.pg_operator "
-                        "where 0 not in (oprresult, oprright, oprleft) ");
-    for (auto row : r) {
-        op o(row[0].as<string>(),
-        oid2type[row[1].as<OID>()],
-        oid2type[row[2].as<OID>()],
-        oid2type[row[3].as<OID>()]);
+    string load_operators_sql = "select oprname, oprleft,"
+                                    "oprright, oprresult "
+                                "from pg_catalog.pg_operator "
+                                "where 0 not in (oprresult, oprright, oprleft) ;";
+    res = pqexec_handle_error(conn, load_operators_sql);
+    row_num = PQntuples(res);
+    for (int i = 0; i < row_num; i++) {
+        string op_name(PQgetvalue(res, i, 0));
+        auto op_left_type = oid2type[atol(PQgetvalue(res, i, 1))];
+        auto op_right_type = oid2type[atol(PQgetvalue(res, i, 2))];
+        auto op_result_type = oid2type[atol(PQgetvalue(res, i, 3))];
+        op o(op_name, op_left_type, op_right_type, op_result_type);
         register_operator(o);
     }
-
+    PQclear(res);
     cerr << "done." << endl;
 
     cerr << "Loading routines...";
-    r = w.exec("select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
+    string load_routines_sql = 
+            "select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
             "from pg_proc "
             "where prorettype::regtype::text not in ('event_trigger', 'trigger', 'opaque', 'internal') "
-            "and proname <> 'pg_event_trigger_table_rewrite_reason' "
-            "and proname <> 'pg_event_trigger_table_rewrite_oid' "
-            "and proname !~ '^ri_fkey_' "
-            "and not (proretset or " + procedure_is_aggregate + " or " + procedure_is_window + ") ");
-
-    for (auto row : r) {
-        routine proc(row[0].as<string>(),
-            row[1].as<string>(),
-            oid2type[row[2].as<long>()],
-            row[3].as<string>());
+                "and proname <> 'pg_event_trigger_table_rewrite_reason' "
+                "and proname <> 'pg_event_trigger_table_rewrite_oid' "
+                "and proname !~ '^ri_fkey_' "
+                "and not (proretset or " + procedure_is_aggregate + " or " + procedure_is_window + ") ;";
+    res = pqexec_handle_error(conn, load_routines_sql);
+    row_num = PQntuples(res);
+    for (int i = 0; i < row_num; i++) {
+        string r_name(PQgetvalue(res, i, 0));
+        string oid_str(PQgetvalue(res, i, 1));
+        auto prorettype = oid2type[atol(PQgetvalue(res, i, 2))];
+        string proname(PQgetvalue(res, i, 3));
+        
+        routine proc(r_name, oid_str, prorettype, proname);
         register_routine(proc);
     }
-
+    PQclear(res);
     cerr << "done." << endl;
 
     cerr << "Loading routine parameters...";
-
     for (auto &proc : routines) {
         string q("select unnest(proargtypes) "
             "from pg_proc ");
-        q += " where oid = " + w.quote(proc.specific_name);
-      
-        r = w.exec(q);
-        for (auto row : r) {
-        sqltype *t = oid2type[row[0].as<OID>()];
-        assert(t);
-        proc.argtypes.push_back(t);
+        q = q + " where oid = " + proc.specific_name + ";";
+
+        res = pqexec_handle_error(conn, q);
+        row_num = PQntuples(res);
+        for (int i = 0; i < row_num; i++) {
+            sqltype *t = oid2type[atol(PQgetvalue(res, i, 0))];
+            assert(t);
+            proc.argtypes.push_back(t);
         }
+        PQclear(res);
     }
     cerr << "done." << endl;
 
     cerr << "Loading aggregates...";
-    r = w.exec("select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
+    string load_aggregates_sql = 
+            "select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
             "from pg_proc "
-            "where prorettype::regtype::text not in ('event_trigger', 'trigger', 'opaque', 'internal') "
-            "and proname not in ('pg_event_trigger_table_rewrite_reason') "
-            "and proname not in ('percentile_cont', 'dense_rank', 'cume_dist', "
-            "'rank', 'test_rank', 'percent_rank', 'percentile_disc', 'mode', 'test_percentile_disc') "
-            "and proname !~ '^ri_fkey_' "
-            "and not (proretset or " + procedure_is_window + ") "
-            "and " + procedure_is_aggregate);
+                "where prorettype::regtype::text not in ('event_trigger', 'trigger', 'opaque', 'internal') "
+                "and proname not in ('pg_event_trigger_table_rewrite_reason') "
+                "and proname not in ('percentile_cont', 'dense_rank', 'cume_dist', "
+                "'rank', 'test_rank', 'percent_rank', 'percentile_disc', 'mode', 'test_percentile_disc') "
+                "and proname !~ '^ri_fkey_' "
+                "and not (proretset or " + procedure_is_window + ") "
+                "and " + procedure_is_aggregate + ";";
+    res = pqexec_handle_error(conn, load_aggregates_sql);
+    row_num = PQntuples(res);
+    for (int i = 0; i < row_num; i++) {
+        string nspname(PQgetvalue(res, i, 0));
+        string oid_str(PQgetvalue(res, i, 1));
+        auto prorettype = oid2type[atol(PQgetvalue(res, i, 2))];
+        string proname(PQgetvalue(res, i, 3));
 
-    for (auto row : r) {
-        routine proc(row[0].as<string>(),
-            row[1].as<string>(),
-            oid2type[row[2].as<OID>()],
-            row[3].as<string>());
+        routine proc(nspname, oid_str, prorettype, proname);
         register_aggregate(proc);
     }
-
+    PQclear(res);
     cerr << "done." << endl;
 
     cerr << "Loading aggregate parameters...";
-
     for (auto &proc : aggregates) {
         string q("select unnest(proargtypes) "
             "from pg_proc ");
-        q += " where oid = " + w.quote(proc.specific_name);
-      
-        r = w.exec(q);
-        for (auto row : r) {
-            sqltype *t = oid2type[row[0].as<OID>()];
+        q = q + " where oid = " + proc.specific_name + ";";
+        res = pqexec_handle_error(conn, q);
+        row_num = PQntuples(res);
+        for (int i = 0; i < row_num; i++) {
+            sqltype *t = oid2type[atol(PQgetvalue(res, i, 0))];
             assert(t);
             proc.argtypes.push_back(t);
         }
+        PQclear(res);
     }
     cerr << "done." << endl;
-    c.disconnect();
     generate_indexes();
 }
 
-schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
+schema_pqxx::~schema_pqxx()
 {
-    auto conninfo = "dbname=" + db + " port=" + to_string(port);
-    schema_pqxx(conninfo, no_catalog);
+    auto types_num = types.size();
+    for (int i = 0; i < types_num; i++) {
+        pg_type* ptype = dynamic_cast<pg_type*>(types[i]);
+        if (!ptype) // not a pg_type
+            continue;
+        types.erase(types.begin() + i);
+        delete ptype;
+        i--;
+        types_num--;
+    }
 }
 
 extern "C" {
@@ -299,63 +356,65 @@ void dut_libpq_notice_rx(void *arg, const PGresult *res)
     (void) res;
 }
 
-void dut_libpq::connect(string &conninfo)
-{
-    if (conn) 
-	    PQfinish(conn);
-    
-    conn = PQconnectdb(conninfo.c_str());
-    char *errmsg = PQerrorMessage(conn);
-    if (strlen(errmsg))
-	 throw dut::broken(errmsg, "08001");
-
-    // command("set statement_timeout to '1s'");
-    // command("set client_min_messages to 'ERROR';");
-    // command("set application_name to '" PACKAGE "::dut';");
-    // PQsetNoticeReceiver(conn, dut_libpq_notice_rx, (void *) 0);
-}
-
-void dut_libpq::connect(string db, unsigned int port)
-{
-    if (conn) 
-	    PQfinish(conn);
-    
-    conn = PQsetdbLogin("localhost", to_string(port).c_str(), NULL, NULL, db.c_str(), "root", NULL);
-    if (PQstatus(conn) != CONNECTION_OK) {
-        string err = PQerrorMessage(conn);
-        throw runtime_error("[CONNECTION FAIL] " + err + " in " + debug_info);
-    }
-}
-
-dut_libpq::dut_libpq(string db, unsigned int port)
-{
+pgsql_connection::pgsql_connection(string db, unsigned int port)
+{    
     test_db = db;
     test_port = port;
-    connect(test_db, test_port);
-    sent_sql = "";
-    has_sent_sql = false;
-    process_id = PQbackendPID(conn);
+    
+    conn = PQsetdbLogin("localhost", to_string(port).c_str(), NULL, NULL, db.c_str(), NULL, NULL);
+    if (PQstatus(conn) == CONNECTION_OK)
+        return; // succeed
+    
+    string err = PQerrorMessage(conn);
+    if (err.find("does not exist") == string::npos) {
+        cerr << "[CONNECTION FAIL]  " << err << " in " << debug_info << endl;
+        throw runtime_error("[CONNECTION FAIL] " + err + " in " + debug_info);
+    }
+    
+    cerr << "try to create database testdb" << endl;
+    conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, "postgres", NULL, NULL);
+    if (PQstatus(conn) != CONNECTION_OK) {
+        string err = PQerrorMessage(conn);
+        cerr << err << " in " << debug_info << endl;
+        throw runtime_error(err + " in " + debug_info);
+    }
+
+    string create_sql = "create database " + test_db + "; ";
+    auto res = PQexec(conn, create_sql.c_str());
+    auto status = PQresultStatus(res);
+    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+        string err = PQerrorMessage(conn);
+        PQclear(res);
+        throw runtime_error(err + " in " + debug_info);
+    }
+    PQclear(res);
+
+    PQfinish(conn);
+    conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, test_db.c_str(), NULL, NULL);
+    if (PQstatus(conn) != CONNECTION_OK) {
+        string err = PQerrorMessage(conn);
+        cerr << err << " in " << debug_info << endl;
+        throw runtime_error(err + " in " + debug_info);
+    }
+    cerr << "create successfully" << endl;
+    return;
 }
 
-dut_libpq::dut_libpq(std::string conninfo)
-    : conninfo_(conninfo)
-{
-    connect(conninfo);
-    sent_sql = "";
-    has_sent_sql = false;
-    process_id = PQbackendPID(conn);
-}
-
-dut_libpq::~dut_libpq()
+pgsql_connection::~pgsql_connection()
 {
     PQfinish(conn);
 }
 
-void dut_libpq::command(const std::string &stmt)
+dut_libpq::dut_libpq(string db, unsigned int port)
+    : pgsql_connection(db, port)
 {
-    if (!conn)
-	    connect(test_db, test_port);
-    
+    sent_sql = "";
+    has_sent_sql = false;
+    process_id = PQbackendPID(conn);
+}
+
+void dut_libpq::command(const std::string &stmt)
+{    
     PGresult *res = PQexec(conn, stmt.c_str());
 
     switch (PQresultStatus(res)) {
@@ -532,12 +591,6 @@ void dut_libpq::block_test(const string &stmt, vector<string>* output, int* affe
 
 void dut_libpq::test(const std::string &stmt, vector<vector<string>>* output, int* affected_row_num)
 {
-    // (void)affected_row_num;
-    // (void)output;
-    // command("ROLLBACK;");
-    // command("BEGIN;");
-    // command(stmt.c_str());
-    // command("ROLLBACK;");
     if (affected_row_num) 
         *affected_row_num = 0;
 
@@ -635,19 +688,18 @@ void dut_libpq::test(const std::string &stmt, vector<vector<string>>* output, in
 
 void dut_libpq::reset(void)
 {
-    string use_defaultdb = "\\connect postgres;";
-    auto res = PQexec(conn, use_defaultdb.c_str());
-    auto status = PQresultStatus(res);
-    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+    if (conn) 
+        PQfinish(conn);
+    conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, "postgres", NULL, NULL);
+    if (PQstatus(conn) != CONNECTION_OK) {
         string err = PQerrorMessage(conn);
-        PQclear(res);
+        cerr << err << " in " << debug_info << endl;
         throw runtime_error(err + " in " + debug_info);
     }
-    PQclear(res);
 
     string drop_sql = "drop database if exists " + test_db + " with (force);";
-    res = PQexec(conn, drop_sql.c_str());
-    status = PQresultStatus(res);
+    auto res = PQexec(conn, drop_sql.c_str());
+    auto status = PQresultStatus(res);
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
         string err = PQerrorMessage(conn);
         PQclear(res);
@@ -665,20 +717,18 @@ void dut_libpq::reset(void)
     }
     PQclear(res);
 
-    string use_sql = "\\connect " + test_db + "; ";
-    res = PQexec(conn, use_sql.c_str());
-    status = PQresultStatus(res);
-    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK){
+    PQfinish(conn);
+    conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, test_db.c_str(), NULL, NULL);
+    if (PQstatus(conn) != CONNECTION_OK) {
         string err = PQerrorMessage(conn);
-        PQclear(res);
+        cerr << err << " in " << debug_info << endl;
         throw runtime_error(err + " in " + debug_info);
     }
-    PQclear(res);
 }
 
 void dut_libpq::backup(void)
 {
-     string pgsql_dump = "/usr/local/pgsql/bin/pg_dump -p " + to_string(test_port) + " -u root " + test_db + " > /tmp/pgsql_bk.sql";
+     string pgsql_dump = "/usr/local/pgsql/bin/pg_dump -p " + to_string(test_port) + test_db + " > /tmp/pgsql_bk.sql";
     int ret = system(pgsql_dump.c_str());
     if (ret != 0) {
         std::cerr << "backup fail \nLocation: " + debug_info << endl;
@@ -699,7 +749,7 @@ void dut_libpq::reset_to_backup(void)
     if (system(pgsql_source.c_str()) == -1) 
         throw std::runtime_error(string("system() error, return -1") + "\nLocation: " + debug_info);
 
-    conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, test_db.c_str(), "root", NULL);
+    conn = PQsetdbLogin("localhost", to_string(test_port).c_str(), NULL, NULL, test_db.c_str(), NULL, NULL);
     if (PQstatus(conn) != CONNECTION_OK) {
         string err = PQerrorMessage(conn);
         throw runtime_error("[CONNECTION FAIL] " + err + " in " + debug_info);
