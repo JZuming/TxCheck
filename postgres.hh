@@ -36,7 +36,7 @@ struct pg_type : sqltype {
         char typtype)
         : sqltype(name), oid_(oid), typdelim_(typdelim), typrelid_(typrelid),
           typelem_(typelem), typarray_(typarray), typtype_(typtype) { }
-
+    virtual ~pg_type() {}
     virtual bool consistent(struct sqltype *rvalue);
     bool consistent_(sqltype *rvalue);
 };

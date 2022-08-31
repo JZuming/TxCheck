@@ -18,6 +18,15 @@ static regex e_syntax("ERROR:  syntax error at or near(\n|.)*");
 
 #define debug_info (string(__func__) + "(" + string(__FILE__) + ":" + to_string(__LINE__) + ")")
 
+static unsigned long long get_cur_time_ms(void) {
+	struct timeval tv;
+	struct timezone tz;
+
+	gettimeofday(&tv, &tz);
+
+	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
+}
+
 bool pg_type::consistent(sqltype *rvalue)
 {
     pg_type *t = dynamic_cast<pg_type*>(rvalue);
@@ -127,6 +136,7 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     string procedure_is_aggregate = version_num < 110000 ? "proisagg" : "prokind = 'a'";
     string procedure_is_window = version_num < 110000 ? "proiswindow" : "prokind = 'w'";
 
+    auto begin_time = get_cur_time_ms();
     cerr << "Loading types...";
     string load_type_sql = "select quote_ident(typname), oid, typdelim, typrelid, typelem, typarray, typtype "
             "from pg_type ;";
@@ -150,14 +160,8 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     }
     PQclear(res);
 
-    if (name2type.count("_bool") > 0)
-        booltype = name2type["_bool"];
-    else
-        throw runtime_error("no booltype named _bool");
-    if (name2type.count("int4") > 0)
-        inttype = name2type["int4"];
-    else
-        throw runtime_error("no inttype named int4");
+    booltype = name2type["_bool"];
+    inttype = name2type["int4"];
     realtype = name2type["float8"];
     texttype = name2type["text"];
 
@@ -166,7 +170,10 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     true_literal = "1 = 1";
     false_literal = "0 <> 0";
     cerr << "done." << endl;
+    auto end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
 
+    begin_time = get_cur_time_ms();
     cerr << "Loading tables...";
     string load_table_sql = "select table_name, "
                                 "table_schema, "
@@ -190,7 +197,10 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     }
     PQclear(res);    
     cerr << "done." << endl;
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
 
+    begin_time = get_cur_time_ms();
     cerr << "Loading columns and constraints...";
     for (auto t = tables.begin(); t != tables.end(); ++t) {
         // string q = "select column_name, data_type from information_schema.columns 
@@ -230,7 +240,10 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
         PQclear(res);
     }
     cerr << "done." << endl;
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
 
+    begin_time = get_cur_time_ms();
     cerr << "Loading operators...";
     string load_operators_sql = "select oprname, oprleft,"
                                     "oprright, oprresult "
@@ -248,7 +261,10 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     }
     PQclear(res);
     cerr << "done." << endl;
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
 
+    begin_time = get_cur_time_ms();
     cerr << "Loading routines...";
     string load_routines_sql = 
             "select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
@@ -271,7 +287,10 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     }
     PQclear(res);
     cerr << "done." << endl;
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
 
+    begin_time = get_cur_time_ms();
     cerr << "Loading routine parameters...";
     for (auto &proc : routines) {
         string q("select unnest(proargtypes) "
@@ -288,7 +307,10 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
         PQclear(res);
     }
     cerr << "done." << endl;
-
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
+    
+    begin_time = get_cur_time_ms();
     cerr << "Loading aggregates...";
     string load_aggregates_sql = 
             "select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
@@ -313,7 +335,10 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     }
     PQclear(res);
     cerr << "done." << endl;
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
 
+    begin_time = get_cur_time_ms();
     cerr << "Loading aggregate parameters...";
     for (auto &proc : aggregates) {
         string q("select unnest(proargtypes) "
@@ -329,7 +354,13 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
         PQclear(res);
     }
     cerr << "done." << endl;
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
+    
+    begin_time = get_cur_time_ms();
     generate_indexes();
+    end_time = get_cur_time_ms();
+    cerr << "time using: " << end_time - begin_time << endl;
 }
 
 schema_pqxx::~schema_pqxx()
@@ -452,15 +483,6 @@ void dut_libpq::command(const std::string &stmt)
             PQclear(res);
             return;
     }
-}
-
-static unsigned long long get_cur_time_ms(void) {
-	struct timeval tv;
-	struct timezone tz;
-
-	gettimeofday(&tv, &tz);
-
-	return (tv.tv_sec * 1000ULL) + tv.tv_usec / 1000;
 }
 
 static bool check_ready(PGconn *conn)

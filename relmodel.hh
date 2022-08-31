@@ -22,6 +22,7 @@ struct sqltype {
     static map<string, struct sqltype*> typemap;
     static struct sqltype *get(string s);
     sqltype(string n) : name(n) { }
+    virtual ~sqltype() {}
 
     /** This function is used to model postgres-style pseudotypes.
         A generic type is consistent with a more concrete type.
