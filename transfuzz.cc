@@ -81,14 +81,14 @@ int fork_for_generating_database(dbms_info& d_info)
     transaction_test::fork_if_server_closed(d_info);
     
     write_op_id = 0;
-    // child_pid = fork();
-    // if (child_pid == 0) { // in child process
+    child_pid = fork();
+    if (child_pid == 0) { // in child process
         generate_database(d_info);
         ofstream output_wkey("wkey.txt");
         output_wkey << write_op_id << endl;
         output_wkey.close();
         exit(NORMAL_EXIT);
-    // }
+    }
 
     itimer.it_value.tv_sec = TRANSACTION_TIMEOUT;
     itimer.it_value.tv_usec = 0; // us limit

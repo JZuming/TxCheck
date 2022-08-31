@@ -317,7 +317,7 @@ void normal_test(dbms_info& d_info,
         
         if (need_affect && affect_num <= 0)
             throw runtime_error(string("affect result empty"));
-        cerr << sql.substr(0, sql.size() > 10 ? 10 : sql.size()) << " affect: " << affect_num << endl;
+        // cerr << sql.substr(0, sql.size() > 10 ? 10 : sql.size()) << " affect: " << affect_num << endl;
         rec_vec.push_back(sql);
     } catch(std::exception &e) { // ignore runtime error
         string err = e.what();
@@ -614,7 +614,7 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                     bug_file.close();
                     throw e;
                 }
-                cerr << err << ", try again" << endl;
+                // cerr << err << ", try again" << endl;
                 // if (err.find("syntax") != string::npos && err.find("error") != string::npos) {
                 //     cerr << RED << "The error statement: " << RESET << endl;
                 //     cerr << stmt << endl;

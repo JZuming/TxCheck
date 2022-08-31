@@ -15,6 +15,7 @@ extern "C" {
 }
 
 #include <sys/time.h>
+#include <fcntl.h>
 
 #define POSTGRES_STMT_BLOCK_MS 200
 
