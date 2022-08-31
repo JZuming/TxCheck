@@ -18,6 +18,11 @@ static regex e_syntax("ERROR:  syntax error at or near(\n|.)*");
 
 #define debug_info (string(__func__) + "(" + string(__FILE__) + ":" + to_string(__LINE__) + ")")
 
+static bool has_init_type = false;
+static vector<pg_type *> static_type_vec;
+static bool has_routine_para = false;
+static map<string, vector<pg_type *>> static_routine_para_vec;
+
 static unsigned long long get_cur_time_ms(void) {
 	struct timeval tv;
 	struct timezone tz;
@@ -138,32 +143,68 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
 
     auto begin_time = get_cur_time_ms();
     cerr << "Loading types...";
-    string load_type_sql = "select quote_ident(typname), oid, typdelim, typrelid, typelem, typarray, typtype "
+    if (has_init_type == false) {
+        string load_type_sql = "select quote_ident(typname), oid, typdelim, typrelid, typelem, typarray, typtype "
             "from pg_type ;";
-    res = pqexec_handle_error(conn, load_type_sql);
-    auto row_num = PQntuples(res);
-    for (int i = 0; i < row_num; i++) {
-        string name(PQgetvalue(res, i, 0));
-        OID oid = atol(PQgetvalue(res, i, 1));
-        string typdelim(PQgetvalue(res, i, 2));
-        OID typrelid = atol(PQgetvalue(res, i, 3));
-        OID typelem = atol(PQgetvalue(res, i, 4));
-        OID typarray = atol(PQgetvalue(res, i, 5));
-        string typtype(PQgetvalue(res, i, 6));
+        res = pqexec_handle_error(conn, load_type_sql);
+        auto row_num = PQntuples(res);
+        for (int i = 0; i < row_num; i++) {
+            string name(PQgetvalue(res, i, 0));
+            OID oid = atol(PQgetvalue(res, i, 1));
+            string typdelim(PQgetvalue(res, i, 2));
+            OID typrelid = atol(PQgetvalue(res, i, 3));
+            OID typelem = atol(PQgetvalue(res, i, 4));
+            OID typarray = atol(PQgetvalue(res, i, 5));
+            string typtype(PQgetvalue(res, i, 6));
 
-        auto t = new pg_type(name,oid,typdelim[0],typrelid, typelem, typarray, typtype[0]);
-        // cerr << "new type: " << name << " " << oid << " " << typdelim << " "
-        //         << typrelid << " " << typelem << " " << typarray << " " << typtype << endl;
-        oid2type[oid] = t;
-        name2type[name] = t;
+            auto t = new pg_type(name, oid, typdelim[0], typrelid, typelem, typarray, typtype[0]);
+            static_type_vec.push_back(t);
+        }
+        PQclear(res);
+        has_init_type = true;
+    }
+    for (auto t : static_type_vec) {
+        oid2type[t->oid_] = t;
+        name2type[t->name] = t;
         types.push_back(t);
     }
-    PQclear(res);
 
-    booltype = name2type["_bool"];
-    inttype = name2type["int4"];
-    realtype = name2type["float8"];
-    texttype = name2type["text"];
+    // string load_type_sql = "select quote_ident(typname), oid, typdelim, typrelid, typelem, typarray, typtype "
+    //         "from pg_type ;";
+    // res = pqexec_handle_error(conn, load_type_sql);
+    // auto row_num = PQntuples(res);
+    // for (int i = 0; i < row_num; i++) {
+    //     string name(PQgetvalue(res, i, 0));
+    //     OID oid = atol(PQgetvalue(res, i, 1));
+    //     string typdelim(PQgetvalue(res, i, 2));
+    //     OID typrelid = atol(PQgetvalue(res, i, 3));
+    //     OID typelem = atol(PQgetvalue(res, i, 4));
+    //     OID typarray = atol(PQgetvalue(res, i, 5));
+    //     string typtype(PQgetvalue(res, i, 6));
+
+    //     auto t = new pg_type(name,oid,typdelim[0],typrelid, typelem, typarray, typtype[0]);
+    //     // cerr << "new type: " << name << " " << oid << " " << typdelim << " "
+    //     //         << typrelid << " " << typelem << " " << typarray << " " << typtype << endl;
+    //     oid2type[oid] = t;
+    //     name2type[name] = t;
+    //     types.push_back(t);
+    // }
+    // PQclear(res);
+
+    if (name2type.count("_bool") > 0 && 
+            name2type.count("int4") > 0 &&
+            name2type.count("float8") > 0 &&
+            name2type.count("text") > 0) {
+        
+        booltype = name2type["_bool"];
+        inttype = name2type["int4"];
+        realtype = name2type["float8"];
+        texttype = name2type["text"];
+    }
+    else {
+        cerr << "at least one of booltype, inttype, realtype, texttype is not exist in" << debug_info << endl;
+        throw runtime_error("at least one of booltype, inttype, realtype, texttype is not exist in" + debug_info);
+    }
 
     internaltype = name2type["internal"];
     arraytype = name2type["anyarray"];
@@ -181,7 +222,7 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
                                 "table_type "
                             "from information_schema.tables;";
     res = pqexec_handle_error(conn, load_table_sql);
-    row_num = PQntuples(res);
+    auto row_num = PQntuples(res);
     for (int i = 0; i < row_num; i++) {
         string table_name(PQgetvalue(res, i, 0));
         string schema(PQgetvalue(res, i, 1));
@@ -203,8 +244,6 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
     begin_time = get_cur_time_ms();
     cerr << "Loading columns and constraints...";
     for (auto t = tables.begin(); t != tables.end(); ++t) {
-        // string q = "select column_name, data_type from information_schema.columns 
-        //     where table_name='" + t->ident() + "' order by ordinal_position;";
         string q("select attname, "
                     "atttypid "
                 "from pg_attribute join pg_class c on( c.oid = attrelid ) "
@@ -220,7 +259,7 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
         for (int i = 0; i < row_num; i++) {
             string column_name(PQgetvalue(res, i, 0));
             auto column_type = oid2type[atol(PQgetvalue(res, i, 1))];
-            cerr << "table: " << t->name << " col: " << column_name << "type: " << column_type->name << endl;
+            // cerr << "table: " << t->name << " col: " << column_name << "type: " << column_type->name << endl;
             column c(column_name, column_type);
             t->columns().push_back(c);
         }
@@ -292,20 +331,46 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
 
     begin_time = get_cur_time_ms();
     cerr << "Loading routine parameters...";
-    for (auto &proc : routines) {
-        string q("select unnest(proargtypes) "
-            "from pg_proc ");
-        q = q + " where oid = " + proc.specific_name + ";";
+    if (has_routine_para == false) {
+        for (auto &proc : routines) {
+            string q("select unnest(proargtypes) from pg_proc ");
+            q = q + " where oid = " + proc.specific_name + ";";
 
-        res = pqexec_handle_error(conn, q);
-        row_num = PQntuples(res);
-        for (int i = 0; i < row_num; i++) {
-            sqltype *t = oid2type[atol(PQgetvalue(res, i, 0))];
-            assert(t);
+            res = pqexec_handle_error(conn, q);
+            row_num = PQntuples(res);
+
+            vector <pg_type *> para_vec;
+            for (int i = 0; i < row_num; i++) {
+                auto t = oid2type[atol(PQgetvalue(res, i, 0))];
+                assert(t);
+                para_vec.push_back(t);
+            }
+            static_routine_para_vec[proc.specific_name] = para_vec;
+            PQclear(res);
+        }
+        has_routine_para = true;
+    }
+    for (auto &proc : routines) {
+        auto& para_vec = static_routine_para_vec[proc.specific_name];
+        for (auto t:para_vec) {
             proc.argtypes.push_back(t);
         }
-        PQclear(res);
     }
+
+    // for (auto &proc : routines) {
+    //     string q("select unnest(proargtypes) "
+    //         "from pg_proc ");
+    //     q = q + " where oid = " + proc.specific_name + ";";
+
+    //     res = pqexec_handle_error(conn, q);
+    //     row_num = PQntuples(res);
+    //     for (int i = 0; i < row_num; i++) {
+    //         sqltype *t = oid2type[atol(PQgetvalue(res, i, 0))];
+    //         assert(t);
+    //         proc.argtypes.push_back(t);
+    //     }
+    //     PQclear(res);
+    // }
     cerr << "done." << endl;
     end_time = get_cur_time_ms();
     cerr << "time using: " << end_time - begin_time << endl;
@@ -365,16 +430,16 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
 
 schema_pqxx::~schema_pqxx()
 {
-    auto types_num = types.size();
-    for (int i = 0; i < types_num; i++) {
-        pg_type* ptype = dynamic_cast<pg_type*>(types[i]);
-        if (!ptype) // not a pg_type
-            continue;
-        types.erase(types.begin() + i);
-        delete ptype;
-        i--;
-        types_num--;
-    }
+    // auto types_num = types.size();
+    // for (int i = 0; i < types_num; i++) {
+    //     pg_type* ptype = dynamic_cast<pg_type*>(types[i]);
+    //     if (!ptype) // not a pg_type
+    //         continue;
+    //     types.erase(types.begin() + i);
+    //     delete ptype;
+    //     i--;
+    //     types_num--;
+    // }
 }
 
 extern "C" {
