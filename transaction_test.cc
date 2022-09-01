@@ -180,11 +180,11 @@ bool transaction_test::change_txn_status(int target_tid, txn_status final_status
         // compare size to prevent the case that begin statement contains "COMMIT", 
             // e.g. BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED (in postgres)
         auto is_commit = (stmt.find(commit_str) != string::npos) && 
-                            (stmt.size() - commit_str.size() <= 3) &&
-                            (stmt.size() - commit_str.size() >= 0);
+                            (stmt.size() <= commit_str.size() + 3) &&
+                            (stmt.size() >= commit_str.size());
         auto is_abort = (stmt.find(abort_str) != string::npos) && 
-                            (stmt.size() - abort_str.size() <= 3) &&
-                            (stmt.size() - abort_str.size() >= 0);
+                            (stmt.size() <= abort_str.size() + 3) &&
+                            (stmt.size() >= abort_str.size());
         if (!is_commit && !is_abort)
             continue;
 
@@ -297,8 +297,8 @@ bool transaction_test::refine_txn_as_txn_order()
         
         auto commit_str = trans_arr[tid].dut->commit_stmt();
         auto is_commit = (stmt.find(commit_str) != string::npos) && 
-                            (stmt.size() - commit_str.size() <= 3) &&
-                            (stmt.size() - commit_str.size() >= 0);
+                            (stmt.size() <= commit_str.size() + 3) &&
+                            (stmt.size() >= commit_str.size());
         if (!is_commit) // it is not commit stmt
             continue;
 
@@ -359,8 +359,8 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
         // store the error info of non-commit statement
         auto commit_str = trans_arr[tid].dut->commit_stmt();
         auto is_commit = (stmt.find(commit_str) != string::npos) && 
-                            (stmt.size() - commit_str.size() <= 3) &&
-                            (stmt.size() - commit_str.size() >= 0);
+                            (stmt.size() <= commit_str.size() + 3) &&
+                            (stmt.size() >= commit_str.size());
         if (!is_commit) { // it is not commit stmt 
             stmt_output empty_output;
             output = empty_output;
@@ -465,11 +465,11 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, int* status_queue, boo
             auto commit_str = trans_arr[tid].dut->commit_stmt();
             auto abort_str = trans_arr[tid].dut->abort_stmt();
             auto is_commit = (stmt.find(commit_str) != string::npos) && 
-                            (stmt.size() - commit_str.size() <= 3) &&
-                            (stmt.size() - commit_str.size() >= 0);
+                            (stmt.size() <= commit_str.size() + 3) &&
+                            (stmt.size() >= commit_str.size());
             auto is_abort = (stmt.find(abort_str) != string::npos) && 
-                            (stmt.size() - abort_str.size() <= 3) &&
-                            (stmt.size() - abort_str.size() >= 0);
+                            (stmt.size() <= abort_str.size() + 3) &&
+                            (stmt.size() >= abort_str.size());
             if (is_commit || is_abort) {
                 retry_block_stmt(stmt_pos, status_queue, debug_mode);
             }
@@ -544,11 +544,11 @@ void transaction_test::trans_test(bool debug_mode)
         auto commit_str = trans_arr[tid].dut->commit_stmt();
         auto abort_str = trans_arr[tid].dut->abort_stmt();
         auto is_commit = (stmt_str.find(commit_str) != string::npos) && 
-                        (stmt_str.size() - commit_str.size() <= 3) &&
-                        (stmt_str.size() - commit_str.size() >= 0);
-        auto is_abort = (stmt_str.find(abort_str) != string::npos) && 
-                        (stmt_str.size() - abort_str.size() <= 3) &&
-                        (stmt_str.size() - abort_str.size() >= 0);
+                            (stmt_str.size() <= commit_str.size() + 3) &&
+                            (stmt_str.size() >= commit_str.size());
+         auto is_abort = (stmt_str.find(abort_str) != string::npos) && 
+                            (stmt_str.size() <= abort_str.size() + 3) &&
+                            (stmt_str.size() >= abort_str.size());
         if (is_commit || is_abort) {
             retry_block_stmt(stmt_index, status_queue, debug_mode);
         }
