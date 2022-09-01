@@ -110,10 +110,11 @@ int fork_for_generating_database(dbms_info& d_info)
     
     if (WIFEXITED(status)) {
         auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
-        cerr << "exit code: " << exit_code << endl;
+        // cerr << "exit code: " << exit_code << endl;
         if (exit_code == FIND_BUG_EXIT) {
             cerr << RED << "a bug is found in fork process" << RESET << endl;
             transaction_test::record_bug_num++;
+            exit(-1);
         }
         if (exit_code == 255)
             exit(-1);
@@ -144,7 +145,7 @@ int fork_for_generating_database(dbms_info& d_info)
     input_wkey.close();
 
     write_op_id++;
-    cerr << "updating write_op_id: "<< write_op_id << endl;
+    // cerr << "updating write_op_id: "<< write_op_id << endl;
 
     return 0;
 }
@@ -158,7 +159,7 @@ int fork_for_transaction_test(dbms_info& d_info)
     child_pid = fork();
     if (child_pid == 0) { // in child process
         try {
-            cerr << "write_op_id: " << write_op_id << endl;
+            // cerr << "write_op_id: " << write_op_id << endl;
             transaction_test tt(d_info);
             auto ret = tt.test();
             if (ret == 1) {
@@ -191,10 +192,11 @@ int fork_for_transaction_test(dbms_info& d_info)
     
     if (WIFEXITED(status)) {
         auto exit_code =  WEXITSTATUS(status); // only low 8 bit (max 255)
-        cerr << "exit code: " << exit_code << endl;
+        // cerr << "exit code: " << exit_code << endl;
         if (exit_code == FIND_BUG_EXIT) {
             cerr << RED << "a bug is found in fork process" << RESET << endl;
             transaction_test::record_bug_num++;
+            exit(-1);
         }
         if (exit_code == 255)
             exit(-1);

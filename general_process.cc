@@ -4,7 +4,7 @@ extern int write_op_id;
 
 int make_dir_error_exit(string folder)
 {
-    cerr << "mkdir " << folder << endl;
+    // cerr << "mkdir " << folder << endl;
     int fail_time = 0;
     while (mkdir(folder.c_str(), 0700)) {
         cout << "fail to mkdir "<< folder << endl;
@@ -234,11 +234,8 @@ void dut_backup(dbms_info& d_info)
 
 void dut_reset_to_backup(dbms_info& d_info)
 {
-    cerr << YELLOW << "reset to backup" << RESET << endl;
     auto dut = dut_setup(d_info);
-    cerr << YELLOW << "settup finished" << RESET << endl;
     dut->reset_to_backup();
-    cerr << YELLOW << "backup finished" << RESET << endl;
 }
 
 void dut_get_content(dbms_info& d_info, 

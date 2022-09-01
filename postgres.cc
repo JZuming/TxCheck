@@ -744,7 +744,7 @@ void dut_libpq::test(const std::string &stmt, vector<vector<string>>* output, in
                 throw std::runtime_error("[BUG] " + err + " in " + debug_info); 
             if (err.find("commands ignored until end of transaction block") != string::npos) 
                 throw runtime_error("skipped in " + debug_info);
-            throw runtime_error(err + " in " + debug_info);
+            throw runtime_error("skipped for " + err + " in " + debug_info);
         }
 
         if (affected_row_num) {
@@ -837,7 +837,7 @@ void dut_libpq::reset_to_backup(void)
     
     PQfinish(conn);
     
-    string pgsql_source = "/usr/local/pgsql/bin/psql -p " + to_string(test_port) + " " + test_db + " < /tmp/pgsql_bk.sql &> /dev/null";
+    string pgsql_source = "/usr/local/pgsql/bin/psql -p " + to_string(test_port) + " " + test_db + " < /tmp/pgsql_bk.sql 1> /dev/null";
     if (system(pgsql_source.c_str()) == -1) 
         throw std::runtime_error(string("system() error, return -1") + "\nLocation: " + debug_info);
 

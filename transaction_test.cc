@@ -43,16 +43,17 @@ void transaction_test::assign_txn_status()
     for (int i = commit_num; i < trans_num; i++) 
         trans_arr[i].status = TXN_ABORT;
     
-    cerr << YELLOW << "show status" << RESET << endl;
-    for (int i = 0; i < trans_num; i++) {
-        cerr << i << " " << trans_arr[i].status << endl;
-    }
+    // cerr << YELLOW << "show status" << RESET << endl;
+    // for (int i = 0; i < trans_num; i++) {
+    //     cerr << i << " " << trans_arr[i].status << endl;
+    // }
 
     return;
 }
 
 void transaction_test::gen_txn_stmts()
 {    
+    cerr << YELLOW << "stage 4: generating statements ..." << RESET;
     int stmt_pos_of_trans[trans_num];
 
     db_schema = get_schema(test_dbms_info);
@@ -167,17 +168,27 @@ bool transaction_test::change_txn_status(int target_tid, txn_status final_status
     else if (final_status == TXN_COMMIT)
         trans_arr[target_tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[target_tid].dut->commit_stmt()));
     
+    auto commit_str = trans_arr[target_tid].dut->commit_stmt();
+    auto abort_str = trans_arr[target_tid].dut->abort_stmt();
     for (int i = 0; i < stmt_num; i++) {
         auto tid = tid_queue[i];
-        auto stmt = print_stmt_to_string(stmt_queue[i]);
-
         if (target_tid != tid)
             continue;
-        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos &&
-                stmt.find(trans_arr[tid].dut->abort_stmt()) == string::npos)
-            continue;
         
-        // find out the commit and abort stmt
+        auto stmt = print_stmt_to_string(stmt_queue[i]);
+        
+        // compare size to prevent the case that begin statement contains "COMMIT", 
+            // e.g. BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED (in postgres)
+        auto is_commit = (stmt.find(commit_str) != string::npos) && 
+                            (stmt.size() - commit_str.size() <= 3) &&
+                            (stmt.size() - commit_str.size() >= 0);
+        auto is_abort = (stmt.find(abort_str) != string::npos) && 
+                            (stmt.size() - abort_str.size() <= 3) &&
+                            (stmt.size() - abort_str.size() >= 0);
+        if (!is_commit && !is_abort)
+            continue;
+
+        // find out the commit or abort stmt
         stmt_queue[i] = trans_arr[tid].stmts.back();
     }
     return true;
@@ -283,7 +294,12 @@ bool transaction_test::refine_txn_as_txn_order()
             continue;
         if (seq_txn.count(tid) > 0)
             continue;
-        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos) // it is not commit stmt
+        
+        auto commit_str = trans_arr[tid].dut->commit_stmt();
+        auto is_commit = (stmt.find(commit_str) != string::npos) && 
+                            (stmt.size() - commit_str.size() <= 3) &&
+                            (stmt.size() - commit_str.size() >= 0);
+        if (!is_commit) // it is not commit stmt
             continue;
 
         is_refined = true;
@@ -302,6 +318,7 @@ bool transaction_test::refine_txn_as_txn_order()
 }
 
 // 2: fatal error (e.g. restart transaction, current transaction is aborted), skip the stmt
+//    Note: for the unacceptable error, implemented dbms front-end should throw error containing "skipped"
 // 1: executed
 // 0: blocked, not executed
 int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool debug_mode)
@@ -340,7 +357,11 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
             exit(-1);
         
         // store the error info of non-commit statement
-        if (stmt.find(trans_arr[tid].dut->commit_stmt()) == string::npos) {
+        auto commit_str = trans_arr[tid].dut->commit_stmt();
+        auto is_commit = (stmt.find(commit_str) != string::npos) && 
+                            (stmt.size() - commit_str.size() <= 3) &&
+                            (stmt.size() - commit_str.size() >= 0);
+        if (!is_commit) { // it is not commit stmt 
             stmt_output empty_output;
             output = empty_output;
             trans_arr[tid].stmt_outputs.push_back(empty_output);
@@ -356,6 +377,7 @@ int transaction_test::trans_test_unit(int stmt_pos, stmt_output& output, bool de
         stmt_queue[stmt_pos] = trans_arr[tid].stmts.back();
 
         stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
+        show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
         try {
             trans_arr[tid].dut->test(stmt);
             stmt_output empty_output;
@@ -440,8 +462,15 @@ void transaction_test::retry_block_stmt(int cur_stmt_num, int* status_queue, boo
             real_stmt_usage.push_back(stmt_use[stmt_pos]);
             
             auto stmt = print_stmt_to_string(stmt_queue[stmt_pos]);
-            if (stmt.find(trans_arr[tid].dut->commit_stmt()) != string::npos ||
-                    stmt.find(trans_arr[tid].dut->abort_stmt()) != string::npos) {
+            auto commit_str = trans_arr[tid].dut->commit_stmt();
+            auto abort_str = trans_arr[tid].dut->abort_stmt();
+            auto is_commit = (stmt.find(commit_str) != string::npos) && 
+                            (stmt.size() - commit_str.size() <= 3) &&
+                            (stmt.size() - commit_str.size() >= 0);
+            auto is_abort = (stmt.find(abort_str) != string::npos) && 
+                            (stmt.size() - abort_str.size() <= 3) &&
+                            (stmt.size() - abort_str.size() >= 0);
+            if (is_commit || is_abort) {
                 retry_block_stmt(stmt_pos, status_queue, debug_mode);
             }
         } else if (is_executed == 2) { // skipped
@@ -512,8 +541,15 @@ void transaction_test::trans_test(bool debug_mode)
         
         // after a commit or abort, retry the statement
         auto stmt_str = print_stmt_to_string(stmt);
-        if (stmt_str.find(trans_arr[tid].dut->commit_stmt()) != string::npos ||
-                stmt_str.find(trans_arr[tid].dut->abort_stmt()) != string::npos) {
+        auto commit_str = trans_arr[tid].dut->commit_stmt();
+        auto abort_str = trans_arr[tid].dut->abort_stmt();
+        auto is_commit = (stmt_str.find(commit_str) != string::npos) && 
+                        (stmt_str.size() - commit_str.size() <= 3) &&
+                        (stmt_str.size() - commit_str.size() >= 0);
+        auto is_abort = (stmt_str.find(abort_str) != string::npos) && 
+                        (stmt_str.size() - abort_str.size() <= 3) &&
+                        (stmt_str.size() - abort_str.size() >= 0);
+        if (is_commit || is_abort) {
             retry_block_stmt(stmt_index, status_queue, debug_mode);
         }
     }
@@ -935,6 +971,21 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<
             trans_arr[tid].stmts[stmt_pos_of_txn[tid]] = casted;
         stmt_pos_of_txn[tid]++;
     }
+
+    // cerr << YELLOW << "after refining txn_stmt because the skipped stmt has been changed" << RESET << endl;
+    // if (true) {
+    //     int stmt_step_of_txn[trans_num];
+    //     memset(stmt_step_of_txn, 0, sizeof(int) * trans_num);
+    //     for (int i = 0; i < stmt_num; i++) {
+    //         auto tid = tid_queue[i];
+    //         auto stmt = stmt_queue[i];
+    //         auto stmt_str = print_stmt_to_string(stmt);
+    //         auto show_str = stmt_str.substr(0, stmt_str.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt_str.size());
+    //         replace(show_str.begin(), show_str.end(), '\n', ' ');
+    //         cerr << "T" << tid << " S" << stmt_step_of_txn[tid] << ": " << show_str << endl;
+    //         stmt_step_of_txn[tid]++;
+    //     }
+    // }
     
     bool is_refined = false;
     // change txns that are not in the path to abort
@@ -951,6 +1002,21 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<
         if (change_txn_status(i, TXN_ABORT))
             is_refined = true;
     }
+
+    // cerr << YELLOW << "after changing txns that are not in the path to abort" << RESET << endl;
+    // if (true) {
+    //     int stmt_step_of_txn[trans_num];
+    //     memset(stmt_step_of_txn, 0, sizeof(int) * trans_num);
+    //     for (int i = 0; i < stmt_num; i++) {
+    //         auto tid = tid_queue[i];
+    //         auto stmt = stmt_queue[i];
+    //         auto stmt_str = print_stmt_to_string(stmt);
+    //         auto show_str = stmt_str.substr(0, stmt_str.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt_str.size());
+    //         replace(show_str.begin(), show_str.end(), '\n', ' ');
+    //         cerr << "T" << tid << " S" << stmt_step_of_txn[tid] << ": " << show_str << endl;
+    //         stmt_step_of_txn[tid]++;
+    //     }
+    // }
 
     for (int i = 0; i < trans_num; i++) 
         stmt_pos_of_txn[i] = 0;
@@ -1236,16 +1302,19 @@ bool transaction_test::multi_stmt_round_test()
         // use the longest path to refine
         bool empty_stmt_path = false;
         shared_ptr<dependency_analyzer> tmp_da = init_da;
+
         while (refine_stmt_queue(longest_stmt_path, tmp_da) == true) { // will change some stmts to space holder
+            cerr << YELLOW << "previous instrmented stmt_queue length: " << stmt_queue.size() << RESET << endl;
+            
             auto tmp_whole_before_stmt_queue = stmt_queue;
             auto tmp_whole_before_tid_queue = tid_queue;
             auto tmp_whole_before_stmt_usage = stmt_use;
-
-            cerr << "1 stmt_queue length: " << stmt_queue.size() << endl;
+            
             clean_instrument();
-            cerr << "2 stmt_queue length: " << stmt_queue.size() << endl;
+            cerr << YELLOW << "cleared stmt_queue length: " << stmt_queue.size() << RESET << endl;
+
             block_scheduling(); // will change some stmts to space holder
-            cerr << "3 stmt_queue length: " << stmt_queue.size() << endl;
+            cerr << YELLOW << "scheduled stmt_queue length: " << stmt_queue.size() << RESET << endl;
             infer_instrument_after_blocking(tmp_whole_before_stmt_queue, 
                                                 tmp_whole_before_tid_queue, 
                                                 tmp_whole_before_stmt_usage,
@@ -1253,12 +1322,12 @@ bool transaction_test::multi_stmt_round_test()
                                                 stmt_queue,
                                                 tid_queue,
                                                 stmt_use);
-            cerr << "4 stmt_queue length: " << stmt_queue.size() << endl;
+            cerr << YELLOW << "first instrmented stmt_queue length: " << stmt_queue.size() << RESET << endl;
             instrument_txn_stmts();
-            cerr << "5 stmt_queue length: " << stmt_queue.size() << endl;
+            cerr << YELLOW << "final instrmented stmt_queue length: " << stmt_queue.size() << RESET << endl;
 
             cerr << RED << "txn testing:" << RESET << endl;
-            trans_test(false);
+            trans_test();
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
             longest_stmt_path = tmp_da->longest_stmt_path();
@@ -1365,7 +1434,7 @@ void transaction_test::block_scheduling()
     int round = 0;
     while (1) {
         cerr << RED << "scheduling: " << round << RESET << endl;
-        trans_test();
+        trans_test(false);
         if (stmt_queue == real_stmt_queue) // no failing 
             break;
         stmt_queue = real_stmt_queue;
