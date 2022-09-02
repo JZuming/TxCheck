@@ -2,20 +2,20 @@
 
 extern int write_op_id;
 
-int make_dir_error_exit(string folder)
+int make_dir_error_exit(string& folder)
 {
-    // cerr << "mkdir " << folder << endl;
+    cerr << "try to mkdir " << folder << endl;
     int fail_time = 0;
     while (mkdir(folder.c_str(), 0700)) {
         cout << "fail to mkdir "<< folder << endl;
         if (folder.length() < 2)
             return 1;
-        folder = folder.substr(0, folder.length() - 2) + "_tmp/";
+        folder = folder.substr(0, folder.length() - 1) + "_tmp/";
         fail_time++;
         if (fail_time > 5)
             return 1;
     }
-
+    cerr << "finally mkdir " << folder << endl;
     return 0;
 }
 
@@ -892,7 +892,7 @@ bool reproduce_routine(dbms_info& d_info,
         print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
 
         re_test.normal_stmt_test(longest_stmt_path);
-        if (re_test.check_normal_stmt_result(longest_stmt_path, true) == false) {
+        if (re_test.check_normal_stmt_result(longest_stmt_path, false) == false) {
             string bug_str = "Find bugs in check_normal_stmt_result";
             cerr << RED << bug_str << RESET << endl;
             if (err_info != "" && err_info != bug_str) {

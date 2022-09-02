@@ -53,7 +53,7 @@ void transaction_test::assign_txn_status()
 
 void transaction_test::gen_txn_stmts()
 {    
-    cerr << YELLOW << "stage 4: generating statements ..." << RESET;
+    cerr << YELLOW << "stage 4: generating statements ..." << RESET << endl;
     int stmt_pos_of_trans[trans_num];
 
     db_schema = get_schema(test_dbms_info);
@@ -1068,7 +1068,9 @@ void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
     cerr << RED << "normal testing" << RESET << endl;
     dut_reset_to_backup(test_dbms_info);
     auto normal_dut = dut_setup(test_dbms_info);
+    int count = -1;
     for (auto& stmt_id : stmt_path) {
+        count++;
         auto tid = stmt_id.txn_id;
         auto stmt_pos = stmt_id.stmt_idx_in_txn;
         auto stmt = print_stmt_to_string(trans_arr[tid].stmts[stmt_pos]);
@@ -1079,12 +1081,12 @@ void transaction_test::normal_stmt_test(vector<stmt_id>& stmt_path)
             normal_dut->test(stmt, &output);
             normal_stmt_output.push_back(output);
             normal_stmt_err_info.push_back("");
-            cerr << "T" << tid << " S" << stmt_pos << ": " << show_str << endl;
+            cerr << count << " T" << tid << " S" << stmt_pos << ": " << show_str << endl;
         } catch (exception &e) {
             string err = e.what();
             stmt_output empty_output;
-            cerr << RED 
-                << "T" << tid << " S" << stmt_pos << ": " << show_str << ": fail, err: " 
+            cerr << RED << count
+                << " T" << tid << " S" << stmt_pos << ": " << show_str << ": fail, err: " 
                 << err << RESET << endl;
             if (err.find("skipped") != string::npos) {
                 normal_stmt_output.push_back(empty_output);

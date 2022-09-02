@@ -309,6 +309,15 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
             "where prorettype::regtype::text not in ('event_trigger', 'trigger', 'opaque', 'internal') "
                 "and proname <> 'pg_event_trigger_table_rewrite_reason' "
                 "and proname <> 'pg_event_trigger_table_rewrite_oid' "
+                "and proname <> 'pg_backend_pid' " // output different result for different pid
+                "and proname <> 'timeofday' " // output different result in different time
+                "and proname <> 'pg_stat_get_checkpoint_write_time' " // output different result in different time
+                "and proname <> 'inet_client_port' " // output different result in different client
+                "and proname <> 'random' " // output different result in different time
+                "and proname <> 'pg_export_snapshot' " // output different result in different time
+                "and proname <> 'pg_stat_get_checkpoint_sync_time' " // output different result in different time
+                "and proname <> 'pg_control_checkpoint' " // output different result in different time
+                "and proname <> 'txid_current_if_assigned' " // output different result for different txn
                 "and proname !~ '^ri_fkey_' "
                 "and not (proretset or " + procedure_is_aggregate + " or " + procedure_is_window + ") ;";
         res = pqexec_handle_error(conn, load_routines_sql);

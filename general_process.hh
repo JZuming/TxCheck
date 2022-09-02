@@ -131,7 +131,7 @@ bool minimize_testcase(dbms_info& d_info,
 
 string print_stmt_to_string(shared_ptr<prod> stmt);
 
-int make_dir_error_exit(string folder);
+int make_dir_error_exit(string& folder);
 
 extern pthread_mutex_t mutex_timeout;  
 extern pthread_cond_t  cond_timeout;
