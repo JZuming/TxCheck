@@ -234,7 +234,11 @@ int random_test(dbms_info& d_info)
         }
 
         try {
-            fork_for_generating_database(d_info);
+            // donot fork, so that the static schema can be used in each test case
+            transaction_test::fork_if_server_closed(d_info);
+            generate_database(d_info);
+            
+            // fork_for_generating_database(d_info);
             break;
         } catch(std::exception &e) {
             cerr << e.what() << " in setup stage" << endl;
