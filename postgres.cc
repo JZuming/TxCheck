@@ -310,13 +310,34 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
                 "and proname <> 'pg_event_trigger_table_rewrite_reason' "
                 "and proname <> 'pg_event_trigger_table_rewrite_oid' "
                 "and proname <> 'pg_backend_pid' " // output different result for different pid
-                "and proname <> 'timeofday' " // output different result in different time
-                "and proname <> 'pg_stat_get_checkpoint_write_time' " // output different result in different time
-                "and proname <> 'inet_client_port' " // output different result in different client
-                "and proname <> 'random' " // output different result in different time
-                "and proname <> 'pg_export_snapshot' " // output different result in different time
-                "and proname <> 'pg_stat_get_checkpoint_sync_time' " // output different result in different time
                 "and proname <> 'pg_control_checkpoint' " // output different result in different time
+                "and proname <> 'pg_control_system' " // output different result in different time
+                "and proname <> 'pg_current_snapshot' " // output different result for different time
+                "and proname <> 'pg_current_wal_flush_lsn' " // output different result for different time
+                "and proname <> 'pg_current_wal_insert_lsn' " // output different result for different time
+                "and proname <> 'pg_current_wal_lsn' " // output different result for different time
+                "and proname <> 'pg_current_xact_id' " // output different result for different txn
+                "and proname <> 'pg_current_xact_id_if_assigned' " // output different result for different txn
+                "and proname <> 'pg_export_snapshot' " // output different result in different time
+                "and proname <> 'pg_stat_get_backend_client_port' " // output different result for different time
+                "and proname <> 'pg_stat_get_backend_pid' " // output different result for different time
+                "and proname <> 'pg_stat_get_backend_wait_event' " // output different result for normal running and txn
+                "and proname <> 'pg_stat_get_backend_wait_event_type' " // output different result for normal running and txn
+                "and proname <> 'pg_stat_get_bgwriter_buf_written_checkpoints' " // output different result for different time
+                "and proname <> 'pg_stat_get_bgwriter_requested_checkpoints' " // output different result for different time
+                "and proname <> 'pg_stat_get_buf_alloc' " // output different result for different time
+                "and proname <> 'pg_stat_get_buf_written_backend' " // output different result for different time
+                "and proname <> 'pg_stat_get_checkpoint_sync_time' " // output different result in different time
+                "and proname <> 'pg_stat_get_checkpoint_write_time' " // output different result in different time
+                "and proname <> 'pg_switch_wal' " // output different result for different time
+                "and proname <> 'clock_timestamp' " // output different result for different time
+                "and proname <> 'gen_random_uuid' " // output different result for different time
+                "and proname <> 'inet_client_port' " // output different result in different client
+                "and proname <> 'now' " // output different result for different time
+                "and proname <> 'random' " // output different result in different time
+                "and proname <> 'statement_timestamp' " // output different result in different time
+                "and proname <> 'timeofday' " // output different result in different time
+                "and proname <> 'txid_current' " // output different result for different txn
                 "and proname <> 'txid_current_if_assigned' " // output different result for different txn
                 "and proname !~ '^ri_fkey_' "
                 "and not (proretset or " + procedure_is_aggregate + " or " + procedure_is_window + ") ;";
