@@ -329,6 +329,7 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
                 "and proname <> 'pg_stat_get_bgwriter_requested_checkpoints' " // output different result for different time
                 "and proname <> 'pg_stat_get_buf_alloc' " // output different result for different time
                 "and proname <> 'pg_stat_get_buf_written_backend' " // output different result for different time
+                "and proname <> 'pg_stat_get_wal' "
                 "and proname <> 'pg_stat_get_checkpoint_sync_time' " // output different result in different time
                 "and proname <> 'pg_stat_get_checkpoint_write_time' " // output different result in different time
                 "and proname <> 'pg_switch_wal' " // output different result for different time
