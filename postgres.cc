@@ -312,6 +312,7 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
                 "and proname <> 'pg_backend_pid' " // output different result for different pid
                 "and proname <> 'pg_control_checkpoint' " // output different result in different time
                 "and proname <> 'pg_control_system' " // output different result in different time
+                "and proname <> 'pg_create_restore_point' "
                 "and proname <> 'pg_current_snapshot' " // output different result for different time
                 "and proname <> 'pg_current_wal_flush_lsn' " // output different result for different time
                 "and proname <> 'pg_current_wal_insert_lsn' " // output different result for different time
@@ -319,6 +320,7 @@ schema_pqxx::schema_pqxx(string db, unsigned int port, bool no_catalog)
                 "and proname <> 'pg_current_xact_id' " // output different result for different txn
                 "and proname <> 'pg_current_xact_id_if_assigned' " // output different result for different txn
                 "and proname <> 'pg_export_snapshot' " // output different result in different time
+                "and proname <> 'pg_stat_get_backend_activity' " // output different result for different time
                 "and proname <> 'pg_stat_get_backend_client_port' " // output different result for different time
                 "and proname <> 'pg_stat_get_backend_pid' " // output different result for different time
                 "and proname <> 'pg_stat_get_backend_wait_event' " // output different result for normal running and txn
