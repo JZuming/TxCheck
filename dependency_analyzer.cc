@@ -1352,3 +1352,113 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
 
     return path;
 }
+
+vector<stmt_id> dependency_analyzer::topological_sort_path()
+{
+    vector<stmt_id> path;
+    auto tmp_stmt_dependency_graph = stmt_dependency_graph;
+    set<stmt_id> outputted_node; // the node that has been outputted from graph
+    set<stmt_id> deleted_node; // the node that has been deleted for decycle
+    set<stmt_id> all_stmt_set; // record all stmts in the graph 
+    for (int i = 0; i < stmt_num; i++) {
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        all_stmt_set.insert(stmt_i);
+    }
+    while (outputted_node.size() + deleted_node.size() < stmt_num) {
+        int zero_indegree_idx = -1;
+        
+        // --- find zero-indegree statement ---
+        for (int i = 0; i < stmt_num; i++) {
+            auto stmt_i = stmt_id(f_txn_id_queue, i);
+            if (outputted_node.count(stmt_i) > 0) // has been outputted from tmp_stmt_graph
+                continue;
+            if (deleted_node.count(stmt_i) > 0) // has been really deleted (for decycle)
+                continue;
+            bool has_indegree = false;
+            // check whether the node has indegree
+            for (int j = 0; j < stmt_num; j++) {
+                if (i == j)
+                    continue;
+                auto stmt_j = stmt_id(f_txn_id_queue, j);
+                if (tmp_stmt_dependency_graph.count(make_pair(stmt_j, stmt_i)) > 0) {
+                    has_indegree = true;
+                    break;
+                }
+            }
+            if (has_indegree == false) {
+                zero_indegree_idx = i;
+                break;
+            }
+        }
+        // ------------------------------------
+        
+        // if do not has zero-indegree statement, so there is a cycle
+        if (zero_indegree_idx == -1) {
+            // cerr << "There is a cycle in topological_sort_path(), delete one node: ";
+            // select one node to delete
+            auto tmp_stmt_set = all_stmt_set;
+            for (auto& node : outputted_node) // cannot delete outputted node
+                tmp_stmt_set.erase(node);
+            for (auto& node : deleted_node) // skip the node that has been deleted
+                tmp_stmt_set.erase(node);
+            auto r = rand() % tmp_stmt_set.size();
+            auto select_one_it = tmp_stmt_set.begin();
+            advance(select_one_it, r);
+
+            // delete its set (version_set, before_read, itself, after_read)
+            auto select_stmt_id = *select_one_it;
+            auto select_queue_idx = select_stmt_id.transfer_2_stmt_idx(f_txn_id_queue);
+            auto select_idx_set = get_instrumented_stmt_set(select_queue_idx);
+            for (auto chosen_idx : select_idx_set) {
+                auto chosen_stmt_id = stmt_id(f_txn_id_queue, chosen_idx);
+                deleted_node.insert(chosen_stmt_id);
+                for (int i = 0; i < stmt_num; i++) {
+                    auto out_branch = make_pair(chosen_stmt_id, stmt_id(f_txn_id_queue, i));
+                    auto in_branch = make_pair(stmt_id(f_txn_id_queue, i), chosen_stmt_id);
+                    tmp_stmt_dependency_graph.erase(out_branch);
+                    tmp_stmt_dependency_graph.erase(in_branch);
+                }
+                // cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
+            }
+            // cerr << endl;
+            continue;
+        }
+        // ------------------------------------
+        
+        // if do has zero-indegree statement, push the stmt to the path
+        auto stmt_zero_idx = stmt_id(f_txn_id_queue, zero_indegree_idx);
+        path.push_back(stmt_zero_idx);
+        
+        // mark the outputted node, and delete its edges.
+        outputted_node.insert(stmt_zero_idx);
+        for (int j = 0; j < stmt_num; j++) {
+            auto branch = make_pair(stmt_zero_idx, stmt_id(f_txn_id_queue, j));
+            tmp_stmt_dependency_graph.erase(branch);
+        }
+    }
+
+    auto path_size = path.size();
+    // delete begin stmts and commit/abort stmts
+    for (int i = 0; i < path_size; i++) {
+        auto txn_id = path[i].txn_id;
+        auto stmt_pos = path[i].stmt_idx_in_txn;
+        if (stmt_pos != 0 && f_txn_size[txn_id] != stmt_pos + 1)
+            continue;
+        // if it is the first one (begin), or last one (commit), delete it
+        path.erase(path.begin() + i);
+        path_size--;
+        i--;
+    }
+
+    // delete replaced stmts
+    for (int i = 0; i < path_size; i++) {
+        auto queue_idx = path[i].transfer_2_stmt_idx(f_txn_id_queue);
+        if (f_stmt_usage[queue_idx] != INIT_TYPE)
+            continue;
+        path.erase(path.begin() + i);
+        path_size--;
+        i--;
+    }
+
+    return path;
+}

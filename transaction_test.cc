@@ -1032,7 +1032,7 @@ bool transaction_test::multi_stmt_round_test()
     shared_ptr<dependency_analyzer> init_da;
     if (analyze_txn_dependency(init_da)) 
         throw runtime_error("BUG: found in analyze_txn_dependency()");
-    auto longest_stmt_path = init_da->longest_stmt_path();
+    auto longest_stmt_path = init_da->topological_sort_path();
     
     // record init status
     auto init_stmt_queue = stmt_queue;
@@ -1085,7 +1085,7 @@ bool transaction_test::multi_stmt_round_test()
             trans_test();
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
-            longest_stmt_path = tmp_da->longest_stmt_path();
+            longest_stmt_path = tmp_da->topological_sort_path();
 
             cerr << RED << "stmt path for refining: " << RESET;
             print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
@@ -1142,7 +1142,7 @@ bool transaction_test::multi_stmt_round_test()
             cerr << endl;
         }
 
-        longest_stmt_path = init_da->longest_stmt_path();
+        longest_stmt_path = init_da->topological_sort_path();
         auto new_path_length = longest_stmt_path.size();
         bool has_conflict_depend = false;
         for (int i = 0; i + 1 < new_path_length; i++) {
