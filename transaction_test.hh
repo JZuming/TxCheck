@@ -67,10 +67,6 @@ public:
     vector<string> normal_stmt_err_info;
     map<string, vector<vector<string>>> normal_stmt_db_content;
 
-    vector<int> longest_seq_txn_order;
-
-    map<string, vector<vector<string>>> normal_db_content;
-
     void assign_txn_id();
     void assign_txn_status();
     void gen_txn_stmts();
@@ -78,12 +74,9 @@ public:
     void clean_instrument();
     void block_scheduling();
 
-    static vector<int> get_longest_path_from_graph(shared_ptr<dependency_analyzer>& da);
     bool change_txn_status(int tid, txn_status final_status);
     bool analyze_txn_dependency(shared_ptr<dependency_analyzer>& da); // input da is empty; output the analyzed da
-    bool refine_txn_as_txn_order();
     void clear_execution_status();
-    bool multi_round_test(); // true: find bugs; false: no bug
     bool multi_stmt_round_test(); // true: find bugs; false: no bug
     bool refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<dependency_analyzer>& da);
     void normal_stmt_test(vector<stmt_id>& stmt_path);
@@ -93,11 +86,7 @@ public:
     void retry_block_stmt(int cur_stmt_num, int* status_queue, bool debug_mode = true);
     int trans_test_unit(int stmt_pos, stmt_output& output, bool debug_mode = true);
 
-    bool check_txn_normal_result();
-
     static bool fork_if_server_closed(dbms_info& d_info);
-
-    void normal_test();
 
     transaction_test(dbms_info& d_info);
     ~transaction_test();

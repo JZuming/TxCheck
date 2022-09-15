@@ -135,20 +135,6 @@ void transaction_test::clean_instrument()
         trans_arr[tid].stmt_num = trans_arr[tid].stmts.size();
 }
 
-vector<int> transaction_test::get_longest_path_from_graph(shared_ptr<dependency_analyzer>& da)
-{
-    auto longest_path = da->PL2_longest_path();
-    if (longest_path.empty() == false)
-        longest_path.erase(longest_path.begin());
-    
-    cerr << "longest_path: ";
-    for (int i = 0; i < longest_path.size(); i++)
-        cerr << longest_path[i] << " ";
-    cerr << endl;
-
-    return longest_path;
-}
-
 // true: changed
 // false: no need to change
 bool transaction_test::change_txn_status(int target_tid, txn_status final_status)
@@ -243,8 +229,6 @@ bool transaction_test::analyze_txn_dependency(shared_ptr<dependency_analyzer>& d
     //     cerr << "check_GSIb violate!!" << endl;
     //     return true;
     // }
-
-    longest_seq_txn_order = get_longest_path_from_graph(da);
     
     return false;
 }
@@ -270,51 +254,10 @@ void transaction_test::clear_execution_status()
     real_stmt_usage.clear();
     trans_db_content.clear();
 
-    longest_seq_txn_order.clear();
-    normal_db_content.clear();
-
     // normal test related
     normal_stmt_output.clear();
     normal_stmt_err_info.clear();
     normal_stmt_db_content.clear();
-}
-
-bool transaction_test::refine_txn_as_txn_order()
-{
-    set<int> seq_txn;
-    for (int i = 0; i < longest_seq_txn_order.size(); i++)
-        seq_txn.insert(longest_seq_txn_order[i]);
-    
-    bool is_refined = false;
-    for (int i = 0; i < stmt_num; i++) {
-        auto tid = tid_queue[i];
-        auto stmt = print_stmt_to_string(stmt_queue[i]);
-
-        if (trans_arr[tid].status == TXN_ABORT)
-            continue;
-        if (seq_txn.count(tid) > 0)
-            continue;
-        
-        auto commit_str = trans_arr[tid].dut->commit_stmt();
-        auto is_commit = (stmt.find(commit_str) != string::npos) && 
-                            (stmt.size() <= commit_str.size() + 3) &&
-                            (stmt.size() >= commit_str.size());
-        if (!is_commit) // it is not commit stmt
-            continue;
-
-        is_refined = true;
-        // should be change to abort
-        trans_arr[tid].status = TXN_ABORT;
-        trans_arr[tid].stmts.pop_back();
-        trans_arr[tid].stmts.push_back(make_shared<txn_string_stmt>((prod *)0, trans_arr[tid].dut->abort_stmt()));
-        stmt_queue[i] = trans_arr[tid].stmts.back();
-    }
-
-    if (is_refined == false)
-        return false;
-    
-    clear_execution_status();
-    return true;
 }
 
 // 2: fatal error (e.g. restart transaction, current transaction is aborted), skip the stmt
@@ -782,181 +725,6 @@ bool transaction_test::fork_if_server_closed(dbms_info& d_info)
     return server_restart;
 }
 
-void transaction_test::normal_test()
-{
-    // get normal execute statement
-    int real_stmt_num = real_tid_queue.size();
-    for (int i = 0; i < real_stmt_num; i++) {
-        auto real_tid = real_tid_queue[i];
-        if (trans_arr[real_tid].status != TXN_COMMIT)
-            continue;
-        
-        auto real_stmt = real_stmt_queue[i];
-        trans_arr[real_tid].normal_stmts.push_back(real_stmt);
-    }
-
-    for (int tid = 0; tid < trans_num; tid++) {
-        // if it is commit, erase "begin" and "commit"
-        if (trans_arr[tid].status == TXN_COMMIT) {
-            trans_arr[tid].normal_stmts.erase(trans_arr[tid].normal_stmts.begin());
-            trans_arr[tid].normal_stmts.pop_back();
-        }
-    }
-
-    dut_reset_to_backup(test_dbms_info);
-    auto normal_dut = dut_setup(test_dbms_info);
-
-    for (auto tid : longest_seq_txn_order) {
-        vector<vector<vector<string>>> normal_output;
-        vector<string> normal_err_info;
-
-        auto normal_stmt_num = trans_arr[tid].normal_stmts.size();
-        for (int i = 0; i < normal_stmt_num; i++) {
-            auto stmt = print_stmt_to_string(trans_arr[tid].normal_stmts[i]);
-            auto show_str = stmt.substr(0, stmt.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt.size());
-            replace(show_str.begin(), show_str.end(), '\n', ' ');
-            vector<vector<string>> output;
-            try {
-                normal_dut->test(stmt, &output);
-                normal_output.push_back(output);
-                cerr << "T" << tid << ": " << show_str << endl;
-            } catch (exception &e) {
-                string err = e.what();
-                cerr << RED 
-                    << "T" << tid << ": " << show_str << ": fail, err: " 
-                    << err << RESET << endl;
-                stmt_output empty_output;
-                normal_output.push_back(empty_output);
-                normal_err_info.push_back(err);
-            }
-        }
-        vector<vector<string>> empty_output;
-        normal_output.insert(normal_output.begin(), empty_output); // for begin stmt
-        normal_output.push_back(empty_output); // for commit stmt
-        trans_arr[tid].normal_outputs = normal_output;
-        trans_arr[tid].normal_err_info = normal_err_info;
-    }
-    dut_get_content(test_dbms_info, normal_db_content);
-}
-
-bool transaction_test::check_txn_normal_result()
-{
-    if (!compare_content(trans_db_content, normal_db_content)) {
-        cerr << "trans_db_content is not equal to normal_db_content" << endl;
-        return false;
-    }
-
-    for (auto i = 0; i < trans_num; i++) {
-        if (trans_arr[i].stmt_num <= 2) // just ignore the 0 stmts, and the one only have begin, commit
-            continue;
-        if (trans_arr[i].status != TXN_COMMIT) // donot check abort transaction
-            continue;
-        
-        if (!compare_output(trans_arr[i].stmt_outputs, trans_arr[i].normal_outputs)) {
-            cerr << "trans "<< i << " output is not equal to normal one" << endl;
-            return false;
-        }
-
-        if (trans_arr[i].stmt_err_info.size() != trans_arr[i].normal_err_info.size()) {
-            cerr << "trans "<< i << " error num is not equal to normal one" << endl;
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool transaction_test::multi_round_test()
-{
-    trans_test(); // first run, get all dependency information
-    shared_ptr<dependency_analyzer> init_da;
-    if (analyze_txn_dependency(init_da)) 
-        throw runtime_error("BUG: found in analyze_txn_dependency()");
-    txn_status init_status[trans_num];
-    for (int tid = 0; tid < trans_num; tid++) 
-        init_status[tid] = trans_arr[tid].status;
-    
-    while (1) {
-        // use the longest path to refine
-        cerr << "\n\n";
-        cerr << RED << "one round test" << RESET << endl;
-        cerr << "ideal test path: ";
-        for (auto i:longest_seq_txn_order) 
-            cerr << i << " ";
-        cerr << endl;
-        auto ideal_test_path = longest_seq_txn_order;
-
-        shared_ptr<dependency_analyzer> tmp_da;
-        while (refine_txn_as_txn_order() == true) { // if not stable
-            trans_test();
-            if (analyze_txn_dependency(tmp_da)) 
-                throw runtime_error("BUG: found in analyze_txn_dependency()");
-        }
-
-        cerr << "real test path: ";
-        for (auto i:longest_seq_txn_order) 
-            cerr << i << " ";
-        cerr << endl;
-        auto real_test_path = longest_seq_txn_order;
-        
-        normal_test();
-        if (check_txn_normal_result() == false)
-            return true;
-        
-        // after executing the possible longest path, delete the edge in init_da
-        auto& graph = init_da->dependency_graph;
-        // delete the real test one
-        int path_length = real_test_path.size();
-        for (int i = 0; i + 1 < path_length; i++) {
-            auto cur_tid = real_test_path[i];
-            auto next_tid = real_test_path[i + 1];
-
-            // delete all the dependency edges except START_DEPEND or STRICT_START_DEPEND
-            graph[cur_tid][next_tid].erase(WRITE_READ);
-            graph[cur_tid][next_tid].erase(WRITE_WRITE);
-            graph[cur_tid][next_tid].erase(READ_WRITE);
-        }
-        // delete the ideal test one, so that will not choose this path again
-        path_length = ideal_test_path.size();
-        for (int i = 0; i + 1 < path_length; i++) {
-            auto cur_tid = ideal_test_path[i];
-            auto next_tid = ideal_test_path[i + 1];
-
-            // delete all the dependency edges except START_DEPEND or STRICT_START_DEPEND
-            graph[cur_tid][next_tid].erase(WRITE_READ);
-            graph[cur_tid][next_tid].erase(WRITE_WRITE);
-            graph[cur_tid][next_tid].erase(READ_WRITE);
-        }
-
-        // after deleting, get another longest path
-        longest_seq_txn_order = get_longest_path_from_graph(init_da);
-        // check whether the path contains conflict depend
-        path_length = longest_seq_txn_order.size();
-        bool has_conflict_depend = false;
-        for (int i = 0; i + 1 < path_length; i++) {
-            auto cur_tid = longest_seq_txn_order[i];
-            auto next_tid = longest_seq_txn_order[i + 1];
-
-            if (graph[cur_tid][next_tid].count(WRITE_READ) || 
-                    graph[cur_tid][next_tid].count(WRITE_WRITE) ||
-                    graph[cur_tid][next_tid].count(READ_WRITE)) {
-                
-                has_conflict_depend = true;
-                break;
-            }
-        }
-        // if there is not conflict depend on longest path, stop test
-        if (has_conflict_depend == false)
-            break;
-        
-        // change back the txn status to init one
-        for (int tid = 0; tid < trans_num; tid++) 
-            change_txn_status(tid, init_status[tid]);
-    }
-    return false;
-}
-
-
 // Note: txn_string_stmt contains begin, commit, abort, select 1 where 0<>0 and select * from t
 bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<dependency_analyzer>& da)
 {
@@ -971,21 +739,6 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<
             trans_arr[tid].stmts[stmt_pos_of_txn[tid]] = casted;
         stmt_pos_of_txn[tid]++;
     }
-
-    // cerr << YELLOW << "after refining txn_stmt because the skipped stmt has been changed" << RESET << endl;
-    // if (true) {
-    //     int stmt_step_of_txn[trans_num];
-    //     memset(stmt_step_of_txn, 0, sizeof(int) * trans_num);
-    //     for (int i = 0; i < stmt_num; i++) {
-    //         auto tid = tid_queue[i];
-    //         auto stmt = stmt_queue[i];
-    //         auto stmt_str = print_stmt_to_string(stmt);
-    //         auto show_str = stmt_str.substr(0, stmt_str.size() > SHOW_CHARACTERS ? SHOW_CHARACTERS : stmt_str.size());
-    //         replace(show_str.begin(), show_str.end(), '\n', ' ');
-    //         cerr << "T" << tid << " S" << stmt_step_of_txn[tid] << ": " << show_str << endl;
-    //         stmt_step_of_txn[tid]++;
-    //     }
-    // }
     
     bool is_refined = false;
     // change txns that are not in the path to abort
@@ -1477,8 +1230,6 @@ int transaction_test::test()
     
     try {
         block_scheduling();
-        // if (multi_round_test() == false)
-        //     return 0;
         if (multi_stmt_round_test() == false)
             return 0;
     } catch(exception &e) {
