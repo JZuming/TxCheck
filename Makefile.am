@@ -27,10 +27,10 @@ AM_CPPFLAGS += -DHAVE_MYSQL
 endif
 
 if DUT_MARIADB
-# DUT += mariadb.cc
-# AM_CPPFLAGS += -DHAVE_MARIADB
-DUT += oceanbase.cc
-AM_CPPFLAGS += -DHAVE_OCEANBASE -I/u01/obclient/include/
+DUT += mariadb.cc
+AM_CPPFLAGS += -DHAVE_MARIADB
+# DUT += oceanbase.cc
+# AM_CPPFLAGS += -DHAVE_OCEANBASE -I/u01/obclient/include/
 endif
 
 # sqlsmith_SOURCES = relmodel.cc schema.cc $(DUT)	 			\
