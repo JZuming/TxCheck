@@ -1358,18 +1358,25 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
     vector<stmt_id> path;
     auto tmp_stmt_dependency_graph = stmt_dependency_graph;
     set<stmt_id> outputted_node; // the node that has been outputted from graph
-    set<stmt_id> deleted_node; // the node that has been deleted for decycle
+    set<stmt_id> deleted_node; // the node that has been deleted for decycle, and the stmt in abort stmt
     set<stmt_id> all_stmt_set; // record all stmts in the graph 
     for (int i = 0; i < stmt_num; i++) {
         auto stmt_i = stmt_id(f_txn_id_queue, i);
         all_stmt_set.insert(stmt_i);
     }
-    set<stmt_id> abort_stmt_set; // stmts in abort txn
+
     for (int i = 0; i < stmt_num; i++) {
         auto txn_id = f_txn_id_queue[i];
-        if (f_txn_status[txn_id] != TXN_COMMIT) {
-            auto stmt_i = stmt_id(f_txn_id_queue, i);
-            abort_stmt_set.insert(stmt_i); 
+        if (f_txn_status[txn_id] == TXN_COMMIT)
+            continue;
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        deleted_node.insert(stmt_i); 
+        for (int j = 0; j < stmt_num; j++) {
+            auto stmt_j = stmt_id(f_txn_id_queue, j);
+            auto out_branch = make_pair(stmt_i, stmt_j);
+            auto in_branch = make_pair(stmt_j, stmt_i);
+            tmp_stmt_dependency_graph.erase(out_branch);
+            tmp_stmt_dependency_graph.erase(in_branch);
         }
     }
     while (outputted_node.size() + deleted_node.size() < stmt_num) {
@@ -1378,8 +1385,6 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
         // --- find zero-indegree statement ---
         for (int i = stmt_num - 1; i >= 0; i--) { // use reverse order as possible
             auto stmt_i = stmt_id(f_txn_id_queue, i);
-            if (abort_stmt_set.count(stmt_i) > 0) // the statement in ABORT txn cannot not be outputted
-                continue;
             if (outputted_node.count(stmt_i) > 0) // has been outputted from tmp_stmt_graph
                 continue;
             if (deleted_node.count(stmt_i) > 0) // has been really deleted (for decycle)
@@ -1407,8 +1412,6 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
             // cerr << "There is a cycle in topological_sort_path(), delete one node: ";
             // select one node to delete
             auto tmp_stmt_set = all_stmt_set;
-            for (auto& node : abort_stmt_set) // skip the node that in abort transaction
-                tmp_stmt_set.erase(node); 
             for (auto& node : outputted_node) // cannot delete outputted node
                 tmp_stmt_set.erase(node);
             for (auto& node : deleted_node) // skip the node that has been deleted
