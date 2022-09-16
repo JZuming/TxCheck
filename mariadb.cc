@@ -485,7 +485,7 @@ dut_mariadb::dut_mariadb(string db, unsigned int port)
     query_status = 0;
     txn_abort = false;
     thread_id = mysql_thread_id(&mysql);
-    block_test("SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
+    block_test("SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
 }
 
 static unsigned long long get_cur_time_ms(void) {
