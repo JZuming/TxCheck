@@ -933,19 +933,19 @@ void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set
             auto branch = make_pair<>(cur_sid, next_sid);
             auto& dset = stmt_graph[branch];
             if (dset.count(WRITE_READ))
-                cerr << RED << "0" << RESET;
+                cerr << RED << "WR/" << RESET;
             if (dset.count(WRITE_WRITE))
-                cerr << RED << "1" << RESET;
+                cerr << RED << "WW/" << RESET;
             if (dset.count(READ_WRITE))
-                cerr << RED << "2" << RESET;
+                cerr << RED << "RW/" << RESET;
             if (dset.count(VERSION_SET_DEPEND))
-                cerr << RED << "3" << RESET;
+                cerr << RED << "VS/" << RESET;
             if (dset.count(OVERWRITE_DEPEND))
-                cerr << RED << "4" << RESET;
-            if (dset.count(START_DEPEND))
-                cerr << "5";
+                cerr << RED << "OW/" << RESET;
+            if (dset.count(STRICT_START_DEPEND))
+                cerr << "SS/";
             if (dset.count(INNER_DEPEND))
-                cerr << "6";
+                cerr << "IN/";
         }
         cerr << "->";
     }
@@ -1027,6 +1027,7 @@ void infer_instrument_after_blocking(vector<shared_ptr<prod>>& whole_before_stmt
 
 bool transaction_test::multi_stmt_round_test()
 {
+    block_scheduling(); // it will make many stmts fails, we replace these failed stmts with space holder
     instrument_txn_stmts();
     trans_test(false); // first run, get all dependency information
     shared_ptr<dependency_analyzer> init_da;
@@ -1047,6 +1048,8 @@ bool transaction_test::multi_stmt_round_test()
     int round_count = 1;
     int stmt_path_empty_time = 0;
     while (1) { // until there is not statement in the stmt path
+        // Note: after deleting some dependency in first rounds, some deleted nodes dont have dependency with other,
+        // and their indegree is zero, and they can be choosed by topological_sort_path();
         auto longest_stmt_path = init_da->topological_sort_path();
         if (longest_stmt_path.empty())
             break;
@@ -1203,7 +1206,6 @@ int transaction_test::test()
     }
     
     try {
-        block_scheduling();
         if (multi_stmt_round_test() == false)
             return 0;
     } catch(exception &e) {

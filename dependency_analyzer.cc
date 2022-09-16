@@ -1365,6 +1365,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
         all_stmt_set.insert(stmt_i);
     }
 
+    // delete node that in abort txn
     for (int i = 0; i < stmt_num; i++) {
         auto txn_id = f_txn_id_queue[i];
         if (f_txn_status[txn_id] == TXN_COMMIT)
@@ -1379,6 +1380,35 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
             tmp_stmt_dependency_graph.erase(in_branch);
         }
     }
+
+    // delete node that dont have inner depends
+    // which indicate that the node has been deleted by transaction_test::multi_stmt_round_test
+    for (int i = 0; i < stmt_num; i++) {
+        auto txn_id = f_txn_id_queue[i];
+        if (f_txn_status[txn_id] != TXN_COMMIT) // skip abort txn which has been deleted
+            continue;
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        bool has_inner_depends = false;
+        for (int j = 0; j < stmt_num; j++) {
+            auto stmt_j = stmt_id(f_txn_id_queue, j);
+            auto out_branch = make_pair(stmt_i, stmt_j);
+            auto in_branch = make_pair(stmt_j, stmt_i);
+            if (tmp_stmt_dependency_graph.count(out_branch) > 0 &&
+                tmp_stmt_dependency_graph[out_branch].count(INNER_DEPEND) > 0) {
+                has_inner_depends = true;
+                break;
+            }
+            if (tmp_stmt_dependency_graph.count(in_branch) > 0 &&
+                tmp_stmt_dependency_graph[in_branch].count(INNER_DEPEND) > 0) {
+                has_inner_depends = true;
+                break;
+            }
+        }
+        if (has_inner_depends == false) { // dont have inner depends
+            deleted_node.insert(stmt_i);
+        }
+    }
+
     while (outputted_node.size() + deleted_node.size() < stmt_num) {
         int zero_indegree_idx = -1;
         
