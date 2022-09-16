@@ -1368,7 +1368,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
         int zero_indegree_idx = -1;
         
         // --- find zero-indegree statement ---
-        for (int i = 0; i < stmt_num; i++) {
+        for (int i = stmt_num - 1; i >= 0; i--) { // use reverse order as possible
             auto stmt_i = stmt_id(f_txn_id_queue, i);
             if (outputted_node.count(stmt_i) > 0) // has been outputted from tmp_stmt_graph
                 continue;
