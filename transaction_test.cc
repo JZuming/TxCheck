@@ -1032,7 +1032,6 @@ bool transaction_test::multi_stmt_round_test()
     shared_ptr<dependency_analyzer> init_da;
     if (analyze_txn_dependency(init_da)) 
         throw runtime_error("BUG: found in analyze_txn_dependency()");
-    auto longest_stmt_path = init_da->topological_sort_path();
     
     // record init status
     auto init_stmt_queue = stmt_queue;
@@ -1047,7 +1046,11 @@ bool transaction_test::multi_stmt_round_test()
 
     int round_count = 1;
     int stmt_path_empty_time = 0;
-    while (1) {
+    while (1) { // until there is not statement in the stmt path
+        auto longest_stmt_path = init_da->topological_sort_path();
+        if (longest_stmt_path.empty())
+            break;
+        
         cerr << "\n\n";
         cerr << RED << "test round: " << round_count << RESET << endl;
         round_count++;
@@ -1112,9 +1115,10 @@ bool transaction_test::multi_stmt_round_test()
         auto path_length = longest_stmt_path.size();
         auto& stmt_graph = init_da->stmt_dependency_graph;
         auto& init_da_tid_queue = init_da->f_txn_id_queue;
+        cerr << "deleting node: ";
         for (int i = 0; i < path_length; i++) {
-            cerr << "deleting node: ";
             auto& cur_sid = longest_stmt_path[i];
+            cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ") ";
             auto queue_idx = cur_sid.transfer_2_stmt_idx(init_da_tid_queue);
             auto idx_set = init_da->get_instrumented_stmt_set(queue_idx);
             for (auto& delete_idx : idx_set) {
@@ -1137,39 +1141,9 @@ bool transaction_test::multi_stmt_round_test()
                     else
                         stmt_graph.erase(out_branch);
                 }
-                cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
-            }
-            cerr << endl;
-        }
-
-        longest_stmt_path = init_da->topological_sort_path();
-        auto new_path_length = longest_stmt_path.size();
-        bool has_conflict_depend = false;
-        for (int i = 0; i + 1 < new_path_length; i++) {
-            auto& cur_sid = longest_stmt_path[i];
-            auto& next_sid = longest_stmt_path[i + 1];
-            auto branch = make_pair(cur_sid, next_sid);
-
-            // should have interleavings
-            if (stmt_graph[branch].count(INNER_DEPEND) ||
-                    stmt_graph[branch].count(START_DEPEND))
-                continue;
-            
-            if (stmt_graph[branch].count(WRITE_READ) ||
-                    stmt_graph[branch].count(WRITE_WRITE) ||
-                    stmt_graph[branch].count(READ_WRITE) ||
-                    stmt_graph[branch].count(VERSION_SET_DEPEND) ||
-                    stmt_graph[branch].count(OVERWRITE_DEPEND)) {
-            
-                has_conflict_depend = true; 
-                break;   
             }
         }
-        cerr << "next test stmt path: ";
-        print_stmt_path(longest_stmt_path, init_da->stmt_dependency_graph);
-        cerr << "has_conflict_depend: " << has_conflict_depend <<endl;
-        if (has_conflict_depend == false)
-            break;
+        cerr << endl;
         
         stmt_queue = init_stmt_queue;
         stmt_use = init_stmt_usage;
