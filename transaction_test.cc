@@ -1047,7 +1047,7 @@ bool transaction_test::multi_stmt_round_test()
 {
     block_scheduling(); // it will make many stmts fails, we replace these failed stmts with space holder
     instrument_txn_stmts();
-    trans_test(false); // first run, get all dependency information
+    trans_test(); // first run, get all dependency information
     shared_ptr<dependency_analyzer> init_da;
     if (analyze_txn_dependency(init_da)) 
         throw runtime_error("BUG: found in analyze_txn_dependency()");
@@ -1251,7 +1251,7 @@ int transaction_test::test()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = MAX_CONCURRENT_TXN_NUM * 2; // 12
+    trans_num = MAX_CONCURRENT_TXN_NUM * 3; // 9
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];

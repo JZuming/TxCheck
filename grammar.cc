@@ -1826,22 +1826,17 @@ shared_ptr<prod> txn_statement_factory(struct scope *s, int choice)
         if (choice == -1)
             choice = d12();
         // should not have ddl statement, which will auto commit in tidb;
-#ifndef TEST_CLICKHOUSE
-        if (choice == 1)
+        if (choice <= 2)
             return make_shared<delete_stmt>((struct prod *)0, s);
-        if (choice == 6 || choice == 7 || choice == 8 || choice == 9 || choice == 10 || choice == 11 || choice == 12) 
-            return make_shared<update_stmt>((struct prod *)0, s);
-#endif
-        if (choice == 4 || choice == 5)
-            return make_shared<insert_stmt>((struct prod *)0, s);
-        // if (choice == 6 || choice == 7)
-        //     return make_shared<insert_select_stmt>((struct prod *)0, s);
-        if (choice == 2)
+        else if (choice == 3)
             return make_shared<common_table_expression>((struct prod *)0, s, true);
-        if (choice == 3)
+        else if (choice == 4)
             return make_shared<query_spec>((struct prod *)0, s, false, (vector<sqltype *> *)NULL, true);
-        
-        return txn_statement_factory(s);
+        else if (choice <= 7)
+            return make_shared<insert_stmt>((struct prod *)0, s);
+        else
+            return make_shared<update_stmt>((struct prod *)0, s);
+        // return txn_statement_factory(s);
     } catch (runtime_error &e) {
         string err = e.what();
         cerr << "catch a runtime error: " << err << endl;

@@ -574,11 +574,11 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
     int choice = -1;
     while (1) {
         if (succeed) 
-            choice = d9();
+            choice = d12();
         else { // if fail, do not change choice
             fail_time++;
             if (fail_time >= 8) {
-                choice = d9();
+                choice = d12();
                 fail_time = 0;
             }
         }
