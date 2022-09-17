@@ -1368,6 +1368,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
     //  1) the nodes that have been deleted for decycle, 
     //  2) the nodes in abort stmt
     //  3) the nodes that have been deleted in transaction_test::multi_stmt_round_test
+    
     // delete node that in abort txn
     for (int i = 0; i < stmt_num; i++) {
         auto txn_id = f_txn_id_queue[i];
@@ -1381,6 +1382,26 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
             auto in_branch = make_pair(stmt_j, stmt_i);
             tmp_stmt_dependency_graph.erase(out_branch);
             tmp_stmt_dependency_graph.erase(in_branch);
+        }
+    }
+
+    // delete start and inner dependency
+    for (int i = 0; i < stmt_num; i++) {
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        for (int j = i; j < stmt_num; j++) {
+            auto stmt_j = stmt_id(f_txn_id_queue, j);
+            auto out_branch = make_pair(stmt_i, stmt_j);
+            auto in_branch = make_pair(stmt_j, stmt_i);
+            if (tmp_stmt_dependency_graph.count(out_branch)) {
+                tmp_stmt_dependency_graph[out_branch].erase(START_DEPEND);
+                tmp_stmt_dependency_graph[out_branch].erase(STRICT_START_DEPEND);
+                tmp_stmt_dependency_graph[out_branch].erase(INNER_DEPEND);
+            }
+            if (tmp_stmt_dependency_graph.count(in_branch)) {
+                tmp_stmt_dependency_graph[in_branch].erase(START_DEPEND);
+                tmp_stmt_dependency_graph[in_branch].erase(STRICT_START_DEPEND);
+                tmp_stmt_dependency_graph[in_branch].erase(INNER_DEPEND);
+            }
         }
     }
 

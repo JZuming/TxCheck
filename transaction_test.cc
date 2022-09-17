@@ -925,27 +925,45 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path, bool
 
 void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set<dependency_type>>& stmt_graph)
 {
-    for (int i = 0; i < stmt_path.size(); i++) {
-        auto& cur_sid = stmt_path[i];
-        cerr << "(" << cur_sid.txn_id << "." << cur_sid.stmt_idx_in_txn << ")" << "-";
-        if (i + 1 < stmt_path.size()) {
-            auto& next_sid = stmt_path[i + 1];
-            auto branch = make_pair<>(cur_sid, next_sid);
+    auto path_length = stmt_path.size();
+    for (int i = 0; i < path_length; i++) {
+        auto& stmt_i = stmt_path[i];
+        cerr << "(" << stmt_i.txn_id << "." << stmt_i.stmt_idx_in_txn << ")" << "-";
+        int forward_steps = 1;
+        for (forward_steps = 1; i + forward_steps < path_length; forward_steps++) {
+            auto j = i + forward_steps;
+            auto& stmt_j = stmt_path[j];
+            auto branch = make_pair<>(stmt_i, stmt_j);
+            if (stmt_graph.count(branch) == 0)
+                continue;
             auto& dset = stmt_graph[branch];
-            if (dset.count(WRITE_READ))
-                cerr << RED << "WR/" << RESET;
-            if (dset.count(WRITE_WRITE))
-                cerr << RED << "WW/" << RESET;
-            if (dset.count(READ_WRITE))
-                cerr << RED << "RW/" << RESET;
-            if (dset.count(VERSION_SET_DEPEND))
-                cerr << RED << "VS/" << RESET;
-            if (dset.count(OVERWRITE_DEPEND))
-                cerr << RED << "OW/" << RESET;
-            if (dset.count(STRICT_START_DEPEND))
-                cerr << "SS/";
-            if (dset.count(INNER_DEPEND))
-                cerr << "IN/";
+            bool printed = false;
+            if (dset.count(WRITE_READ)) {
+                cerr << RED << forward_steps << "WR|" << RESET;
+                printed = true;
+            }
+            if (dset.count(WRITE_WRITE)) {
+                cerr << RED << forward_steps << "WW|" << RESET;
+                printed = true;
+            }
+            if (dset.count(READ_WRITE)) {
+                cerr << RED << forward_steps << "RW|" << RESET;
+                printed = true;
+            }
+            if (dset.count(VERSION_SET_DEPEND)) {
+                cerr << RED << forward_steps << "VS|" << RESET;
+                printed = true;
+            }
+            if (dset.count(OVERWRITE_DEPEND)) {
+                cerr << RED << forward_steps << "OW|" << RESET;
+                printed = true;
+            }
+            if (dset.count(INSTRUMENT_DEPEND)) {
+                cerr << forward_steps << "IN|";
+                printed = true;
+            }
+            if (printed == true)
+                break;
         }
         cerr << "->";
     }
