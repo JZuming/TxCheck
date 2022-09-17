@@ -194,10 +194,10 @@ void dependency_analyzer::build_WW_dependency(vector<operate_unit>& op_list, int
 // should be used after build_start_dependency
 void dependency_analyzer::build_VS_dependency()
 {
-    if (tid_begin_idx == NULL || tid_strict_begin_idx == NULL || tid_end_idx == NULL) {
-        cerr << "you should not use build_VS_dependency before build_start_dependency" << endl;
-        throw runtime_error("you should not use build_VS_dependency before build_start_dependency");
-    }
+    // if (tid_begin_idx == NULL || tid_strict_begin_idx == NULL || tid_end_idx == NULL) {
+    //     cerr << "you should not use build_VS_dependency before build_start_dependency" << endl;
+    //     throw runtime_error("you should not use build_VS_dependency before build_start_dependency");
+    // }
     for (int i = 0; i < stmt_num; i++) {
         auto& i_stmt_u = f_stmt_usage[i];
         if (i_stmt_u != VERSION_SET_READ)
@@ -217,13 +217,13 @@ void dependency_analyzer::build_VS_dependency()
 
         for (int j = 0; j < stmt_num; j++) {
             auto& j_tid = f_txn_id_queue[j];
-            if (i_tid == j_tid)
-                continue;
-            // skip if they donot interleave
-            if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
-                continue;
-            if (dependency_graph[j_tid][i_tid].count(STRICT_START_DEPEND) > 0)
-                continue;
+            // if (i_tid == j_tid)
+            //     continue;
+            // // skip if they donot interleave
+            // if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
+            //     continue;
+            // if (dependency_graph[j_tid][i_tid].count(STRICT_START_DEPEND) > 0)
+            //     continue;
             
             auto& j_stmt_u = f_stmt_usage[j];
             if (j_stmt_u == UPDATE_WRITE || j_stmt_u == INSERT_WRITE) {
@@ -248,7 +248,8 @@ void dependency_analyzer::build_VS_dependency()
                     inserter(res, res.begin()));
 
                 if (!res.empty()) { // if it is not empty, the changed version is seen in version read
-                    dependency_graph[j_tid][i_tid].insert(VERSION_SET_DEPEND);
+                    if (i_tid != j_tid)
+                        dependency_graph[j_tid][i_tid].insert(VERSION_SET_DEPEND);
                     build_stmt_depend_from_stmt_idx(after_write_idx, i, VERSION_SET_DEPEND);
                     // update/insert -> AFTER_WRITE_READ -> VERSION_SET_READ -> target_one
                 }
@@ -284,7 +285,8 @@ void dependency_analyzer::build_VS_dependency()
                     before_write_primary_set.begin(), before_write_primary_set.begin(),
                     inserter(res, res.begin()));
                 if (res.empty()) { // if it is emtpy, the row is deleted
-                    dependency_graph[j_tid][i_tid].insert(VERSION_SET_DEPEND);
+                    if (i_tid != j_tid)
+                        dependency_graph[j_tid][i_tid].insert(VERSION_SET_DEPEND);
                     build_stmt_depend_from_stmt_idx(j, i, VERSION_SET_DEPEND);
                     // BEFORE_WRITE_READ-> delete -> VERSION_SET_READ -> target_one
                 }
@@ -296,10 +298,10 @@ void dependency_analyzer::build_VS_dependency()
 // should be used after build_start_dependency
 void dependency_analyzer::build_OW_dependency()
 {
-    if (tid_begin_idx == NULL || tid_strict_begin_idx == NULL || tid_end_idx == NULL) {
-        cerr << "you should not use build_VS_dependency before build_start_dependency" << endl;
-        throw runtime_error("you should not use build_VS_dependency before build_start_dependency");
-    }
+    // if (tid_begin_idx == NULL || tid_strict_begin_idx == NULL || tid_end_idx == NULL) {
+    //     cerr << "you should not use build_VS_dependency before build_start_dependency" << endl;
+    //     throw runtime_error("you should not use build_VS_dependency before build_start_dependency");
+    // }
 
     for (int i = 0; i < stmt_num; i++) {
         auto& i_stmt_u = f_stmt_usage[i];
@@ -345,13 +347,13 @@ void dependency_analyzer::build_OW_dependency()
             
         for (int j = 0; j < stmt_num; j++) {
             auto& j_tid = f_txn_id_queue[j];
-            if (i_tid == j_tid)
-                continue;
-            // skip if they donot interleave
-            if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
-                continue;
-            if (dependency_graph[j_tid][i_tid].count(STRICT_START_DEPEND) > 0)
-                continue;
+            // if (i_tid == j_tid)
+            //     continue;
+            // // skip if they donot interleave
+            // if (dependency_graph[i_tid][j_tid].count(STRICT_START_DEPEND) > 0)
+            //     continue;
+            // if (dependency_graph[j_tid][i_tid].count(STRICT_START_DEPEND) > 0)
+            //     continue;
             
             auto& j_stmt_u = f_stmt_usage[j];
             if (j_stmt_u == UPDATE_WRITE || j_stmt_u == DELETE_WRITE) {
@@ -375,7 +377,8 @@ void dependency_analyzer::build_OW_dependency()
                     before_write_pv_pair_set.begin(), before_write_pv_pair_set.end(),
                     inserter(res, res.begin()));
                 if (!res.empty()) {
-                    dependency_graph[i_tid][j_tid].insert(OVERWRITE_DEPEND);
+                    if (i_tid != j_tid)
+                        dependency_graph[i_tid][j_tid].insert(OVERWRITE_DEPEND);
                     build_stmt_depend_from_stmt_idx(orginal_index, before_write_idx, OVERWRITE_DEPEND);
                     // version_set read -> target_one -> before_read -> update/delete
                 }
@@ -409,7 +412,8 @@ void dependency_analyzer::build_OW_dependency()
                     after_write_primary_set.begin(), after_write_primary_set.begin(),
                     inserter(res, res.begin()));
                 if (res.empty()) { // if it is emtpy, the row is not inserted yet
-                    dependency_graph[i_tid][j_tid].insert(OVERWRITE_DEPEND);
+                    if (i_tid != j_tid)
+                        dependency_graph[i_tid][j_tid].insert(OVERWRITE_DEPEND);
                     build_stmt_depend_from_stmt_idx(orginal_index, j, OVERWRITE_DEPEND);
                     // version_set read -> target_one -> insert -> after_read
                 }
@@ -1396,11 +1400,15 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
                 tmp_stmt_dependency_graph[out_branch].erase(START_DEPEND);
                 tmp_stmt_dependency_graph[out_branch].erase(STRICT_START_DEPEND);
                 tmp_stmt_dependency_graph[out_branch].erase(INNER_DEPEND);
+                if (tmp_stmt_dependency_graph[out_branch].empty())
+                    tmp_stmt_dependency_graph.erase(out_branch);
             }
             if (tmp_stmt_dependency_graph.count(in_branch)) {
                 tmp_stmt_dependency_graph[in_branch].erase(START_DEPEND);
                 tmp_stmt_dependency_graph[in_branch].erase(STRICT_START_DEPEND);
                 tmp_stmt_dependency_graph[in_branch].erase(INNER_DEPEND);
+                if (tmp_stmt_dependency_graph[in_branch].empty())
+                    tmp_stmt_dependency_graph.erase(in_branch);
             }
         }
     }
