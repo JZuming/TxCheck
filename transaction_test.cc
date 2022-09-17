@@ -1044,13 +1044,14 @@ bool transaction_test::multi_stmt_round_test()
         init_txn_status[tid] = trans_arr[tid].status;
         init_txn_stmt[tid] = trans_arr[tid].stmts;
     }
+    set<stmt_id> deleted_nodes;
 
     int round_count = 1;
     int stmt_path_empty_time = 0;
     while (1) { // until there is not statement in the stmt path
         // Note: after deleting some dependency in first rounds, some deleted nodes dont have dependency with other,
         // and their indegree is zero, and they can be choosed by topological_sort_path();
-        auto longest_stmt_path = init_da->topological_sort_path();
+        auto longest_stmt_path = init_da->topological_sort_path(deleted_nodes);
         if (longest_stmt_path.empty())
             break;
         
@@ -1091,7 +1092,7 @@ bool transaction_test::multi_stmt_round_test()
             trans_test();
             if (analyze_txn_dependency(tmp_da)) 
                 throw runtime_error("BUG: found in analyze_txn_dependency()");
-            longest_stmt_path = tmp_da->topological_sort_path();
+            longest_stmt_path = tmp_da->topological_sort_path(deleted_nodes);
 
             cerr << RED << "stmt path for refining: " << RESET;
             print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
@@ -1126,6 +1127,7 @@ bool transaction_test::multi_stmt_round_test()
             auto idx_set = init_da->get_instrumented_stmt_set(queue_idx);
             for (auto& delete_idx : idx_set) {
                 auto chosen_stmt_id = stmt_id(init_da_tid_queue, delete_idx);
+                deleted_nodes.insert(chosen_stmt_id);
                 for (int j = 0; j < init_da->stmt_num; j++) {
                     auto another_stmt = stmt_id(init_da_tid_queue, j);
                     auto out_branch = make_pair(chosen_stmt_id, another_stmt);

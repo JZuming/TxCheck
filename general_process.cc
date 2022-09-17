@@ -887,7 +887,8 @@ bool reproduce_routine(dbms_info& d_info,
             err_info = bug_str;
             return true;
         }
-        auto longest_stmt_path = tmp_da->topological_sort_path();
+        set<stmt_id> empty_deleted_nodes;
+        auto longest_stmt_path = tmp_da->topological_sort_path(empty_deleted_nodes);
         cerr << RED << "stmt path for normal test: " << RESET;
         print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
 

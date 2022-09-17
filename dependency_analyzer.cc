@@ -1353,25 +1353,28 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
     return path;
 }
 
-vector<stmt_id> dependency_analyzer::topological_sort_path()
+vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_nodes)
 {
     vector<stmt_id> path;
     auto tmp_stmt_dependency_graph = stmt_dependency_graph;
     set<stmt_id> outputted_node; // the node that has been outputted from graph
-    set<stmt_id> deleted_node; // the node that has been deleted for decycle, and the stmt in abort stmt
     set<stmt_id> all_stmt_set; // record all stmts in the graph 
     for (int i = 0; i < stmt_num; i++) {
         auto stmt_i = stmt_id(f_txn_id_queue, i);
         all_stmt_set.insert(stmt_i);
     }
 
+    // deleted_nodes include: 
+    //  1) the nodes that have been deleted for decycle, 
+    //  2) the nodes in abort stmt
+    //  3) the nodes that have been deleted in transaction_test::multi_stmt_round_test
     // delete node that in abort txn
     for (int i = 0; i < stmt_num; i++) {
         auto txn_id = f_txn_id_queue[i];
         if (f_txn_status[txn_id] == TXN_COMMIT)
             continue;
         auto stmt_i = stmt_id(f_txn_id_queue, i);
-        deleted_node.insert(stmt_i); 
+        deleted_nodes.insert(stmt_i); 
         for (int j = 0; j < stmt_num; j++) {
             auto stmt_j = stmt_id(f_txn_id_queue, j);
             auto out_branch = make_pair(stmt_i, stmt_j);
@@ -1381,35 +1384,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
         }
     }
 
-    // delete node that dont have inner depends
-    // which indicate that the node has been deleted by transaction_test::multi_stmt_round_test
-    for (int i = 0; i < stmt_num; i++) {
-        auto txn_id = f_txn_id_queue[i];
-        if (f_txn_status[txn_id] != TXN_COMMIT) // skip abort txn which has been deleted
-            continue;
-        auto stmt_i = stmt_id(f_txn_id_queue, i);
-        bool has_inner_depends = false;
-        for (int j = 0; j < stmt_num; j++) {
-            auto stmt_j = stmt_id(f_txn_id_queue, j);
-            auto out_branch = make_pair(stmt_i, stmt_j);
-            auto in_branch = make_pair(stmt_j, stmt_i);
-            if (tmp_stmt_dependency_graph.count(out_branch) > 0 &&
-                tmp_stmt_dependency_graph[out_branch].count(INNER_DEPEND) > 0) {
-                has_inner_depends = true;
-                break;
-            }
-            if (tmp_stmt_dependency_graph.count(in_branch) > 0 &&
-                tmp_stmt_dependency_graph[in_branch].count(INNER_DEPEND) > 0) {
-                has_inner_depends = true;
-                break;
-            }
-        }
-        if (has_inner_depends == false) { // dont have inner depends
-            deleted_node.insert(stmt_i);
-        }
-    }
-
-    while (outputted_node.size() + deleted_node.size() < stmt_num) {
+    while (outputted_node.size() + deleted_nodes.size() < stmt_num) {
         int zero_indegree_idx = -1;
         
         // --- find zero-indegree statement ---
@@ -1417,7 +1392,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
             auto stmt_i = stmt_id(f_txn_id_queue, i);
             if (outputted_node.count(stmt_i) > 0) // has been outputted from tmp_stmt_graph
                 continue;
-            if (deleted_node.count(stmt_i) > 0) // has been really deleted (for decycle)
+            if (deleted_nodes.count(stmt_i) > 0) // has been really deleted (for decycle)
                 continue;
             bool has_indegree = false;
             // check whether the node has indegree
@@ -1444,7 +1419,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
             auto tmp_stmt_set = all_stmt_set;
             for (auto& node : outputted_node) // cannot delete outputted node
                 tmp_stmt_set.erase(node);
-            for (auto& node : deleted_node) // skip the node that has been deleted
+            for (auto& node : deleted_nodes) // skip the node that has been deleted
                 tmp_stmt_set.erase(node);
             auto r = rand() % tmp_stmt_set.size();
             auto select_one_it = tmp_stmt_set.begin();
@@ -1456,7 +1431,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path()
             auto select_idx_set = get_instrumented_stmt_set(select_queue_idx);
             for (auto chosen_idx : select_idx_set) {
                 auto chosen_stmt_id = stmt_id(f_txn_id_queue, chosen_idx);
-                deleted_node.insert(chosen_stmt_id);
+                deleted_nodes.insert(chosen_stmt_id);
                 for (int i = 0; i < stmt_num; i++) {
                     auto out_branch = make_pair(chosen_stmt_id, stmt_id(f_txn_id_queue, i));
                     auto in_branch = make_pair(stmt_id(f_txn_id_queue, i), chosen_stmt_id);
