@@ -1415,24 +1415,39 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
 
     while (outputted_node.size() + deleted_nodes.size() < stmt_num) {
         int zero_indegree_idx = -1;
-        
-        // --- find zero-indegree statement ---
+        set<int> checked_idx;
+        // --- find zero-indegree stmt block ---
         for (int i = stmt_num - 1; i >= 0; i--) { // use reverse order as possible
+            if (checked_idx.count(i) > 0)
+                continue;
             auto stmt_i = stmt_id(f_txn_id_queue, i);
             if (outputted_node.count(stmt_i) > 0) // has been outputted from tmp_stmt_graph
                 continue;
             if (deleted_nodes.count(stmt_i) > 0) // has been really deleted (for decycle)
                 continue;
             bool has_indegree = false;
-            // check whether the node has indegree
-            for (int j = 0; j < stmt_num; j++) {
-                if (i == j)
-                    continue;
-                auto stmt_j = stmt_id(f_txn_id_queue, j);
-                if (tmp_stmt_dependency_graph.count(make_pair(stmt_j, stmt_i)) > 0) {
-                    has_indegree = true;
+
+            // get its set (version_set, before_read, itself, after_read)
+            // check whether the node and its set have indegree
+            set<int> i_idx_set = get_instrumented_stmt_set(i);
+            for (auto chosen_idx : i_idx_set) {
+                checked_idx.insert(chosen_idx);
+                auto stmt_chosen_idx = stmt_id(f_txn_id_queue, chosen_idx);
+                for (int j = 0; j < stmt_num; j++) {
+                    if (i_idx_set.count(j) > 0) // exclude self ring
+                        continue;
+                    auto stmt_j = stmt_id(f_txn_id_queue, j);
+                    auto in_branch = make_pair(stmt_j, stmt_chosen_idx);
+                    if (tmp_stmt_dependency_graph.count(in_branch) == 0)
+                        continue;
+                    // if (tmp_stmt_dependency_graph[in_branch].count(INSTRUMENT_DEPEND) > 0)
+                    //     continue; // its self set edges
+                    
+                    has_indegree = true; // have other depends
                     break;
                 }
+                if (has_indegree == true) 
+                    break;
             }
             if (has_indegree == false) {
                 zero_indegree_idx = i;
@@ -1442,6 +1457,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
         // ------------------------------------
         
         // if do not has zero-indegree statement, so there is a cycle
+        // randomly select a stmt, delete it and its set
         if (zero_indegree_idx == -1) {
             // cerr << "There is a cycle in topological_sort_path(), delete one node: ";
             // select one node to delete
@@ -1474,15 +1490,21 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
         }
         // ------------------------------------
         
-        // if do has zero-indegree statement, push the stmt to the path
-        auto stmt_zero_idx = stmt_id(f_txn_id_queue, zero_indegree_idx);
-        path.push_back(stmt_zero_idx);
-        
-        // mark the outputted node, and delete its edges.
-        outputted_node.insert(stmt_zero_idx);
-        for (int j = 0; j < stmt_num; j++) {
-            auto branch = make_pair(stmt_zero_idx, stmt_id(f_txn_id_queue, j));
-            tmp_stmt_dependency_graph.erase(branch);
+        // if do has zero-indegree statement, push the stmt and its stmt set (version_set, before_read, itself, after_read) to the path
+        set<int, less<int>> zero_idx_set = get_instrumented_stmt_set(zero_indegree_idx);
+        for (auto output_idx : zero_idx_set) {
+            auto output_stmt_id = stmt_id(f_txn_id_queue, output_idx);
+            path.push_back(output_stmt_id);
+
+            // mark the outputted node, and delete its edges.
+            outputted_node.insert(output_stmt_id);
+            for (int j = 0; j < stmt_num; j++) {
+                auto stmt_j = stmt_id(f_txn_id_queue, j);
+                auto out_branch = make_pair(output_stmt_id, stmt_j);
+                auto in_branch = make_pair(stmt_j, output_stmt_id);
+                tmp_stmt_dependency_graph.erase(out_branch);
+                tmp_stmt_dependency_graph.erase(in_branch);
+            }
         }
     }
 

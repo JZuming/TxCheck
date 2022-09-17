@@ -82,6 +82,7 @@ void transaction_test::gen_txn_stmts()
     }
 }
 
+// instrument, and also align the trans_arr[tid] related data
 void transaction_test::instrument_txn_stmts()
 {
     instrumentor i(stmt_queue, tid_queue, db_schema);
@@ -749,12 +750,16 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<
         exist_tid.insert(stmt_path[i].txn_id);
         exist_stmt.insert(stmt_path[i]);
     }
+    cerr << RED << "Refining txn: " << RESET;
     for (int i = 0; i < trans_num; i++) {
         if (exist_tid.count(i) > 0)
             continue;
-        if (change_txn_status(i, TXN_ABORT))
+        if (change_txn_status(i, TXN_ABORT)) {
             is_refined = true;
+            cerr << i << " ";
+        }
     }
+    cerr << endl;
 
     // cerr << YELLOW << "after changing txns that are not in the path to abort" << RESET << endl;
     // if (true) {
@@ -773,7 +778,7 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<
 
     for (int i = 0; i < trans_num; i++) 
         stmt_pos_of_txn[i] = 0;
-    cerr << RED << "Refining: " << RESET;
+    cerr << RED << "Refining stmt: " << RESET;
     for (int i = 0; i < stmt_num; i++) {
         auto tid = tid_queue[i];
         if (exist_tid.count(tid) == 0) 
@@ -793,18 +798,19 @@ bool transaction_test::refine_stmt_queue(vector<stmt_id>& stmt_path, shared_ptr<
         // only change basic instrumented stmt (intrumented one will be deleted later)
         if (stmt_use[i].is_instrumented == true)
             continue;
-        
-        cerr << "(" << stmt_idx.txn_id << "." << stmt_idx.stmt_idx_in_txn << ") ";
 
         // txn in the path, and stmt not match, should change to SELECT 1 WHERE FALSE
         is_refined = true; // only mark as refined if change basic stmts
         auto change_set = da->get_instrumented_stmt_set(i);
-        for (auto& stmt_idx : change_set) {
+        for (auto& one_stmt_idx : change_set) {
             // mark its instrumented stmt as false to prevent it from being deleted by clean_instrument, otherwise the number of stmts will change
-            stmt_use[stmt_idx] = INIT_TYPE;
+            stmt_use[one_stmt_idx] = INIT_TYPE;
             // change its instrumented stmt as SPACE_HOLDER_STMT
-            stmt_use[stmt_idx].is_instrumented = false; 
-            stmt_queue[stmt_idx] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
+            stmt_use[one_stmt_idx].is_instrumented = false; 
+            stmt_queue[one_stmt_idx] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
+
+            auto chosen_stmt_id = stmt_id(tid_queue, one_stmt_idx);
+            cerr << "(" << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ") ";
         }
     }
     cerr << endl;
@@ -1046,6 +1052,19 @@ void infer_instrument_after_blocking(vector<shared_ptr<prod>>& whole_before_stmt
 bool transaction_test::multi_stmt_round_test()
 {
     block_scheduling(); // it will make many stmts fails, we replace these failed stmts with space holder
+    // delete replaced stmts
+    for (int i = 0; i < stmt_queue.size(); i++) {
+        auto stmt_str = print_stmt_to_string(stmt_queue[i]);
+        if (stmt_str.find(SPACE_HOLDER_STMT) == string::npos)
+            continue;
+        if (stmt_str.length() > string(SPACE_HOLDER_STMT).length() + 3)
+            continue;
+        // it is a space holder
+        stmt_queue.erase(stmt_queue.begin() + i);
+        tid_queue.erase(tid_queue.begin() + i);
+        stmt_use.erase(stmt_use.begin() + i);
+        i--;
+    }
     instrument_txn_stmts();
     trans_test(); // first run, get all dependency information
     shared_ptr<dependency_analyzer> init_da;
@@ -1063,17 +1082,37 @@ bool transaction_test::multi_stmt_round_test()
         init_txn_stmt[tid] = trans_arr[tid].stmts;
     }
     set<stmt_id> deleted_nodes;
+    set<stmt_id> all_nodes;
+    for (int i = 0; i < stmt_num; i++) {
+        auto tid = tid_queue[i];
+        if (init_txn_status[tid] != TXN_COMMIT)
+            continue;
+        all_nodes.insert(stmt_id(tid_queue, i));
+    }
 
     int round_count = 1;
     int stmt_path_empty_time = 0;
     while (1) { // until there is not statement in the stmt path
         auto longest_stmt_path = init_da->topological_sort_path(deleted_nodes);
-        if (longest_stmt_path.empty())
+        if (longest_stmt_path.empty()) {
+            cerr << "ideal longest_stmt_path is empty, skip this graph" << endl;
             break;
+        }
         
         cerr << "\n\n";
         cerr << RED << "test round: " << round_count << RESET << endl;
         round_count++;
+        cerr << "available nodes: ";
+        for (auto& node: all_nodes) {
+            if (deleted_nodes.count(node) > 0)
+                continue;
+            if (node.stmt_idx_in_txn == 0) // skip begin
+                continue;
+            if (trans_arr[node.txn_id].stmts.size() - 1 == node.stmt_idx_in_txn) // skip commit
+                continue;
+            cerr << "(" << node.txn_id << "." << node.stmt_idx_in_txn << ") ";
+        }
+        cerr << endl;
         cerr << "ideal test stmt path: ";
         print_stmt_path(longest_stmt_path, init_da->stmt_dependency_graph);
 
@@ -1178,6 +1217,7 @@ bool transaction_test::multi_stmt_round_test()
     return false;
 }
 
+// change stmt_queue, stmt_use, and tid_queue but not change trans[tid] related data
 void transaction_test::block_scheduling()
 {
     cerr << endl << RED << "block scheduling" << RESET << endl;
