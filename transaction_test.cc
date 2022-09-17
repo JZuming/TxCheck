@@ -1067,8 +1067,6 @@ bool transaction_test::multi_stmt_round_test()
     int round_count = 1;
     int stmt_path_empty_time = 0;
     while (1) { // until there is not statement in the stmt path
-        // Note: after deleting some dependency in first rounds, some deleted nodes dont have dependency with other,
-        // and their indegree is zero, and they can be choosed by topological_sort_path();
         auto longest_stmt_path = init_da->topological_sort_path(deleted_nodes);
         if (longest_stmt_path.empty())
             break;
