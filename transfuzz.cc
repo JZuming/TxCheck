@@ -247,13 +247,7 @@ int random_test(dbms_info& d_info)
     } 
 
     int i = TEST_TIME_FOR_EACH_DB;
-    int timeout_time = 0;
-    while (i--) {
-        if (timeout_time >= MAX_TIMEOUT_TIME) {
-            kill_process_with_SIGTERM(transaction_test::server_process_id);
-            timeout_time = 0;
-        }
-        
+    while (i--) {  
         try {
             fork_for_transaction_test(d_info);
         } catch (exception &e) {
@@ -262,8 +256,9 @@ int random_test(dbms_info& d_info)
             if (err == "restart server")
                 break;
             else if (err == "transaction test timeout") {
-                timeout_time++;
-                i++; // this test is not token into account
+                break; // break the test and begin a new test
+                // after killing and starting a new server, created tables might be lost
+                // so it needs to begin a new test to generate tables
             }
             else {
                 cerr << "the exception cannot be handled" << endl;
