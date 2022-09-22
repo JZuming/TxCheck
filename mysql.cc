@@ -479,7 +479,7 @@ dut_mysql::dut_mysql(string db, unsigned int port)
     has_sent_sql = false;
     txn_abort = false;
     thread_id = mysql_thread_id(&mysql);
-    block_test("SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;");
+    block_test("SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;");
 }
 
 static unsigned long long get_cur_time_ms(void) {
