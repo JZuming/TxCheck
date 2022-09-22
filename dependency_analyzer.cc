@@ -1460,12 +1460,12 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
         // randomly select a stmt, delete it and its set
         if (zero_indegree_idx == -1) {
             cerr << "There is a cycle in topological_sort_path()" << endl;
-            // select one node to delete
-            auto tmp_stmt_set = all_stmt_set;
-            for (auto& node : outputted_node) // cannot delete outputted node
-                tmp_stmt_set.erase(node);
-            for (auto& node : deleted_nodes) // skip the node that has been deleted
-                tmp_stmt_set.erase(node);
+            // // select one node to delete
+            // auto tmp_stmt_set = all_stmt_set;
+            // for (auto& node : outputted_node) // cannot delete outputted node
+            //     tmp_stmt_set.erase(node);
+            // for (auto& node : deleted_nodes) // skip the node that has been deleted
+            //     tmp_stmt_set.erase(node);
 
             // cerr << "The rest of the nodes: ";
             // for (auto& chosen_stmt_id: tmp_stmt_set) {
@@ -1495,12 +1495,53 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
             // }
             // cerr << endl;
 
-            auto r = rand() % tmp_stmt_set.size();
-            auto select_one_it = tmp_stmt_set.begin();
-            advance(select_one_it, r);
+            // randomly find a node to delete
+            // auto r = rand() % tmp_stmt_set.size();
+            // auto select_one_it = tmp_stmt_set.begin();
+            // advance(select_one_it, r);
+            // auto select_stmt_id = *select_one_it;
+            
+            // find the node that has the most in-edges and out-edges, and delete it
+            int max_edge_num = 0;
+            int target_idx = 0;
+            set<int> checked_idx_for_delete;
+            for (int i = 0; i < stmt_num; i++) {
+                if (checked_idx_for_delete.count(i) > 0)
+                    continue;
 
+                auto stmt_i = stmt_id(f_txn_id_queue, i);
+                if (outputted_node.count(stmt_i) > 0) // has been outputted from tmp_stmt_graph
+                    continue;
+                if (deleted_nodes.count(stmt_i) > 0) // has been really deleted (for decycle)
+                    continue;
+
+                set<int> i_idx_set = get_instrumented_stmt_set(i);
+                int edge_num = 0;
+                for (auto chosen_idx : i_idx_set) {
+                    checked_idx_for_delete.insert(chosen_idx);
+                    auto stmt_chosen_idx = stmt_id(f_txn_id_queue, chosen_idx);
+                    for (int j = 0; j < stmt_num; j++) {
+                        if (i_idx_set.count(j) > 0) // exclude self ring
+                            continue;
+                        
+                        auto stmt_j = stmt_id(f_txn_id_queue, j);
+                        auto in_branch = make_pair(stmt_j, stmt_chosen_idx);
+                        if (tmp_stmt_dependency_graph.count(in_branch) > 0)
+                            edge_num++;
+                        auto out_branch = make_pair(stmt_chosen_idx, stmt_j);
+                        if (tmp_stmt_dependency_graph.count(out_branch) > 0)
+                            edge_num++;
+                    }
+                }
+
+                if (edge_num >= max_edge_num) {
+                    max_edge_num = edge_num;
+                    target_idx = i;
+                }
+            }
+            auto select_stmt_id = stmt_id(f_txn_id_queue, target_idx);
+            
             // delete its set (version_set, before_read, itself, after_read)
-            auto select_stmt_id = *select_one_it;
             auto select_queue_idx = select_stmt_id.transfer_2_stmt_idx(f_txn_id_queue);
             auto select_idx_set = get_instrumented_stmt_set(select_queue_idx);
             cerr << "Delete nodes: ";
@@ -1515,7 +1556,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
                 }
                 cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
             }
-            cerr << endl;
+            cerr << "max_edge_num: " << max_edge_num << endl;
             continue;
         }
         // ------------------------------------
