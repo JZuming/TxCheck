@@ -874,6 +874,7 @@ void print_stmt_output(stmt_output& output)
 
 bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path, bool debug)
 {
+    // check database content
     if (!compare_content(trans_db_content, normal_stmt_db_content)) {
         cerr << "trans_db_content is not equal to normal_stmt_db_content" << endl;
         return false;
@@ -890,6 +891,28 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path, bool
         path_txn_err_info.push_back(trans_arr[tid].stmt_err_info[stmt_pos]);
     }
 
+    // check error information
+    auto err_info_size = path_txn_err_info.size();
+    auto n_err_info_size = normal_stmt_err_info.size();
+    if (err_info_size != n_err_info_size) {
+        cerr << "txn error info size is not equal to normal stmt one" << endl;
+        cerr << "path_txn_err_info: " << err_info_size << ", normal_stmt_err_info" << n_err_info_size << endl;
+        return false;
+    }
+    for (int i = 0; i < err_info_size; i++) {
+        auto txn_err = path_txn_err_info[i];
+        auto nor_err = normal_stmt_err_info[i];
+        if (txn_err != nor_err) {
+            if (txn_err != "" && nor_err != "") // both has error, the content could be different
+                continue;
+            cerr << "txn error info is not equal to normal stmt one, idx: " << i << endl;
+            cerr << "txn one: " << txn_err << endl;
+            cerr << "normal one: " << nor_err << endl;
+            return false;
+        }
+    }
+
+    // check statement output
     if (debug) {
         for (int i = 0; i < path_length; i++) {
             cerr << "txn output: " << endl;
@@ -904,29 +927,7 @@ bool transaction_test::check_normal_stmt_result(vector<stmt_id>& stmt_path, bool
         return false;
     }
 
-    auto err_info_size = path_txn_err_info.size();
-    if (err_info_size != normal_stmt_err_info.size()) {
-        cerr << "txn error info size is not equal to normal stmt one" << endl;
-        cerr << "path_txn_err_info: " << err_info_size << ", normal_stmt_err_info" << normal_stmt_err_info.size() << endl;
-        return false;
-    }
-    bool err_result = true;
-    for (int i = 0; i < err_info_size; i++) {
-        // cerr << "err idx: " << i << endl;
-        // cerr << "txn one: " << path_txn_err_info[i] << endl;
-        // cerr << "normal one: " << normal_stmt_err_info[i] << endl;
-        
-        if (path_txn_err_info[i] != normal_stmt_err_info[i]) {
-            if (path_txn_err_info[i] != "" && normal_stmt_err_info[i] != "") // both has error, the content could be different
-                continue;
-            cerr << "txn error info is not equal to normal stmt one, idx: " << i << endl;
-            cerr << "txn one: " << path_txn_err_info[i] << endl;
-            cerr << "normal one: " << normal_stmt_err_info[i] << endl;
-            err_result = false;
-        }
-    }
-
-    return err_result;
+    return true;
 }
 
 void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set<dependency_type>>& stmt_graph)
