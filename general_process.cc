@@ -727,13 +727,20 @@ bool minimize_testcase(dbms_info& d_info,
 
         // reduction succeed
         cerr << "Succeed to delete txn " << tid << "\n\n\n" << endl;
-        final_stmt_queue = tmp_stmt_queue;
+        
+        int pause;
+        cerr << "Enter an integer: 0 skip, other save" << endl;
+        cin >> pause;
+        if (pause == 0)
+            continue;
+	
+	final_stmt_queue = tmp_stmt_queue;
         final_tid_queue = tmp_tid_queue;
         final_usage_queue = tmp_usage_queue;
         tid--;
         txn_num--;
 
-        save_current_testcase(final_stmt_queue, final_tid_queue, final_usage_queue, 
+	save_current_testcase(final_stmt_queue, final_tid_queue, final_usage_queue, 
                             "min_stmts.sql", "min_tid.txt", "min_usage.txt");
     }
     
@@ -746,6 +753,7 @@ bool minimize_testcase(dbms_info& d_info,
         auto tmp_stmt_queue = final_stmt_queue;
         vector<int> tmp_tid_queue = final_tid_queue;
         vector<stmt_usage> tmp_usage_queue = final_usage_queue;
+	    auto tmp_stmt_num = stmt_num;
 
         // do not delete commit or abort
         auto tmp_stmt_str = print_stmt_to_string(tmp_stmt_queue[i]);
@@ -768,14 +776,14 @@ bool minimize_testcase(dbms_info& d_info,
             tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i + 1);
             tmp_tid_queue.erase(tmp_tid_queue.begin() + i + 1);
             tmp_usage_queue.erase(tmp_usage_queue.begin() + i + 1);
-            stmt_num--;
+            tmp_stmt_num--;
         }
 
         // delete the statement
         tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
         tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
         tmp_usage_queue.erase(tmp_usage_queue.begin() + i);
-        stmt_num--;
+        tmp_stmt_num--;
         i--;
 
         // delete possible BEFORE_WRITE_READ and VERSION_SET_READ, note that i point the element before its original position
@@ -784,7 +792,7 @@ bool minimize_testcase(dbms_info& d_info,
             tmp_stmt_queue.erase(tmp_stmt_queue.begin() + i);
             tmp_tid_queue.erase(tmp_tid_queue.begin() + i);
             tmp_usage_queue.erase(tmp_usage_queue.begin() + i);
-            stmt_num--;
+            tmp_stmt_num--;
             i--;
         }
 
@@ -802,9 +810,19 @@ bool minimize_testcase(dbms_info& d_info,
         
         // reduction succeed
         cerr << "Succeed to delete stmt " << "\n\n\n" << endl;
-        final_stmt_queue = tmp_stmt_queue;
+        
+	    int pause;
+        cerr << "Enter an integer: 0 skip, other save" << endl;
+        cin >> pause;
+        if (pause == 0) {
+	        i = original_i;
+	        continue;
+	    }
+	
+	    final_stmt_queue = tmp_stmt_queue;
         final_tid_queue = tmp_tid_queue;
         final_usage_queue = tmp_usage_queue;
+	    stmt_num = tmp_stmt_num;
         save_current_testcase(final_stmt_queue, final_tid_queue, final_usage_queue, 
                             "min_stmts.sql", "min_tid.txt", "min_usage.txt");
     }
