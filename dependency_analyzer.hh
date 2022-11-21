@@ -151,7 +151,7 @@ struct dependency_analyzer
     void build_stmt_depend_from_stmt_idx(int stmt_idx1, int stmt_idx2, dependency_type dt);
     vector<stmt_id> longest_stmt_path(map<pair<stmt_id, stmt_id>, int>& stmt_dist_graph);
     vector<stmt_id> longest_stmt_path();
-    vector<stmt_id> topological_sort_path(set<stmt_id> deleted_nodes);
+    vector<stmt_id> topological_sort_path(set<stmt_id> deleted_nodes, bool* delete_flag = NULL);
 };
 
 #endif

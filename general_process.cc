@@ -906,7 +906,12 @@ bool reproduce_routine(dbms_info& d_info,
             return true;
         }
         set<stmt_id> empty_deleted_nodes;
-        auto longest_stmt_path = tmp_da->topological_sort_path(empty_deleted_nodes);
+        bool delete_flag = false;
+        auto longest_stmt_path = tmp_da->topological_sort_path(empty_deleted_nodes, delete_flag);
+        if (delete_flag == true) {
+            cerr << "the test case contains cycle and cannot be properly sorted" << endl;
+            return false;
+        }
         cerr << RED << "stmt path for normal test: " << RESET;
         print_stmt_path(longest_stmt_path, tmp_da->stmt_dependency_graph);
 

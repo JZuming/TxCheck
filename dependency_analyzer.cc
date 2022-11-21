@@ -1357,8 +1357,10 @@ vector<stmt_id> dependency_analyzer::longest_stmt_path()
     return path;
 }
 
-vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_nodes)
+vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_nodes, bool* delete_flag)
 {
+    if (delete_flag != NULL)
+        *delete_flag = false;
     vector<stmt_id> path;
     auto tmp_stmt_dependency_graph = stmt_dependency_graph;
     set<stmt_id> outputted_node; // the node that has been outputted from graph
@@ -1460,6 +1462,8 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
         // randomly select a stmt, delete it and its set
         if (zero_indegree_idx == -1) {
             cerr << "There is a cycle in topological_sort_path()" << endl;
+            if (delete_flag != NULL)
+                *delete_flag = true;
             // // select one node to delete
             // auto tmp_stmt_set = all_stmt_set;
             // for (auto& node : outputted_node) // cannot delete outputted node
