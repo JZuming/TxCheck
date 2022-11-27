@@ -1,6 +1,8 @@
 #include "transaction_test.hh"
 
 #define MAX_CONCURRENT_TXN_NUM  3
+#define TXN_NUM (MAX_CONCURRENT_TXN_NUM * 2)
+#define TXN_STMT_NUM 4
 
 void transaction_test::assign_txn_id()
 {
@@ -1290,14 +1292,14 @@ int transaction_test::test()
 
 transaction_test::transaction_test(dbms_info& d_info)
 {
-    trans_num = MAX_CONCURRENT_TXN_NUM * 3; // 9
+    trans_num = TXN_NUM; // 9
     test_dbms_info = d_info;
 
     trans_arr = new transaction[trans_num];
     commit_num = trans_num; // all commit
     stmt_num = 0;
     for (int i = 0; i < trans_num; i++) {
-        trans_arr[i].stmt_num = 4 + d6(); // 5 - 10
+        trans_arr[i].stmt_num = TXN_STMT_NUM;
         stmt_num += trans_arr[i].stmt_num;
     }
 
