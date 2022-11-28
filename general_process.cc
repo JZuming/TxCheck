@@ -966,8 +966,8 @@ bool check_txn_cycle(dbms_info& d_info,
     delete[] re_test.trans_arr;
     re_test.trans_arr = new transaction[re_test.trans_num];
 
-    cerr << "txn num: " << re_test.trans_num 
-        << "tid_queue size: " << re_test.tid_queue.size() 
+    cerr << "txn num: " << re_test.trans_num << endl
+        << "tid_queue size: " << re_test.tid_queue.size() << endl
         << "stmt_queue size: " << re_test.stmt_queue.size() << endl;
     if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
         cerr << "tid queue size should equal to stmt queue size" << endl;
@@ -1043,8 +1043,8 @@ void txn_decycle_test(dbms_info& d_info,
     delete[] re_test.trans_arr;
     re_test.trans_arr = new transaction[re_test.trans_num];
 
-    cerr << "txn num: " << re_test.trans_num 
-        << "tid_queue size: " << re_test.tid_queue.size() 
+    cerr << "txn num: " << re_test.trans_num << endl
+        << "tid_queue size: " << re_test.tid_queue.size() << endl
         << "stmt_queue size: " << re_test.stmt_queue.size() << endl;
     if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
         cerr << "tid queue size should equal to stmt queue size" << endl;
