@@ -465,7 +465,8 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
         else if (options.count("txn-decycle")) {
             int succeed_time = 0;
             int all_time = 0;
-            txn_decycle_test(d_info, stmt_queue, tid_queue, stmt_usage_queue, succeed_time, all_time);
+            vector<int> delete_nodes;
+            txn_decycle_test(d_info, stmt_queue, tid_queue, stmt_usage_queue, succeed_time, all_time, delete_nodes);
             cerr << "succeed time: " << succeed_time << endl;
             cerr << "all time: " << all_time << endl;
         }

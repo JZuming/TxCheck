@@ -1633,7 +1633,13 @@ void dependency_analyzer::check_txn_graph_cycle(set<int>& cycle_nodes, vector<in
             for (int j = 0; j < tid_num; j++) {
                 if (removed_txn.count(j) > 0)
                     continue;
-                if (dependency_graph[j][i].size() > 0) {
+                if (dependency_graph[j][i].count(WRITE_READ) || 
+                    dependency_graph[j][i].count(WRITE_WRITE) ||
+                    dependency_graph[j][i].count(READ_WRITE) ||
+                    dependency_graph[j][i].count(VERSION_SET_DEPEND) ||
+                    dependency_graph[j][i].count(OVERWRITE_DEPEND))
+                // if (dependency_graph[j][i].size() > 0) 
+                {
                     has_indegree = true;
                     break;
                 }

@@ -134,7 +134,8 @@ void txn_decycle_test(dbms_info& d_info,
                     vector<int>& tid_queue,
                     vector<stmt_usage>& usage_queue,
                     int& succeed_time,
-                    int& all_time);
+                    int& all_time,
+                    vector<int> delete_nodes);
 
 bool minimize_testcase(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 

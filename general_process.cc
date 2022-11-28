@@ -1023,7 +1023,8 @@ void txn_decycle_test(dbms_info& d_info,
                     vector<int>& tid_queue,
                     vector<stmt_usage>& usage_queue,
                     int& succeed_time,
-                    int& all_time)
+                    int& all_time,
+                    vector<int> delete_nodes)
 {
     transaction_test::fork_if_server_closed(d_info);
 
@@ -1079,6 +1080,7 @@ void txn_decycle_test(dbms_info& d_info,
         set<int> cycle_nodes;
         vector<int> sorted_nodes;
         tmp_da->check_txn_graph_cycle(cycle_nodes, sorted_nodes);
+        tmp_da->print_dependency_graph();
         if (!cycle_nodes.empty()) { // need decycle
             for (auto txn_id : cycle_nodes) {
                 auto new_stmt_queue = stmt_queue;
@@ -1097,8 +1099,19 @@ void txn_decycle_test(dbms_info& d_info,
                     new_usage_queue[i].is_instrumented = false;
                 }
 
+                for (int tid = 0; tid < re_test.trans_num; tid++) {
+                    re_test.trans_arr[tid].dut.reset();
+                }
+
+                delete_nodes.push_back(txn_id);
+                cerr << "delete nodes: ";
+                for (auto node:delete_nodes)
+                    cerr << node << " ";
+                cerr << endl;
+
                 // after deleting the txn, try it again
-                txn_decycle_test(d_info, new_stmt_queue, tid_queue, new_usage_queue, succeed_time, all_time);
+                txn_decycle_test(d_info, new_stmt_queue, tid_queue, new_usage_queue, succeed_time, all_time, delete_nodes);
+                delete_nodes.pop_back();
             }
         }
         else { // no cycle, perform txn sorting and check results
@@ -1121,10 +1134,13 @@ void txn_decycle_test(dbms_info& d_info,
                 succeed_time++;
             }
             all_time++;
+            cerr << "succeed_time: " << succeed_time << " all_time: " << all_time << endl;
         }
     } catch (exception &e) {
         string cur_err_info = e.what();
         cerr << "exception captured by test: " << cur_err_info << endl;
+        all_time++;
+        cerr << "succeed_time: " << succeed_time << " all_time: " << all_time << endl;
     }
 
     return;
