@@ -146,6 +146,7 @@ struct dependency_analyzer
     vector<stmt_output> f_stmt_output;
     map<int, row_output> hash_to_output;
     set<dependency_type> **dependency_graph;
+    void check_txn_graph_cycle(set<int>& cycle_nodes, vector<int>& sorted_nodes);
 
     map<pair<stmt_id, stmt_id>, set<dependency_type>> stmt_dependency_graph;
     void build_stmt_depend_from_stmt_idx(int stmt_idx1, int stmt_idx2, dependency_type dt);

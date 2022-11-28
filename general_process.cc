@@ -943,6 +943,193 @@ bool reproduce_routine(dbms_info& d_info,
     return false;
 }
 
+bool check_txn_cycle(dbms_info& d_info,
+                        vector<shared_ptr<prod>>& stmt_queue, 
+                        vector<int>& tid_queue,
+                        vector<stmt_usage>& usage_queue)
+{
+    transaction_test::fork_if_server_closed(d_info);
+
+    transaction_test re_test(d_info);
+    re_test.stmt_queue = stmt_queue;
+    re_test.tid_queue = tid_queue;
+    re_test.stmt_num = re_test.tid_queue.size();
+    re_test.stmt_use = usage_queue;
+
+    int max_tid = -1;
+    for (auto tid:tid_queue) {
+        if (tid > max_tid)
+            max_tid = tid;
+    }
+
+    re_test.trans_num = max_tid + 1;
+    delete[] re_test.trans_arr;
+    re_test.trans_arr = new transaction[re_test.trans_num];
+
+    cerr << "txn num: " << re_test.trans_num 
+        << "tid_queue size: " << re_test.tid_queue.size() 
+        << "stmt_queue size: " << re_test.stmt_queue.size() << endl;
+    if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
+        cerr << "tid queue size should equal to stmt queue size" << endl;
+        return false;
+    }
+
+    // init each transaction stmt
+    for (int i = 0; i < re_test.stmt_num; i++) {
+        auto tid = re_test.tid_queue[i];
+        re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
+    }
+
+    for (int tid = 0; tid < re_test.trans_num; tid++) {
+        re_test.trans_arr[tid].dut = dut_setup(d_info);
+        re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
+        if (re_test.trans_arr[tid].stmts.empty()) {
+            re_test.trans_arr[tid].status = TXN_ABORT;
+            continue;
+        }
+
+        auto stmt_str = print_stmt_to_string(re_test.trans_arr[tid].stmts.back());
+        if (stmt_str.find("COMMIT") != string::npos)
+            re_test.trans_arr[tid].status = TXN_COMMIT;
+        else
+            re_test.trans_arr[tid].status = TXN_ABORT;
+    }
+    
+    try {
+        re_test.trans_test();
+        shared_ptr<dependency_analyzer> tmp_da;
+        re_test.analyze_txn_dependency(tmp_da);
+        set<int> cycle_nodes;
+        vector<int> sorted_nodes;
+        tmp_da->check_txn_graph_cycle(cycle_nodes, sorted_nodes);
+        if (!cycle_nodes.empty()) {
+            cerr << "Has transactional cycles" << endl;
+            return true;
+        }
+        else {
+            cerr << "No transactional cycle" << endl;
+            return false;
+        }
+    } catch (exception &e) {
+        string cur_err_info = e.what();
+        cerr << "exception captured by test: " << cur_err_info << endl;
+    }
+
+    return false;
+}
+
+void txn_decycle_test(dbms_info& d_info,
+                    vector<shared_ptr<prod>>& stmt_queue, 
+                    vector<int>& tid_queue,
+                    vector<stmt_usage>& usage_queue,
+                    int& succeed_time,
+                    int& all_time)
+{
+    transaction_test::fork_if_server_closed(d_info);
+
+    transaction_test re_test(d_info);
+    re_test.stmt_queue = stmt_queue;
+    re_test.tid_queue = tid_queue;
+    re_test.stmt_num = re_test.tid_queue.size();
+    re_test.stmt_use = usage_queue;
+
+    int max_tid = -1;
+    for (auto tid:tid_queue) {
+        if (tid > max_tid)
+            max_tid = tid;
+    }
+
+    re_test.trans_num = max_tid + 1;
+    delete[] re_test.trans_arr;
+    re_test.trans_arr = new transaction[re_test.trans_num];
+
+    cerr << "txn num: " << re_test.trans_num 
+        << "tid_queue size: " << re_test.tid_queue.size() 
+        << "stmt_queue size: " << re_test.stmt_queue.size() << endl;
+    if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
+        cerr << "tid queue size should equal to stmt queue size" << endl;
+        return;
+    }
+
+    // init each transaction stmt
+    for (int i = 0; i < re_test.stmt_num; i++) {
+        auto tid = re_test.tid_queue[i];
+        re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
+    }
+
+    for (int tid = 0; tid < re_test.trans_num; tid++) {
+        re_test.trans_arr[tid].dut = dut_setup(d_info);
+        re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
+        if (re_test.trans_arr[tid].stmts.empty()) {
+            re_test.trans_arr[tid].status = TXN_ABORT;
+            continue;
+        }
+
+        auto stmt_str = print_stmt_to_string(re_test.trans_arr[tid].stmts.back());
+        if (stmt_str.find("COMMIT") != string::npos)
+            re_test.trans_arr[tid].status = TXN_COMMIT;
+        else
+            re_test.trans_arr[tid].status = TXN_ABORT;
+    }
+    
+    try {
+        re_test.trans_test();
+        shared_ptr<dependency_analyzer> tmp_da;
+        re_test.analyze_txn_dependency(tmp_da);
+        set<int> cycle_nodes;
+        vector<int> sorted_nodes;
+        tmp_da->check_txn_graph_cycle(cycle_nodes, sorted_nodes);
+        if (!cycle_nodes.empty()) { // need decycle
+            for (auto txn_id : cycle_nodes) {
+                auto new_stmt_queue = stmt_queue;
+                auto new_usage_queue = usage_queue;
+                int stmt_num = new_stmt_queue.size();
+
+                // delete the txn whose id is txn_id
+                for (int i = 0; i < stmt_num; i++) {
+                    if (tid_queue[i] != txn_id)
+                        continue;
+                    // commit and abort stmt
+                    if (usage_queue[i] == INIT_TYPE)
+                        continue;
+                    new_stmt_queue[i] = make_shared<txn_string_stmt>((prod *)0, SPACE_HOLDER_STMT);
+                    new_usage_queue[i] = INIT_TYPE;
+                    new_usage_queue[i].is_instrumented = false;
+                }
+
+                // after deleting the txn, try it again
+                txn_decycle_test(d_info, new_stmt_queue, tid_queue, new_usage_queue, succeed_time, all_time);
+            }
+        }
+        else { // no cycle, perform txn sorting and check results
+            vector<stmt_id> txn_stmt_path;
+            for (auto txn_id:sorted_nodes) {
+                auto txn_stmt_num = re_test.trans_arr[txn_id].stmt_num;
+                for (int count = 0; count < txn_stmt_num; count++) {
+                    auto s_id = stmt_id(txn_id, count);
+                    auto stmt_idx = s_id.transfer_2_stmt_idx(tid_queue);
+                    if (usage_queue[stmt_idx] == INIT_TYPE) // skip begin, commit, abort, SPACE_HOLDER_STMT
+                        continue;
+                    txn_stmt_path.push_back(s_id);
+                }
+            }
+
+            re_test.normal_stmt_test(txn_stmt_path);
+            if (re_test.check_normal_stmt_result(txn_stmt_path, false) == false) {
+                string bug_str = "Find bugs in check_normal_stmt_result";
+                cerr << RED << bug_str << RESET << endl;
+                succeed_time++;
+            }
+            all_time++;
+        }
+    } catch (exception &e) {
+        string cur_err_info = e.what();
+        cerr << "exception captured by test: " << cur_err_info << endl;
+    }
+
+    return;
+}
+
 string print_stmt_to_string(shared_ptr<prod> stmt)
 {
     ostringstream stmt_stream;

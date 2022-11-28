@@ -284,6 +284,8 @@ oceanbase-db|oceanbase-port|\
 monetdb-db|monetdb-port|\
 cockroach-db|cockroach-port|\
 output-or-affect-num|\
+check-txn-cycle|\
+txn-decycle|\
 reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
@@ -335,6 +337,8 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             "    --reproduce-tid=filename    tid file to reproduce the problem" << endl <<
             "    --reproduce-usage=filename    stmt usage file to reproduce the problem" << endl <<
             "    --min                  minimize the reproduce test case (should be used with --reproduce-sql and --reproduce-tid)" << endl <<
+            "    --check-txn-cycle      check whether the test case has transactional cycles (should be used with --reproduce-sql and --reproduce-tid)" << endl <<
+            "    --txn-decycle          perform transactional decycling, and check whether still trigger the bug (should be used with --reproduce-sql and --reproduce-tid)" << endl <<
             "    --help                 print available command line options and exit" << endl;
         return 0;
     } else if (options.count("version")) {
@@ -456,6 +460,16 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
 
         if (options.count("min"))
             minimize_testcase(d_info, stmt_queue, tid_queue, stmt_usage_queue);
+        else if (options.count("check-txn-cycle"))
+            check_txn_cycle(d_info, stmt_queue, tid_queue, stmt_usage_queue);
+        else if (options.count("txn-decycle")) {
+            int succeed_time = 0;
+            int all_time = 0;
+            txn_decycle_test(d_info, stmt_queue, tid_queue, stmt_usage_queue, succeed_time, all_time);
+            cerr << "succeed time: " << succeed_time << endl;
+            cerr << "all time: " << all_time << endl;
+        }
+            
         else {
             string empty_str;
             reproduce_routine(d_info, stmt_queue, tid_queue, stmt_usage_queue, empty_str);

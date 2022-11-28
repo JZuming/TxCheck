@@ -1608,3 +1608,51 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
 
     return path;
 }
+
+
+// has cycle: cycle_nodes is not empty
+// no cycle: cycle_nodes is empty, and sorted_nodes is the topo-sorted txn sequence
+void dependency_analyzer::check_txn_graph_cycle(set<int>& cycle_nodes, vector<int>& sorted_nodes)
+{
+    set<int> removed_txn;
+    // remove abort txn
+    for (int i = 0; i < tid_num; i++) {
+        if (f_txn_status[i] == TXN_ABORT)
+            removed_txn.insert(i);
+    }
+    removed_txn.insert(tid_num - 1); // remove the init txn
+
+    cycle_nodes.clear();
+    sorted_nodes.clear();
+    while (removed_txn.size() < tid_num) {
+        int zero_indegree_idx = -1;
+        for (int i = 0; i < tid_num; i++) {
+            if (removed_txn.count(i) > 0)
+                continue;
+            bool has_indegree = false;
+            for (int j = 0; j < tid_num; j++) {
+                if (removed_txn.count(j) > 0)
+                    continue;
+                if (dependency_graph[j][i].size() > 0) {
+                    has_indegree = true;
+                    break;
+                }
+            }
+            if (has_indegree == false) {
+                zero_indegree_idx = i;
+                break;
+            }
+        }
+        if (zero_indegree_idx == -1)  // no zero indegree txn, has cycle
+            break;
+        removed_txn.insert(zero_indegree_idx);
+        sorted_nodes.push_back(zero_indegree_idx);
+    }
+
+    for (int i = 0; i < tid_num; i++) {
+        if (removed_txn.count(i) > 0)
+            continue;
+        cycle_nodes.insert(i);
+    }
+    return;
+}
