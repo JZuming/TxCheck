@@ -1734,7 +1734,7 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
 
         // get its set (version_set, before_read, itself, after_read)
         // check whether the node and its set have indegree
-        set<int> i_idx_set = get_instrumented_stmt_set(i);
+        set<int, less<int>> i_idx_set = get_instrumented_stmt_set(i);
         for (auto chosen_idx : i_idx_set) {
             auto stmt_chosen_idx = stmt_id(f_txn_id_queue, chosen_idx);
             for (int j = 0; j < stmt_num; j++) {
@@ -1745,7 +1745,7 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
                     continue;
                 
                 auto in_branch = make_pair(stmt_j, stmt_chosen_idx);
-                if (tmp_stmt_dependency_graph.count(in_branch) == 0)
+                if (graph.count(in_branch) == 0)
                     continue;
                 has_indegree = true; // have other depends
                 break;
@@ -1756,18 +1756,22 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
         if (has_indegree == true)
             continue; 
         
-        // a zero indegree node
-        current_path.push_back(stmt_i);
-        deleted_nodes.insert(stmt_i);
-        get_all_topo_sort_path(current_path, deleted_nodes);
+        // a zero indegree node and its set "i_idx_set"
+        auto tmp_current_path = current_path;
+        auto tmp_deleted_nodes = deleted_nodes;
+        for (auto idx : i_idx_set) {
+            auto chosen_stmt_id = stmt_id(f_txn_id_queue, idx);
+            current_path.push_back(stmt_i);
+            deleted_nodes.insert(stmt_i);
+        }
+        recur_topo_sort(current_path, deleted_nodes, total_path, graph);
 
         // resetting visiting
-        deleted_nodes.erase(stmt_i);
-        current_path.pop_back();
+        current_path = tmp_current_path;
+        deleted_nodes = tmp_deleted_nodes;
         flag = true;
     }
 
     if (flag == false) 
         total_path.push_back(current_path);
-
 }
