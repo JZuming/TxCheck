@@ -153,6 +153,12 @@ struct dependency_analyzer
     vector<stmt_id> longest_stmt_path(map<pair<stmt_id, stmt_id>, int>& stmt_dist_graph);
     vector<stmt_id> longest_stmt_path();
     vector<stmt_id> topological_sort_path(set<stmt_id> deleted_nodes, bool* delete_flag = NULL);
+
+    vector<vector<stmt_id>> get_all_topo_sort_path();
+    void recur_topo_sort(vector<stmt_id> current_path,
+                         set<stmt_id> deleted_nodes,
+                         vector<vector<stmt_id>>& total_path,
+                         map<pair<stmt_id, stmt_id>, set<dependency_type>>& graph);
 };
 
 #endif

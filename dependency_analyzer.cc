@@ -1662,3 +1662,112 @@ void dependency_analyzer::check_txn_graph_cycle(set<int>& cycle_nodes, vector<in
     }
     return;
 }
+
+vector<vector<stmt_id>> dependency_analyzer::get_all_topo_sort_path()
+{
+    vector<stmt_id> path;
+    auto tmp_stmt_dependency_graph = stmt_dependency_graph;
+    set<stmt_id> deleted_nodes; 
+
+    // deleted_nodes include: 
+    //  1) the nodes that have been deleted for decycle, 
+    //  2) the nodes in abort stmt
+    //  3) the nodes that have been deleted in transaction_test::multi_stmt_round_test
+    
+    // delete node that in abort txn
+    for (int i = 0; i < stmt_num; i++) {
+        auto txn_id = f_txn_id_queue[i];
+        if (f_txn_status[txn_id] == TXN_COMMIT)
+            continue;
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        deleted_nodes.insert(stmt_i); 
+        for (int j = 0; j < stmt_num; j++) {
+            auto stmt_j = stmt_id(f_txn_id_queue, j);
+            auto out_branch = make_pair(stmt_i, stmt_j);
+            auto in_branch = make_pair(stmt_j, stmt_i);
+            tmp_stmt_dependency_graph.erase(out_branch);
+            tmp_stmt_dependency_graph.erase(in_branch);
+        }
+    }
+
+    // delete start and inner dependency
+    for (int i = 0; i < stmt_num; i++) {
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        for (int j = i; j < stmt_num; j++) {
+            auto stmt_j = stmt_id(f_txn_id_queue, j);
+            auto out_branch = make_pair(stmt_i, stmt_j);
+            auto in_branch = make_pair(stmt_j, stmt_i);
+            if (tmp_stmt_dependency_graph.count(out_branch)) {
+                tmp_stmt_dependency_graph[out_branch].erase(START_DEPEND);
+                tmp_stmt_dependency_graph[out_branch].erase(STRICT_START_DEPEND);
+                tmp_stmt_dependency_graph[out_branch].erase(INNER_DEPEND);
+                if (tmp_stmt_dependency_graph[out_branch].empty())
+                    tmp_stmt_dependency_graph.erase(out_branch);
+            }
+            if (tmp_stmt_dependency_graph.count(in_branch)) {
+                tmp_stmt_dependency_graph[in_branch].erase(START_DEPEND);
+                tmp_stmt_dependency_graph[in_branch].erase(STRICT_START_DEPEND);
+                tmp_stmt_dependency_graph[in_branch].erase(INNER_DEPEND);
+                if (tmp_stmt_dependency_graph[in_branch].empty())
+                    tmp_stmt_dependency_graph.erase(in_branch);
+            }
+        }
+    }
+
+    vector<stmt_id> current_path;
+    vector<vector<stmt_id>> total_path;
+    recur_topo_sort(current_path, deleted_nodes, total_path, tmp_stmt_dependency_graph);
+    return total_path;
+}
+
+void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
+                                          set<stmt_id> deleted_nodes,
+                                          vector<vector<stmt_id>>& total_path,
+                                          map<pair<stmt_id, stmt_id>, set<dependency_type>>& graph)
+{
+    bool flag = false;
+    for (int i = 0; i < stmt_num; i++) {
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        if (deleted_nodes.count(stmt_i) > 0) // has been visited
+            continue;
+        bool has_indegree = false;
+
+        // get its set (version_set, before_read, itself, after_read)
+        // check whether the node and its set have indegree
+        set<int> i_idx_set = get_instrumented_stmt_set(i);
+        for (auto chosen_idx : i_idx_set) {
+            auto stmt_chosen_idx = stmt_id(f_txn_id_queue, chosen_idx);
+            for (int j = 0; j < stmt_num; j++) {
+                if (i_idx_set.count(j) > 0) // exclude self ring
+                    continue;
+                auto stmt_j = stmt_id(f_txn_id_queue, j);
+                if (deleted_nodes.count(stmt_j) > 0) // has been visited
+                    continue;
+                
+                auto in_branch = make_pair(stmt_j, stmt_chosen_idx);
+                if (tmp_stmt_dependency_graph.count(in_branch) == 0)
+                    continue;
+                has_indegree = true; // have other depends
+                break;
+            }
+            if (has_indegree == true) 
+                break;
+        }
+        if (has_indegree == true)
+            continue; 
+        
+        // a zero indegree node
+        current_path.push_back(stmt_i);
+        deleted_nodes.insert(stmt_i);
+        get_all_topo_sort_path(current_path, deleted_nodes);
+
+        // resetting visiting
+        deleted_nodes.erase(stmt_i);
+        current_path.pop_back();
+        flag = true;
+    }
+
+    if (flag == false) 
+        total_path.push_back(current_path);
+
+}
