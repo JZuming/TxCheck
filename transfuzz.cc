@@ -473,7 +473,11 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             cerr << "all time: " << all_time << endl;
         }
         else if (options.count("check-topo-sort")) {
-
+            int succeed_time = 0;
+            int all_time = 0;
+            check_topo_sort(d_info, stmt_queue, tid_queue, stmt_usage_queue, succeed_time, all_time);
+            cerr << "succeed time: " << succeed_time << endl;
+            cerr << "all time: " << all_time << endl;
         }
         else {
             string empty_str;

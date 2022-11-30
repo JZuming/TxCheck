@@ -1761,8 +1761,8 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
         auto tmp_deleted_nodes = deleted_nodes;
         for (auto idx : i_idx_set) {
             auto chosen_stmt_id = stmt_id(f_txn_id_queue, idx);
-            current_path.push_back(stmt_i);
-            deleted_nodes.insert(stmt_i);
+            current_path.push_back(chosen_stmt_id);
+            deleted_nodes.insert(chosen_stmt_id);
         }
         recur_topo_sort(current_path, deleted_nodes, total_path, graph);
 

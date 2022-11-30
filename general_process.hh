@@ -137,6 +137,13 @@ void txn_decycle_test(dbms_info& d_info,
                     int& all_time,
                     vector<int> delete_nodes);
 
+void check_topo_sort(dbms_info& d_info,
+                    vector<shared_ptr<prod>>& stmt_queue, 
+                    vector<int>& tid_queue,
+                    vector<stmt_usage>& usage_queue,
+                    int& succeed_time,
+                    int& all_time);
+
 bool minimize_testcase(dbms_info& d_info,
                         vector<shared_ptr<prod>>& stmt_queue, 
                         vector<int>& tid_queue,

@@ -1146,6 +1146,90 @@ void txn_decycle_test(dbms_info& d_info,
     return;
 }
 
+void check_topo_sort(dbms_info& d_info,
+                    vector<shared_ptr<prod>>& stmt_queue, 
+                    vector<int>& tid_queue,
+                    vector<stmt_usage>& usage_queue,
+                    int& succeed_time,
+                    int& all_time)
+{
+    transaction_test::fork_if_server_closed(d_info);
+
+    transaction_test re_test(d_info);
+    re_test.stmt_queue = stmt_queue;
+    re_test.tid_queue = tid_queue;
+    re_test.stmt_num = re_test.tid_queue.size();
+    re_test.stmt_use = usage_queue;
+
+    int max_tid = -1;
+    for (auto tid:tid_queue) {
+        if (tid > max_tid)
+            max_tid = tid;
+    }
+
+    re_test.trans_num = max_tid + 1;
+    delete[] re_test.trans_arr;
+    re_test.trans_arr = new transaction[re_test.trans_num];
+
+    cerr << "txn num: " << re_test.trans_num << endl
+        << "tid_queue size: " << re_test.tid_queue.size() << endl
+        << "stmt_queue size: " << re_test.stmt_queue.size() << endl;
+    if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
+        cerr << "tid queue size should equal to stmt queue size" << endl;
+        return;
+    }
+
+    // init each transaction stmt
+    for (int i = 0; i < re_test.stmt_num; i++) {
+        auto tid = re_test.tid_queue[i];
+        re_test.trans_arr[tid].stmts.push_back(re_test.stmt_queue[i]);
+    }
+
+    for (int tid = 0; tid < re_test.trans_num; tid++) {
+        re_test.trans_arr[tid].dut = dut_setup(d_info);
+        re_test.trans_arr[tid].stmt_num = re_test.trans_arr[tid].stmts.size();
+        if (re_test.trans_arr[tid].stmts.empty()) {
+            re_test.trans_arr[tid].status = TXN_ABORT;
+            continue;
+        }
+
+        auto stmt_str = print_stmt_to_string(re_test.trans_arr[tid].stmts.back());
+        if (stmt_str.find("COMMIT") != string::npos)
+            re_test.trans_arr[tid].status = TXN_COMMIT;
+        else
+            re_test.trans_arr[tid].status = TXN_ABORT;
+    }
+    
+    try {
+        re_test.trans_test();
+        shared_ptr<dependency_analyzer> tmp_da;
+        re_test.analyze_txn_dependency(tmp_da);
+        auto all_topo_sort = tmp_da->get_all_topo_sort_path();
+        
+        for (auto& sort : all_topo_sort) {
+            cerr << RED << "stmt path for normal test: " << RESET;
+            print_stmt_path(sort, tmp_da->stmt_dependency_graph);
+
+            re_test.normal_stmt_output.clear();
+            re_test.normal_stmt_err_info.clear();
+            re_test.normal_stmt_db_content.clear();
+            re_test.normal_stmt_test(sort);
+            if (re_test.check_normal_stmt_result(sort, false) == false) {
+                succeed_time++;
+            }
+            all_time++;
+            cerr << "succeed_time: " << succeed_time << " all_time: " << all_time << endl;
+        }
+    } catch (exception &e) {
+        string cur_err_info = e.what();
+        cerr << "exception captured by test: " << cur_err_info << endl;
+        all_time++;
+        cerr << "succeed_time: " << succeed_time << " all_time: " << all_time << endl;
+    }
+
+    return;
+}
+
 string print_stmt_to_string(shared_ptr<prod> stmt)
 {
     ostringstream stmt_stream;
