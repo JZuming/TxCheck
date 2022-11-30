@@ -1690,6 +1690,20 @@ vector<vector<stmt_id>> dependency_analyzer::get_all_topo_sort_path()
         }
     }
 
+    for (int i = 0; i < stmt_num; i++) {
+    	if (f_stmt_usage[i] != INIT_TYPE)
+	    continue;
+	auto stmt_i = stmt_id(f_txn_id_queue, i);
+        deleted_nodes.insert(stmt_i);
+        for (int j = 0; j < stmt_num; j++) {
+            auto stmt_j = stmt_id(f_txn_id_queue, j);
+            auto out_branch = make_pair(stmt_i, stmt_j);
+            auto in_branch = make_pair(stmt_j, stmt_i);
+            tmp_stmt_dependency_graph.erase(out_branch);
+            tmp_stmt_dependency_graph.erase(in_branch);
+        }
+    }
+
     // delete start and inner dependency
     for (int i = 0; i < stmt_num; i++) {
         auto stmt_i = stmt_id(f_txn_id_queue, i);
@@ -1716,6 +1730,7 @@ vector<vector<stmt_id>> dependency_analyzer::get_all_topo_sort_path()
 
     vector<stmt_id> current_path;
     vector<vector<stmt_id>> total_path;
+    cerr << "222" << endl;
     recur_topo_sort(current_path, deleted_nodes, total_path, tmp_stmt_dependency_graph);
     return total_path;
 }
@@ -1726,7 +1741,10 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
                                           map<pair<stmt_id, stmt_id>, set<dependency_type>>& graph)
 {
     bool flag = false;
+    set<int> visited_instrument;
     for (int i = 0; i < stmt_num; i++) {
+	if (visited_instrument.count(i) > 0)
+	    continue;
         auto stmt_i = stmt_id(f_txn_id_queue, i);
         if (deleted_nodes.count(stmt_i) > 0) // has been visited
             continue;
@@ -1736,7 +1754,8 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
         // check whether the node and its set have indegree
         set<int, less<int>> i_idx_set = get_instrumented_stmt_set(i);
         for (auto chosen_idx : i_idx_set) {
-            auto stmt_chosen_idx = stmt_id(f_txn_id_queue, chosen_idx);
+            visited_instrument.insert(chosen_idx);
+	    auto stmt_chosen_idx = stmt_id(f_txn_id_queue, chosen_idx);
             for (int j = 0; j < stmt_num; j++) {
                 if (i_idx_set.count(j) > 0) // exclude self ring
                     continue;
@@ -1767,11 +1786,26 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
         recur_topo_sort(current_path, deleted_nodes, total_path, graph);
 
         // resetting visiting
-        current_path = tmp_current_path;
-        deleted_nodes = tmp_deleted_nodes;
+        // current_path.pop_back();
+        // deleted_nodes = tmp_deleted_nodes;
+	for (auto idx : i_idx_set) {
+            auto chosen_stmt_id = stmt_id(f_txn_id_queue, idx);
+            current_path.pop_back();
+            deleted_nodes.erase(chosen_stmt_id);
+        }
         flag = true;
     }
 
-    if (flag == false) 
+    if (flag == false) { 
         total_path.push_back(current_path);
+	/*
+	cerr << "current path: ";
+	for (auto node : current_path) {
+	    cerr << "(" << node.txn_id << "," << node.stmt_idx_in_txn << ")->";
+	}
+	cerr << endl;
+	*/
+	cerr << "total path num: " << total_path.size() << endl;
+    }
+    return;
 }

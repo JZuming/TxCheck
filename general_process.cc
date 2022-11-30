@@ -1205,7 +1205,7 @@ void check_topo_sort(dbms_info& d_info,
         shared_ptr<dependency_analyzer> tmp_da;
         re_test.analyze_txn_dependency(tmp_da);
         auto all_topo_sort = tmp_da->get_all_topo_sort_path();
-        
+        cerr << 111 << endl;
         for (auto& sort : all_topo_sort) {
             cerr << RED << "stmt path for normal test: " << RESET;
             print_stmt_path(sort, tmp_da->stmt_dependency_graph);
