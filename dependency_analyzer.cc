@@ -1813,7 +1813,8 @@ void dependency_analyzer::recur_topo_sort(vector<stmt_id> current_path,
 	}
 	cerr << endl;
 	*/
-	cerr << "total path num: " << total_path.size() << endl;
+	if (total_path.size() % 1000 == 0)
+	    cerr << "total path num: " << total_path.size() << endl;
     }
     return;
 }

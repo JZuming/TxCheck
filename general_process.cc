@@ -1205,7 +1205,7 @@ void check_topo_sort(dbms_info& d_info,
         shared_ptr<dependency_analyzer> tmp_da;
         re_test.analyze_txn_dependency(tmp_da);
         auto all_topo_sort = tmp_da->get_all_topo_sort_path();
-        cerr << 111 << endl;
+	cerr << "topo sort size: " << all_topo_sort.size() << endl;
         for (auto& sort : all_topo_sort) {
             cerr << RED << "stmt path for normal test: " << RESET;
             print_stmt_path(sort, tmp_da->stmt_dependency_graph);
@@ -1218,7 +1218,7 @@ void check_topo_sort(dbms_info& d_info,
                 succeed_time++;
             }
             all_time++;
-            cerr << "succeed_time: " << succeed_time << " all_time: " << all_time << endl;
+            cerr << "succeed_time: " << succeed_time << " all_time: " << all_time << "/" << all_topo_sort.size() << endl;
         }
     } catch (exception &e) {
         string cur_err_info = e.what();
