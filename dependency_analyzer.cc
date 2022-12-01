@@ -1730,7 +1730,15 @@ vector<vector<stmt_id>> dependency_analyzer::get_all_topo_sort_path()
 
     vector<stmt_id> current_path;
     vector<vector<stmt_id>> total_path;
-    cerr << "222" << endl;
+    auto path_nodes = topological_sort_path(deleted_nodes);
+    set<stmt_id> path_nodes_set;
+    for (auto node: path_nodes)
+        path_nodes_set.insert(node);
+    for (int i = 0; i < stmt_num; i++) {
+        auto stmt_i = stmt_id(f_txn_id_queue, i);
+        if (path_nodes_set.count(stmt_i) == 0)
+            deleted_nodes.insert(stmt_i);
+    }
     recur_topo_sort(current_path, deleted_nodes, total_path, tmp_stmt_dependency_graph);
     return total_path;
 }
