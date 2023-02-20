@@ -586,33 +586,38 @@ void transaction_test::trans_test(bool debug_mode)
     dut_get_content(test_dbms_info, trans_db_content);
 }
 
-void transaction_test::save_test_case(string dir_name)
+void transaction_test::save_test_case(string dir_name, 
+                                        string prefix,
+                                        vector<shared_ptr<prod>>& tar_stmt_queue,
+                                        vector<int>& tar_tid_queue,
+                                        vector<stmt_usage>& tar_usage_queue)
 {
     cerr << RED << "Saving test cases..." << RESET;
     // save stmt queue
-    string total_stmts_file = dir_name + "stmts.sql";
-    ofstream total_stmt_output(total_stmts_file);
-    for (int i = 0; i < stmt_num; i++) {
-        total_stmt_output << print_stmt_to_string(stmt_queue[i]) << endl;
-        total_stmt_output << endl;
+    string stmts_file = dir_name + prefix + "_stmts.sql";
+    ofstream stmt_output(stmts_file);
+    int queue_lengtgh = tar_stmt_queue.size();
+    for (int i = 0; i < queue_lengtgh; i++) {
+        stmt_output << print_stmt_to_string(tar_stmt_queue[i]) << endl;
+        stmt_output << endl;
     }
-    total_stmt_output.close();
+    stmt_output.close();
 
     // save tid queue
-    string total_tid_file = dir_name + "tid.txt";
-    ofstream total_tid_output(total_tid_file);
-    for (int i = 0; i < stmt_num; i++) {
-        total_tid_output << tid_queue[i] << endl;
+    string tid_file = dir_name + prefix + "_tid.txt";
+    ofstream tid_output(tid_file);
+    for (int i = 0; i < queue_lengtgh; i++) {
+        tid_output << tar_tid_queue[i] << endl;
     }
-    total_tid_output.close();
+    tid_output.close();
 
     // save stmt use queue
-    string total_stmt_use_file = dir_name + "stmt_use.txt";
-    ofstream total_stmt_use_output(total_stmt_use_file);
-    for (int i = 0; i < stmt_num; i++) {
-        total_stmt_use_output << stmt_use[i] << endl;
+    string stmt_use_file = dir_name + prefix + "_stmt_use.txt";
+    ofstream stmt_use_output(stmt_use_file);
+    for (int i = 0; i < queue_lengtgh; i++) {
+        stmt_use_output << tar_usage_queue[i] << endl;
     }
-    total_stmt_use_output.close();
+    stmt_use_output.close();
 
     cerr << RED << "done" << RESET << endl;
 }
@@ -1069,6 +1074,10 @@ bool transaction_test::multi_stmt_round_test()
         i--;
     }
     instrument_txn_stmts();
+    original_stmt_queue = stmt_queue;
+    original_stmt_use = stmt_use;
+    original_tid_queue = tid_queue;
+
     trans_test(); // first run, get all dependency information
     shared_ptr<dependency_analyzer> init_da;
     if (analyze_txn_dependency(init_da)) 
@@ -1285,8 +1294,8 @@ int transaction_test::test()
         return 255;
 
     save_backup_file(dir_name, test_dbms_info);
-    save_test_case(dir_name);
-    
+    save_test_case(dir_name, "finial", stmt_queue, tid_queue, stmt_use);
+    save_test_case(dir_name, "original", original_stmt_queue, original_tid_queue, original_stmt_use);
     return 1;
 }
 

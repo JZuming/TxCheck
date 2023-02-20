@@ -67,6 +67,11 @@ public:
     vector<string> normal_stmt_err_info;
     map<string, vector<vector<string>>> normal_stmt_db_content;
 
+    //original stmt test case
+    vector<int> original_tid_queue;
+    vector<shared_ptr<prod>> original_stmt_queue;
+    vector<stmt_usage> original_stmt_use;
+
     void assign_txn_id();
     void assign_txn_status();
     void gen_txn_stmts();
@@ -94,8 +99,11 @@ public:
     int test();
 
 private:
-    bool check_one_order_result(int order_index);
-    void save_test_case(string dir_name);
+    void save_test_case(string dir_name, 
+                        string prefix,
+                        vector<shared_ptr<prod>>& tar_stmt_queue,
+                        vector<int>& tar_tid_queue,
+                        vector<stmt_usage>& tar_usage_queue);
 };
 
 void print_stmt_path(vector<stmt_id>& stmt_path, map<pair<stmt_id, stmt_id>, set<dependency_type>>& stmt_graph);
