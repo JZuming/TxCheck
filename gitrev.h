@@ -1,0 +1,1 @@
+#define GITREV "xxxxxxx-dirty"
