@@ -26,8 +26,6 @@ using boost::regex_match;
 #include "impedance.hh"
 #include "dut.hh"
 
-#include "postgres.hh"
-
 #include <sys/time.h>
 #include <sys/wait.h>
 

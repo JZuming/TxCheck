@@ -12,34 +12,18 @@
 #include "config.h" // for PACKAGE_NAME
 
 // for supported dbms ---
-#ifdef HAVE_LIBSQLITE3
-#include "sqlite.hh"
+#ifdef HAVE_TIDB
+#include "tidb.hh"
 #endif
 
-#ifdef HAVE_LIBMYSQLCLIENT
-    #ifdef HAVE_TIDB
-    #include "tidb.hh"
-    #endif
-    
-    #ifdef HAVE_MYSQL
-    #include "mysql.hh"
-    #endif
-
-    #ifdef HAVE_MARIADB
-    #include "mariadb.hh"
-    #endif
-    
-    #ifdef HAVE_OCEANBASE
-    #include "oceanbase.hh"
-    #endif
+#ifdef HAVE_MYSQL
+#include "mysql.hh"
 #endif
 
-#ifdef HAVE_MONETDB
-#include "monetdb.hh"
+#ifdef HAVE_MARIADB
+#include "mariadb.hh"
 #endif
 
-#include "cockroachdb.hh"
-#include "postgres.hh"
 // ---
 
 #include "grammar.hh" // for statement gen

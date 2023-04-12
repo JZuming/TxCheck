@@ -37,8 +37,8 @@ RUN apt-get update
 RUN apt-get install -y build-essential autoconf autoconf-archive libpqxx-dev libboost-regex-dev libsqlite3-dev
 RUN apt-get install -y libmysqlclient-dev
 WORKDIR /home/mysql
-# COPY dynsql-sqlsmith /home/mysql/dynsql-sqlsmith
-RUN git clone https://github.com/JZuming/TxCheck
+# RUN git clone https://github.com/JZuming/TxCheck
+COPY TxCheck /home/mysql/TxCheck
 WORKDIR /home/mysql/TxCheck
 RUN autoreconf -if
 RUN ./configure
