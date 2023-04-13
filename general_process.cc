@@ -468,31 +468,20 @@ int generate_database(dbms_info& d_info)
     vector<string> stage_1_rec;
     vector<string> stage_2_rec;
     
-    // stage 0: reset db
-    cerr << YELLOW << "stage 0: reset dbms ..." << RESET;
+    cerr << "generating database ... ";
     dut_reset(d_info);
-    cerr << YELLOW << "finished" << RESET << endl;
 
-    // stage 1: DDL stage (create, alter, drop)
-    cerr << YELLOW << "stage 1: generate the shared database ..." << RESET;
     auto ddl_stmt_num = d6() + 1; // at least 2 statements to create 2 tables
     for (auto i = 0; i < ddl_stmt_num; i++)
         interect_test(d_info, &ddl_statement_factory, stage_1_rec, false); // has disabled the not null, check and unique clause 
-    cerr << YELLOW << "finished" << RESET << endl;
 
-    // stage 2: basic DML stage (only insert),
-    cerr << YELLOW << "stage 2: insert data into the database ..." << RESET;
     auto basic_dml_stmt_num = 10 + d6(); // 11-20 statements to insert data
     auto schema = get_schema(d_info); // schema will not change in this stage
     for (auto i = 0; i < basic_dml_stmt_num; i++) 
         normal_test(d_info, schema, &basic_dml_statement_factory, stage_2_rec, true);
-    cerr << YELLOW << "finished" << RESET << endl;
 
-    // stage 3: backup database
-    cerr << YELLOW << "stage 3: backup the database ..." << RESET;
     dut_backup(d_info);
-    cerr << YELLOW << "finished" << RESET << endl;
-
+    cerr << "done" << endl;
     return 0;
 }
 
@@ -559,7 +548,6 @@ void gen_stmts_for_one_txn(shared_ptr<schema> &db_schema,
                 continue;
             }
         }
-        cerr << YELLOW << "generated one useful stmt, write_op_id: " << write_op_id << RESET << endl;
         trans_rec.push_back(gen);
         succeed = true;
         stmt_num++;

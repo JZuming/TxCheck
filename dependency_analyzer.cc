@@ -1461,49 +1461,9 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
         // if do not has zero-indegree statement, so there is a cycle
         // randomly select a stmt, delete it and its set
         if (zero_indegree_idx == -1) {
-            cerr << "There is a cycle in topological_sort_path()" << endl;
+            // cerr << "There is a cycle in topological_sort_path()" << endl;
             if (delete_flag != NULL)
                 *delete_flag = true;
-            // // select one node to delete
-            // auto tmp_stmt_set = all_stmt_set;
-            // for (auto& node : outputted_node) // cannot delete outputted node
-            //     tmp_stmt_set.erase(node);
-            // for (auto& node : deleted_nodes) // skip the node that has been deleted
-            //     tmp_stmt_set.erase(node);
-
-            // cerr << "The rest of the nodes: ";
-            // for (auto& chosen_stmt_id: tmp_stmt_set) {
-            //     for (auto& another_stmt_id: tmp_stmt_set) {
-            //         if (chosen_stmt_id.txn_id == another_stmt_id.txn_id &&
-            //             chosen_stmt_id.stmt_idx_in_txn == another_stmt_id.stmt_idx_in_txn)
-            //             continue;
-            //         auto branch = make_pair(chosen_stmt_id, another_stmt_id);
-            //         if (tmp_stmt_dependency_graph.count(branch) == 0)
-            //             continue;
-            //         cerr << "(" << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
-            //         cerr << another_stmt_id.txn_id << "." << another_stmt_id.stmt_idx_in_txn << ", ";
-            //         if (tmp_stmt_dependency_graph[branch].count(WRITE_READ))
-            //             cerr << "WR|";
-            //         if (tmp_stmt_dependency_graph[branch].count(WRITE_WRITE))
-            //             cerr << "WW|";
-            //         if (tmp_stmt_dependency_graph[branch].count(READ_WRITE))
-            //             cerr << "RW|";
-            //         if (tmp_stmt_dependency_graph[branch].count(VERSION_SET_DEPEND))
-            //             cerr << "VS|";
-            //         if (tmp_stmt_dependency_graph[branch].count(OVERWRITE_DEPEND))
-            //             cerr << "OW|";
-            //         if (tmp_stmt_dependency_graph[branch].count(INSTRUMENT_DEPEND))
-            //             cerr << "IN|";
-            //         cerr << ") ";
-            //     }
-            // }
-            // cerr << endl;
-
-            // randomly find a node to delete
-            // auto r = rand() % tmp_stmt_set.size();
-            // auto select_one_it = tmp_stmt_set.begin();
-            // advance(select_one_it, r);
-            // auto select_stmt_id = *select_one_it;
             
             // find the node that has the most in-edges and out-edges, and delete it
             int max_edge_num = 0;
@@ -1548,7 +1508,7 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
             // delete its set (version_set, before_read, itself, after_read)
             auto select_queue_idx = select_stmt_id.transfer_2_stmt_idx(f_txn_id_queue);
             auto select_idx_set = get_instrumented_stmt_set(select_queue_idx);
-            cerr << "Delete nodes: ";
+            // cerr << "Delete nodes: ";
             for (auto chosen_idx : select_idx_set) {
                 auto chosen_stmt_id = stmt_id(f_txn_id_queue, chosen_idx);
                 deleted_nodes.insert(chosen_stmt_id);
@@ -1558,9 +1518,9 @@ vector<stmt_id> dependency_analyzer::topological_sort_path(set<stmt_id> deleted_
                     tmp_stmt_dependency_graph.erase(out_branch);
                     tmp_stmt_dependency_graph.erase(in_branch);
                 }
-                cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
+                // cerr << chosen_stmt_id.txn_id << "." << chosen_stmt_id.stmt_idx_in_txn << ", ";
             }
-            cerr << "max_edge_num: " << max_edge_num << endl;
+            // cerr << "max_edge_num: " << max_edge_num << endl;
             continue;
         }
         // ------------------------------------

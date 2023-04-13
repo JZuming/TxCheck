@@ -220,8 +220,10 @@ int fork_for_transaction_test(dbms_info& d_info)
 
 int random_test(dbms_info& d_info)
 {   
-    cerr << YELLOW << "initial seed as time(NULL)" << RESET << endl;
-    smith::rng.seed(time(NULL));
+    random_device rd;
+    auto rand_seed = rd();
+    cerr << "random seed: " << rand_seed << " -> ";
+    smith::rng.seed(rand_seed);
     
     // reset the target DBMS to initial state
     int setup_try_time = 0;
