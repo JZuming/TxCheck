@@ -792,7 +792,7 @@ bool reproduce_routine(dbms_info& d_info,
     delete[] re_test.trans_arr;
     re_test.trans_arr = new transaction[re_test.trans_num];
 
-    cerr << re_test.trans_num << " " << re_test.tid_queue.size() << " " << re_test.stmt_queue.size() << endl;
+    cerr << "txn num: " << re_test.trans_num << ", tid queue: " << re_test.tid_queue.size() << ", stmt queue: " << re_test.stmt_queue.size() << endl;
     if (re_test.tid_queue.size() != re_test.stmt_queue.size()) {
         cerr << "tid queue size should equal to stmt queue size" << endl;
         return 0;

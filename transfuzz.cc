@@ -121,14 +121,14 @@ int fork_for_generating_database(dbms_info& d_info)
     if (WIFSIGNALED(status)) {
         auto killSignal = WTERMSIG(status);
         if (child_timed_out && killSignal == SIGKILL) {
-            cerr << "timeout in generating stmt, reset the seed" << endl;
+            // cerr << "timeout in generating stmt, reset the seed" << endl;
             // transaction_test::try_to_kill_server();
             // auto just_check_server = make_shared<transaction_test>(d_info);
             // auto restart = just_check_server->fork_if_server_closed();
             // if (restart)
             //     throw runtime_error(string("restart server")); // need to generate database again
             
-            smith::rng.seed(time(NULL));
+            // smith::rng.seed(time(NULL));
             throw runtime_error(string("transaction test timeout"));
         }
         else {
@@ -194,24 +194,24 @@ int fork_for_transaction_test(dbms_info& d_info)
         if (exit_code == FIND_BUG_EXIT) {
             cerr << RED << "a bug is found in fork process" << RESET << endl;
             transaction_test::record_bug_num++;
-            // exit(-1);
+            // abort();
         }
         if (exit_code == 255)
-            exit(-1);
+            abort();
     }
 
     if (WIFSIGNALED(status)) {
         auto killSignal = WTERMSIG(status);
         if (child_timed_out && killSignal == SIGKILL) {
-            cerr << "timeout in generating stmt, reset the seed" << endl;
-            smith::rng.seed(time(NULL));
+            // cerr << "timeout in generating stmt, reset the seed" << endl;
+            // smith::rng.seed(time(NULL));
             throw runtime_error(string("transaction test timeout"));
         }
         else {
             cerr << RED << "find memory bug" << RESET << endl;
             cerr << "killSignal: " << killSignal << endl;
-            exit(-1);
-            throw runtime_error(string("memory bug"));
+            abort();
+            // throw runtime_error(string("memory bug"));
         }
     }
 
@@ -222,6 +222,7 @@ int random_test(dbms_info& d_info)
 {   
     random_device rd;
     auto rand_seed = rd();
+    // rand_seed = 1069001986;
     cerr << "random seed: " << rand_seed << " -> ";
     smith::rng.seed(rand_seed);
     

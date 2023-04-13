@@ -64,7 +64,6 @@ void transaction_test::gen_txn_stmts()
         stmt_pos_of_trans[tid] = 0;
         
         // save 2 stmts for begin and commit/abort
-        smith::rng.seed(time(NULL));
         gen_stmts_for_one_txn(db_schema, trans_arr[tid].stmt_num - 2, trans_arr[tid].stmts, test_dbms_info);
         // insert begin and end stmts
         trans_arr[tid].stmts.insert(trans_arr[tid].stmts.begin(), 
