@@ -222,8 +222,8 @@ int random_test(dbms_info& d_info)
 {   
     random_device rd;
     auto rand_seed = rd();
-    // rand_seed = 1069001986;
-    cerr << "random seed: " << rand_seed << " -> ";
+    cerr << "\n\n";
+    cerr << "random seed for db: " << rand_seed << endl;
     smith::rng.seed(rand_seed);
     
     // reset the target DBMS to initial state
@@ -248,7 +248,13 @@ int random_test(dbms_info& d_info)
     } 
 
     int i = TEST_TIME_FOR_EACH_DB;
-    while (i--) {  
+    while (i--) {
+        // each round, generate random seed again, otherwise it will perform the same tests
+        rand_seed = rd();
+        cerr << "\n\n";
+        cerr << "random seed for tests: " << rand_seed << endl;
+        smith::rng.seed(rand_seed); 
+
         try {
             fork_for_transaction_test(d_info);
         } catch (exception &e) {
