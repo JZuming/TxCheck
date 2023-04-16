@@ -1,0 +1,46 @@
+## Reported Bugs in MariaDB
+- trx_t::lock.was_chosen_as_deadlock_victim race in lock_wait_end()
+  - Link: https://jira.mariadb.org/browse/MDEV-29081
+  - Status: Fixed
+- MariaDB produce different results for INSERT statement when using transaction
+  - Link: https://jira.mariadb.org/browse/MDEV-29083
+  - Status: Confirmed
+- Assertion `prebuilt->sql_stat_start || prebuilt->table->no_rollback()' failed at row0sel.cc:4618
+  - Link: https://jira.mariadb.org/browse/MDEV-29120
+  - Status: Confirmed
+- Incorrect results of SELECT statement found by transaction comparison
+  - Link: https://jira.mariadb.org/browse/MDEV-29123
+  - Status: Confirmed
+- Assertion `lock_table_has(trx, index->table, LOCK_IX)' failed at lock0lock.cc:4972
+  - Link: https://jira.mariadb.org/browse/MDEV-29118 (Not visiable)
+  - Status: Confirmed
+- Assertion `(engine->uncacheable() & ~8) || ! engine->is_executed() || with_recursive_reference' failed at item_subselect.cc:1980
+  - Link: https://jira.mariadb.org/browse/MDEV-29232 (Not visiable)
+  - Status: Duplicate
+- Assertion `is_last_prefix <= 0' failed at opt_range.cc:15436
+  - Link: https://jira.mariadb.org/browse/MDEV-29243 (Not visiable)
+  - Status: Duplicate
+- undermined result of SELECT statements
+  - Link: https://jira.mariadb.org/browse/MDEV-29398
+  - Status: Confirmed
+- Affected by ROLLBACK txn, COMMIT txn produce incorrect result
+  - Link: https://jira.mariadb.org/browse/MDEV-29399
+  - Status: Confirmed
+- Assertion `args[0] == args[2] || thd->stmt_arena->is_stmt_execute()' failed at item_cmpfunc.cc:2584
+  - Link: https://jira.mariadb.org/browse/MDEV-29400
+  - Status: Duplicate
+- Heap-use-after-free (Binary_string::copy() at sql/sql_string.cc:250) reported by ASan
+  - Link: https://jira.mariadb.org/browse/MDEV-29483 (Not visiable)
+  - Status: Confirmed
+- Assertion `lock_table_has(trx, index->table, LOCK_IX)' failed at lock0lock.cc:6025
+  - Link: https://jira.mariadb.org/browse/MDEV-29489
+  - Status: Duplicate
+- Assertion `0' failed in Item_type_holder::val_int
+  - Link: https://jira.mariadb.org/browse/MDEV-29494 (Not visiable)
+  - Status: Confirmed
+- Inconsistent read and write, which use the same predicate (WHERE clause)
+  - Link: https://jira.mariadb.org/browse/MDEV-29565
+  - Status: Confirmed
+- Incorrect output of SELECT with CTE
+  - Link: https://jira.mariadb.org/browse/MDEV-29585
+  - Status: Confirmed
