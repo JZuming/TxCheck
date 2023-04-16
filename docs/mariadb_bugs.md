@@ -12,13 +12,13 @@
   - Link: https://jira.mariadb.org/browse/MDEV-29123
   - Status: Confirmed
 - Assertion `lock_table_has(trx, index->table, LOCK_IX)' failed at lock0lock.cc:4972
-  - Link: https://jira.mariadb.org/browse/MDEV-29118 (Not visiable)
+  - Link: https://jira.mariadb.org/browse/MDEV-29118 (Confidential)
   - Status: Confirmed
 - Assertion `(engine->uncacheable() & ~8) || ! engine->is_executed() || with_recursive_reference' failed at item_subselect.cc:1980
-  - Link: https://jira.mariadb.org/browse/MDEV-29232 (Not visiable)
+  - Link: https://jira.mariadb.org/browse/MDEV-29232 (Confidential)
   - Status: Duplicate
 - Assertion `is_last_prefix <= 0' failed at opt_range.cc:15436
-  - Link: https://jira.mariadb.org/browse/MDEV-29243 (Not visiable)
+  - Link: https://jira.mariadb.org/browse/MDEV-29243 (Confidential)
   - Status: Duplicate
 - undermined result of SELECT statements
   - Link: https://jira.mariadb.org/browse/MDEV-29398
@@ -30,13 +30,13 @@
   - Link: https://jira.mariadb.org/browse/MDEV-29400
   - Status: Duplicate
 - Heap-use-after-free (Binary_string::copy() at sql/sql_string.cc:250) reported by ASan
-  - Link: https://jira.mariadb.org/browse/MDEV-29483 (Not visiable)
+  - Link: https://jira.mariadb.org/browse/MDEV-29483 (Confidential)
   - Status: Confirmed
 - Assertion `lock_table_has(trx, index->table, LOCK_IX)' failed at lock0lock.cc:6025
   - Link: https://jira.mariadb.org/browse/MDEV-29489
   - Status: Duplicate
 - Assertion `0' failed in Item_type_holder::val_int
-  - Link: https://jira.mariadb.org/browse/MDEV-29494 (Not visiable)
+  - Link: https://jira.mariadb.org/browse/MDEV-29494 (Confidential)
   - Status: Confirmed
 - Inconsistent read and write, which use the same predicate (WHERE clause)
   - Link: https://jira.mariadb.org/browse/MDEV-29565
