@@ -16,5 +16,5 @@ TxCheck is a tool for finding transctional bugs in database management systems. 
 
 ## Found bugs
 - [Reported bugs in MySQL](./docs/mysql_bugs.md)
-- [Reported bugs in MariDB](./docs/mariadb_bugs.md)
+- [Reported bugs in MariaDB](./docs/mariadb_bugs.md)
 - [Reported bugs in TiDB](./docs/tidb_bugs.md)

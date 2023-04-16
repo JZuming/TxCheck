@@ -1,0 +1,67 @@
+## Reported Bugs in TiDB
+- TiDB produces different results for SELECT statement when using transaction
+  - Link: https://github.com/pingcap/tidb/issues/29947
+  - Status: Fixed
+- TiDB loses connection when executing transaction
+  - Link: https://github.com/pingcap/tidb/issues/30289
+  - Status: Fixed
+- Malicious SQL statement which directly crashes TiDB server by triggering stack overflow
+  - Link: https://github.com/pingcap/tidb/issues/30326
+  - Status: Fixed
+- Unrepeatable read occurs when two transaction are executed
+  - Link: https://github.com/pingcap/tidb/issues/30361
+  - Status: Confirmed
+- TiDB produces different results for SELECT statement when using transaction which uses update stmt
+  - Link: https://github.com/pingcap/tidb/issues/30397
+  - Status: Confirmed
+- TiDB fails to insert data when using transaction
+  - Link: https://github.com/pingcap/tidb/issues/30412
+  - Status: Duplicate
+- TiDB produces different results for SELECT statements (Subquery returns more than 1 row)
+  - Link: https://github.com/pingcap/tidb/issues/30413
+  - Status: Confirmed
+- TiDB loses connection when using transaction
+  - Link: https://github.com/pingcap/tidb/issues/30587
+  - Status: Fixed
+- insert's SET opration or VALUES_LIST doesn't support the subquery correctly
+  - Link: https://github.com/pingcap/tidb/issues/30626
+  - Status: Confirmed
+- TiDB server is killed because of "out of memory (OOM)"
+  - Link: https://github.com/pingcap/tidb/issues/30633
+  - Status: Confirmed
+- TiDB connection is lost due to "invalid memory address or nil pointer dereference"
+  - Link: https://github.com/pingcap/tidb/issues/30804
+  - Status: Fixed
+- TiDB produces different results for DELETE statements (Division by 0)
+  - Link: https://github.com/pingcap/tidb/issues/34041
+  - Status: Confirmed
+- TiDB (with tikv) hangs when processing SELECT statement
+  - Link: https://github.com/pingcap/tidb/issues/34043
+  - Status: Confirmed
+- "Lost connection to MySQL server during query" after UPDATE statement
+  - Link: https://github.com/pingcap/tidb/issues/34217
+  - Status: Confirmed
+- TiDB produces different results for SELECT statements (BIGINT value is out of range in '(8 - 100)')
+  - Link: https://github.com/pingcap/tidb/issues/34222
+  - Status: Confirmed
+- Malicious SQL statement which directly crashes TiDB server by triggering stack overflow
+  - Link: https://github.com/pingcap/tidb/issues/36896
+  - Status: Confirmed
+- TiDB (with tikv) produces different results for SELECT statements when using transaction
+  - Link: https://github.com/pingcap/tidb/issues/36903
+  - Status: Fixed
+- Strange transaction results caused by "Truncated incorrect INTEGER value"
+  - Link: https://github.com/pingcap/tidb/issues/36928
+  - Status: Unconfirmed
+- Inconsistent read and write, which use the same predicate (WHERE clause)
+  - Link: https://github.com/pingcap/tidb/issues/38150
+  - Status: Unconfirmed
+- Lost connection to MySQL server during query (tidb/executor.(*baseJoiner).makeJoinRowToChunk)
+  - Link: https://github.com/pingcap/tidb/issues/38167
+  - Status: Confirmed
+- TiDB produces different results for SELECT statements (runtime error: index out of range [0] with length 0)
+  - Link: https://github.com/pingcap/tidb/issues/38209
+  - Status: Confirmed
+- Undetermined results of the SELECT statement with CTE
+  - Link: https://github.com/pingcap/tidb/issues/38170
+  - Status: Fixed
