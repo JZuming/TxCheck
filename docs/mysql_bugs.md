@@ -51,7 +51,8 @@
   - CVE-2023-21879
 - SEGV (Item_subselect::print() at sql/item_subselect.cc:833) reported by ASan
   - Email to Oracle Security Alerts: Not public
-  - Status: Confirmed
+  - Status: Fixed
+  - CVE-2023-21935
 - Assertion failure: row0sel.cc:4708:prebuilt->sql_stat_start || trx->state.load(std::memory_order_relaxed) == TRX_STATE_ACTIVE
   - Email to Oracle Security Alerts: Not public
   - Status: Fixed
