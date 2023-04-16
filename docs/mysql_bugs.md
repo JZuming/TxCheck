@@ -1,0 +1,62 @@
+## Reported Bugs in MySQL
+- ROLLBACK transaction affects the result of COMMIT transaction
+  - Link: https://bugs.mysql.com/bug.php?id=107066
+  - Status: Verified
+- INSERT stmt in ROLLBACK txn affects UPDATE stmt in COMMIT txn
+  - Link: https://bugs.mysql.com/bug.php?id=107887
+  - Status: Duplicate
+- Incorrect SELECT results found by transaction comparison
+  - Link: https://bugs.mysql.com/bug.php?id=107898
+  - Status: Verified
+- Inconsistent read and write, which use the same predicate
+  - Link: https://bugs.mysql.com/bug.php?id=108528
+  - Status: Verified
+- Assertion bug in MySQL-8.0.28
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+  - CVE-2022-21556
+- Bug that can directly crashes MySQL 8.0.28
+  - Email to Oracle Security Alerts: Not public
+  - Status: Confirmed
+- Bug (triggered at Query_expression::cleanup) that directly crashes MySQL 8.0.28
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+  - CVE-2022-21607
+- Bug (triggered at temptable::Row::copy_to_mysql_row) that directly crashes MySQL 8.0.28
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+- Bug (triggered at Item_field::used_tables()) that crashes MySQL 8.0.28
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+  - CVE-2023-21872
+- Bug (triggered at SortFileIterator\<true>::Read()) that crashes MySQL 8.0.28
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+- Assertion (`file->m_file_stat.m_open_count <= 1' failed at pfs.cc:5644) bug in MySQL 8.0.30
+  - Email to Oracle Security Alerts: Not public
+  - Status: Confirmed
+- Assertion (`keyparts > 0' failed at sql_select.cc:2105) bug in MySQL 8.0.30
+  - Email to Oracle Security Alerts: Not public
+  - Status: Confirmed
+- Crash (triggered at row_search_mvcc()) bug in MySQL 8.0.30
+  - Email to Oracle Security Alerts: Not public
+  - Status: Confirmed
+- SEGV (TABLE::move_tmp_key(int, bool) at sql/table.cc:6044) reported by ASan
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+  - CVE-2023-21878
+- Heap-use-after-free (my_mb_wc_utf8_prototype at strings/mb_wc.h:115) in MySQL 8.0.30
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+  - CVE-2023-21879
+- SEGV (Item_subselect::print() at sql/item_subselect.cc:833) reported by ASan
+  - Email to Oracle Security Alerts: Not public
+  - Status: Confirmed
+- Assertion failure: row0sel.cc:4708:prebuilt->sql_stat_start || trx->state.load(std::memory_order_relaxed) == TRX_STATE_ACTIVE
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+  - CVE-2023-21880
+- SEGV (get_store_key at sql/sql_select.cc:2383) reported by ASan
+  - Email to Oracle Security Alerts: Not public
+  - Status: Fixed
+  - CVE-2023-21881
