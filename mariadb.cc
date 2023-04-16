@@ -522,7 +522,7 @@ void dut_mariadb::block_test(const std::string &stmt, std::vector<std::string>* 
         auto result = mysql_store_result(&mysql);
         mysql_free_result(result);
         if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
-            cerr << err << " in test, repeat the statement again" << endl;
+            // cerr << err << " in test, repeat the statement again" << endl;
             block_test(stmt, output, affected_row_num);
             return;
         }
@@ -605,7 +605,7 @@ void dut_mariadb::test(const string &stmt, vector<vector<string>>* output, int* 
             mysql_free_result(result);
 
             if (err.find("Commands out of sync") != string::npos) {// occasionally happens, retry the statement again
-                cerr << err << ", repeat the statement again" << endl;
+                // cerr << err << ", repeat the statement again" << endl;
                 test(stmt, output, affected_row_num);
                 return;
             }
