@@ -3,7 +3,7 @@
 ```shell
 mkdir mariadb_test
 git clone https://github.com/JZuming/TxCheck.git
-cp TxCheck/script/mariadb_test/* mariadb_test
+cp TxCheck/script/mariadb/* mariadb_test
 cd mariadb_test 
 ./build_docker.sh # build mariadb docker image
 ./run_test.sh 4 # build 4 mariadb docker containers and set up testing, the arugment is the number of containers
