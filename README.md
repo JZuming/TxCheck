@@ -9,10 +9,57 @@ TxCheck is a tool for finding transctional bugs in database management systems. 
 - MariaDB
 - TiDB
 
-## Build TxCheck and Test DBMSs
+## Build TxCheck
+
+### Building and Testing in Docker (Recommanded)
 - [Test MySQL](./docs/mysql_test.md)
 - [Test MariaDB](./docs/mariadb_test.md)
 - [Test TiDB](./docs/tidb_test.md)
+
+### Building in Debian
+
+```shell
+apt-get install -y g++ build-essential autoconf autoconf-archive libboost-regex-dev
+git clone https://github.com/JZuming/TxCheck.git
+cd TxCheck
+autoreconf -if
+./configure
+make -j
+```
+
+## Usage
+### Test DBMSs
+```shell
+# test MySQL
+transfuzz --mysql-db=testdb --mysql-port=3306 --output-or-affect-num=1
+# test MariaDB
+transfuzz --mariadb-db=testdb --mariadb-port=3306 --output-or-affect-num=1
+# test TiDB
+transfuzz --tidb-db=testdb --tidb-port=4000 --output-or-affect-num=1
+```
+The bugs found are stored in the directory `found_bugs`. TxCheck only support testing local database engines now.
+
+The following options are supported:
+
+| Option | Description |
+|----------|----------|
+| `--mysql-db` | target MySQL database | 
+| `--mysql-port` | MySQL server port number | 
+| `--mariadb-db` | target MariaDB database |
+| `--mariadb-port` | Mariadb server port number |
+| `--tidb-db` | target TiDB database |
+| `--tidb-port` | TiDB server port number |
+| `--output-or-affect-num` | generated statement should output or affect at least specific number of rows |
+| `--reproduce-sql` | reproduce a bug according to a SQL file recording the executed statements |
+| `--reproduce-tid` | reproduce a bug according to a file recording the transaction id of each statement|
+| `--reproduce-usage` | reproduce a bug according to a file recording the type of each statement|
+| `--min` | minimize the bug-triggering test case |
+
+***Note***
+
+Both target database and the server port number should be specified when TxCheck is used to test a DBMS (e.g., When testing MySQL, `--mysql-db` and `--mysql-port` should be specified)
+
+The options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` should be specified when TxCheck try to reproduce a bug. The files used are the files stored in the directory `found_bugs`. The option `--min` can work only when the options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` are specified.
 
 ## Found bugs
 - [Reported bugs in MySQL](./docs/mysql_bugs.md)
