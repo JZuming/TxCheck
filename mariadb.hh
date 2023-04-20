@@ -36,6 +36,7 @@ struct dut_mariadb : dut_base, mariadb_connection {
     virtual void backup(void);
     virtual void reset_to_backup(void);
     static int save_backup_file(string path);
+    static int use_backup_file(string backup_file);
     
     virtual string commit_stmt();
     virtual string abort_stmt();

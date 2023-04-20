@@ -287,7 +287,7 @@ tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 mariadb-db|mariadb-port|\
 output-or-affect-num|\
-reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
+reproduce-sql|reproduce-tid|reproduce-usage|reproduce-backup)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
         smatch match;
@@ -303,21 +303,22 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
     if (options.count("help")) {
         cerr <<
             #ifdef HAVE_TIDB
-            "    --tidb-db=constr   tidb database name to send queries to" << endl << 
-            "    --tidb-port=int    tidb server port number" << endl << 
+            "   --tidb-db=constr   tidb database name to send queries to" << endl << 
+            "   --tidb-port=int    tidb server port number" << endl << 
             #endif
             #ifdef HAVE_MARIADB
-            "    --mariadb-db=constr   mariadb database name to send queries to" << endl << 
-            "    --mariadb-port=int    mariadb server port number" << endl <<
+            "   --mariadb-db=constr   mariadb database name to send queries to" << endl << 
+            "   --mariadb-port=int    mariadb server port number" << endl <<
             #endif
             #ifdef HAVE_MYSQL
-            "    --mysql-db=constr  mysql database name to send queries to" << endl << 
-            "    --mysql-port=int   mysql server port number" << endl << 
+            "   --mysql-db=constr  mysql database name to send queries to" << endl << 
+            "   --mysql-port=int   mysql server port number" << endl << 
             #endif
-            "    --output-or-affect-num=int     generating statement that output num rows or affect num rows" << endl <<
-            "    --reproduce-sql=filename       sql file to reproduce the problem" << endl <<
-            "    --reproduce-tid=filename       tid file to reproduce the problem" << endl <<
-            "    --reproduce-usage=filename     stmt usage file to reproduce the problem" << endl <<
+            "   --output-or-affect-num=int     generating statement that output num rows or affect num rows" << endl <<
+            "   --reproduce-sql=filename       sql file to reproduce the problem" << endl <<
+            "   --reproduce-tid=filename       tid file to reproduce the problem" << endl <<
+            "   --reproduce-usage=filename     stmt usage file to reproduce the problem" << endl <<
+            "   --reproduce-backup=filename     backup file to reproduce the problem" << endl << 
             "    --min      minimize the reproduce test case" << endl <<
             "    --help     print available command line options and exit" << endl;
         return 0;
@@ -437,6 +438,9 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
             }
         }
         stmt_usage_file.close();
+
+        auto backup_file = options["reproduce-backup"];
+        use_backup_file(backup_file, d_info);
 
         if (options.count("min"))
             minimize_testcase(d_info, stmt_queue, tid_queue, stmt_usage_queue);

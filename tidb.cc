@@ -602,6 +602,12 @@ int dut_tidb::save_backup_file(string path)
     return system(cp_cmd.c_str());
 }
 
+int dut_tidb::use_backup_file(string backup_file)
+{
+    string cp_cmd = "cp " + backup_file + " /tmp/mysql_bk.sql";
+    return system(cp_cmd.c_str());
+}
+
 void dut_tidb::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
 {
     for (auto& table:tables_name) {

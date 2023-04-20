@@ -733,6 +733,12 @@ int dut_mariadb::save_backup_file(string path)
     return system(cp_cmd.c_str());
 }
 
+int dut_mariadb::use_backup_file(string backup_file)
+{
+    string cp_cmd = "cp " + backup_file + " /tmp/mysql_bk.sql";
+    return system(cp_cmd.c_str());
+}
+
 void dut_mariadb::get_content(vector<string>& tables_name, map<string, vector<vector<string>>>& content)
 {
     for (auto& table:tables_name) {

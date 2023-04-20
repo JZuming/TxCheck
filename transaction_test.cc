@@ -1279,7 +1279,7 @@ int transaction_test::test()
         return 255;
 
     save_backup_file(dir_name, test_dbms_info);
-    save_test_case(dir_name, "finial", stmt_queue, tid_queue, stmt_use);
+    save_test_case(dir_name, "final", stmt_queue, tid_queue, stmt_use);
     // save_test_case(dir_name, "original", original_stmt_queue, original_tid_queue, original_stmt_use);
     return 1;
 }

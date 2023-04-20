@@ -111,6 +111,31 @@ int save_backup_file(string path, dbms_info& d_info)
     }
 }
 
+int use_backup_file(string backup_file, dbms_info& d_info)
+{
+    if (false) {}
+    #ifdef HAVE_MYSQL
+    else if (d_info.dbms_name == "mysql")
+        return dut_mysql::use_backup_file(backup_file);
+    #endif
+
+    #ifdef HAVE_MARIADB
+    else if (d_info.dbms_name == "mariadb")
+        return dut_mariadb::use_backup_file(backup_file);
+    #endif
+
+    #ifdef HAVE_TIDB
+    else if (d_info.dbms_name == "tidb")
+        return dut_tidb::use_backup_file(backup_file);
+    #endif
+
+    else {
+        cerr << d_info.dbms_name << " is not supported yet" << endl;
+        throw runtime_error("Unsupported DBMS");
+    }
+}
+
+
 pid_t fork_db_server(dbms_info& d_info)
 {
     pid_t fork_pid;
@@ -429,7 +454,7 @@ bool compare_output(vector<vector<vector<string>>>& a_output,
 {
     auto size = a_output.size();
     if (size != b_output.size()) {
-        cerr << "stmt output sizes are not equel: "<< a_output.size() << " " << b_output.size() << endl;
+        // cerr << "stmt output sizes are not equel: "<< a_output.size() << " " << b_output.size() << endl;
         return false;
     }
 
@@ -446,15 +471,15 @@ bool compare_output(vector<vector<vector<string>>>& a_output,
 
         size_t stmt_output_size = a_hash_set.size();
         if (stmt_output_size != b_hash_set.size()) {
-            cerr << "stmt[" << i << "] output sizes are not equel: " << a_hash_set.size() << " " << b_hash_set.size() << endl;
-            output_diff("stmt["+ to_string(i) + "]", a_stmt_output, b_stmt_output);
+            // cerr << "stmt[" << i << "] output sizes are not equel: " << a_hash_set.size() << " " << b_hash_set.size() << endl;
+            // output_diff("stmt["+ to_string(i) + "]", a_stmt_output, b_stmt_output);
             return false;
         }
 
         for (auto j = 0; j < stmt_output_size; j++) {
             if (a_hash_set[j] != b_hash_set[j]) {
-                cerr << "stmt[" << i << "] output are not equel" << endl;
-                output_diff("stmt["+ to_string(i) + "]", a_stmt_output, b_stmt_output);
+                // cerr << "stmt[" << i << "] output are not equel" << endl;
+                // output_diff("stmt["+ to_string(i) + "]", a_stmt_output, b_stmt_output);
                 return false;
             }
         }

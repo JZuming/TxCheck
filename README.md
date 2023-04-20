@@ -31,17 +31,18 @@ make -j
 ### Test DBMSs
 ```shell
 # test MySQL
-transfuzz --mysql-db=testdb --mysql-port=3306 --output-or-affect-num=1
+./transfuzz --mysql-db=testdb --mysql-port=3306 --output-or-affect-num=1
 # test MariaDB
-transfuzz --mariadb-db=testdb --mariadb-port=3306 --output-or-affect-num=1
+./transfuzz --mariadb-db=testdb --mariadb-port=3306 --output-or-affect-num=1
 # test TiDB
-transfuzz --tidb-db=testdb --tidb-port=4000 --output-or-affect-num=1
+./transfuzz --tidb-db=testdb --tidb-port=4000 --output-or-affect-num=1
 
 # reproduce a found bug in MySQl and minimize the test case
-transfuzz --mysql-db=testdb --mysql-port=3306 \
+./transfuzz --mysql-db=testdb --mysql-port=3306 \
             --reproduce-sql=final_stmts.sql \
             --reproduce-tid=final_tid.txt \
             --reproduce-usage=final_stmt_use.txt \
+            --reproduce-backup=mysql_bk.sql \
             --min
 ```
 The bugs found are stored in the directory `found_bugs`. TxCheck only support testing local database engines now.
@@ -56,17 +57,18 @@ The following options are supported:
 | `--mariadb-port` | Mariadb server port number |
 | `--tidb-db` | target TiDB database |
 | `--tidb-port` | TiDB server port number |
-| `--output-or-affect-num` | generated statement should output or affect at least specific number of rows |
-| `--reproduce-sql` | reproduce a bug according to a SQL file recording the executed statements |
-| `--reproduce-tid` | reproduce a bug according to a file recording the transaction id of each statement|
-| `--reproduce-usage` | reproduce a bug according to a file recording the type of each statement|
-| `--min` | minimize the bug-triggering test case |
+| `--output-or-affect-num` | generated statement should output or affect at least a specific number of rows |
+| `--reproduce-sql` | a SQL file recording the executed statements (needed for reproducing)|
+| `--reproduce-tid` | a file recording the transaction id of each statement (needed for reproducing)|
+| `--reproduce-usage` | a file recording the type of each statement (needed for reproducing)|
+| `--reproduce-backup` | a backup file (needed for reproducing)|
+| `--min` | minimize the bug-triggering test case|
 
 ***Note***
 
 Both target database and the server port number should be specified (e.g., when testing MySQL or reproducing a bug in MySQL, `--mysql-db` and `--mysql-port` should be specified).
 
-The options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` should be specified when TxCheck try to reproduce a bug. The files used are the files stored in the directory `found_bugs`. The option `--min` can work only when the options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` are specified.
+The options `--reproduce-sql`, `--reproduce-tid`, `--reproduce-usage`, and `--reproduce-backup` should be specified when TxCheck is used to reproduce a found bug. The files used are the files stored in the directory `found_bugs`. The option `--min` can work only when the options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` and `--reproduce-backup` are specified.
 
 ## Found bugs
 - [Reported bugs in MySQL](./docs/mysql_bugs.md)
