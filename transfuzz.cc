@@ -282,18 +282,11 @@ int main(int argc, char *argv[])
     // analyze the options
     map<string,string> options;
     regex optregex("--\
-(help|min|postgres|sqlite|monetdb|random-seed|\
-postgres-db|postgres-port|\
+(help|min|\
 tidb-db|tidb-port|\
 mysql-db|mysql-port|\
 mariadb-db|mariadb-port|\
-oceanbase-db|oceanbase-port|\
-monetdb-db|monetdb-port|\
-cockroach-db|cockroach-port|\
 output-or-affect-num|\
-check-txn-cycle|\
-txn-decycle|\
-check-topo-sort|\
 reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
   
     for(char **opt = argv + 1 ;opt < argv + argc; opt++) {
@@ -309,46 +302,24 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
 
     if (options.count("help")) {
         cerr <<
-            "    --postgres=connstr   postgres database to send queries to" << endl <<
-            "    --postgres-db=connstr  Postgres database to send queries to, should used with --postgres-port" <<endl <<
-            "    --postgres-port=int    Postgres server port number, , should used with --postgres-port" <<endl <<
-            #ifdef HAVE_LIBSQLITE3
-            "    --sqlite=URI         SQLite database to send queries to" << endl <<
-            #endif
-            #ifdef HAVE_MONETDB
-            "    --monetdb-db=connstr  MonetDB database to send queries to" <<endl <<
-            "    --monetdb-port=int    MonetDB server port number" <<endl <<
-            #endif
-            #ifdef HAVE_LIBMYSQLCLIENT
             #ifdef HAVE_TIDB
-            "    --tidb-db=constr   tidb database name to send queries to (should used with" << endl << 
+            "    --tidb-db=constr   tidb database name to send queries to" << endl << 
             "    --tidb-port=int    tidb server port number" << endl << 
             #endif
             #ifdef HAVE_MARIADB
-            "    --mariadb-db=constr   mariadb database name to send queries to (should used with" << endl << 
+            "    --mariadb-db=constr   mariadb database name to send queries to" << endl << 
             "    --mariadb-port=int    mariadb server port number" << endl <<
             #endif
-            #ifdef HAVE_OCEANBASE
-            "    --oceanbase-db=constr   oceanbase database name to send queries to (should used with" << endl << 
-            "    --oceanbase-port=int    oceanbase server port number" << endl <<
-            #endif
             #ifdef HAVE_MYSQL
-            "    --mysql-db=constr  mysql database name to send queries to (should used with" << endl << 
+            "    --mysql-db=constr  mysql database name to send queries to" << endl << 
             "    --mysql-port=int   mysql server port number" << endl << 
             #endif
-            #endif
-            "    --cockroach-db=constr  cockroach database name to send queries to (should used with" << endl << 
-            "    --cockroach-port=int   cockroach server port number" << endl << 
-            "    --output-or-affect-num=int  generating statement that output num rows or affect num rows"
-            "    --random-seed=filename    random file for dynamic query interaction" << endl <<
-            "    --reproduce-sql=filename    sql file to reproduce the problem" << endl <<
-            "    --reproduce-tid=filename    tid file to reproduce the problem" << endl <<
-            "    --reproduce-usage=filename    stmt usage file to reproduce the problem" << endl <<
-            "    --min                  minimize the reproduce test case (should be used with --reproduce-sql, --reproduce-tid, and --reproduce-usage)" << endl <<
-            "    --check-txn-cycle      check whether the test case has transactional cycles (should be used with --reproduce-sql, --reproduce-tid, and --reproduce-usage)" << endl <<
-            "    --txn-decycle          perform transactional decycling, and check whether still trigger the bug (should be used with --reproduce-sql, --reproduce-tid, and --reproduce-usage)" << endl <<
-            "    --check-topo-sort      check whether all topological sorting results can trigger the bug (should be used with --reproduce-sql, --reproduce-tid, and --reproduce-usage)" << endl <<
-            "    --help                 print available command line options and exit" << endl;
+            "    --output-or-affect-num=int     generating statement that output num rows or affect num rows" << endl <<
+            "    --reproduce-sql=filename       sql file to reproduce the problem" << endl <<
+            "    --reproduce-tid=filename       tid file to reproduce the problem" << endl <<
+            "    --reproduce-usage=filename     stmt usage file to reproduce the problem" << endl <<
+            "    --min      minimize the reproduce test case" << endl <<
+            "    --help     print available command line options and exit" << endl;
         return 0;
     } else if (options.count("version")) {
         return 0;
@@ -469,23 +440,6 @@ reproduce-sql|reproduce-tid|reproduce-usage)(?:=((?:.|\n)*))?");
 
         if (options.count("min"))
             minimize_testcase(d_info, stmt_queue, tid_queue, stmt_usage_queue);
-        else if (options.count("check-txn-cycle"))
-            check_txn_cycle(d_info, stmt_queue, tid_queue, stmt_usage_queue);
-        else if (options.count("txn-decycle")) {
-            int succeed_time = 0;
-            int all_time = 0;
-            vector<int> delete_nodes;
-            txn_decycle_test(d_info, stmt_queue, tid_queue, stmt_usage_queue, succeed_time, all_time, delete_nodes);
-            cerr << "succeed time: " << succeed_time << endl;
-            cerr << "all time: " << all_time << endl;
-        }
-        else if (options.count("check-topo-sort")) {
-            int succeed_time = 0;
-            int all_time = 0;
-            check_topo_sort(d_info, stmt_queue, tid_queue, stmt_usage_queue, succeed_time, all_time);
-            cerr << "succeed time: " << succeed_time << endl;
-            cerr << "all time: " << all_time << endl;
-        }
         else {
             string empty_str;
             reproduce_routine(d_info, stmt_queue, tid_queue, stmt_usage_queue, empty_str);

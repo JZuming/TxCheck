@@ -36,6 +36,13 @@ transfuzz --mysql-db=testdb --mysql-port=3306 --output-or-affect-num=1
 transfuzz --mariadb-db=testdb --mariadb-port=3306 --output-or-affect-num=1
 # test TiDB
 transfuzz --tidb-db=testdb --tidb-port=4000 --output-or-affect-num=1
+
+# reproduce a found bug in MySQl and minimize the test case
+transfuzz --mysql-db=testdb --mysql-port=3306 \
+            --reproduce-sql=final_stmts.sql \
+            --reproduce-tid=final_tid.txt \
+            --reproduce-usage=final_stmt_use.txt \
+            --min
 ```
 The bugs found are stored in the directory `found_bugs`. TxCheck only support testing local database engines now.
 
@@ -57,7 +64,7 @@ The following options are supported:
 
 ***Note***
 
-Both target database and the server port number should be specified when TxCheck is used to test a DBMS (e.g., When testing MySQL, `--mysql-db` and `--mysql-port` should be specified)
+Both target database and the server port number should be specified (e.g., when testing MySQL or reproducing a bug in MySQL, `--mysql-db` and `--mysql-port` should be specified).
 
 The options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` should be specified when TxCheck try to reproduce a bug. The files used are the files stored in the directory `found_bugs`. The option `--min` can work only when the options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` are specified.
 
