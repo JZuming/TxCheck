@@ -4,12 +4,6 @@
 
 TxCheck is a tool for finding transctional bugs in database management systems. It uses SQL-level instrumentation to capture statement-level dependencies and construct transactional oracle to find bugs in transaction supports of DBMSs. We implemented TxCheck on the top of SQLsmith (https://github.com/anse1/sqlsmith).
 
-## Research Paper
-
-**Detecting Transactional Bugs in Database Engines via Graph-Based Oracle Construction** (OSDI 2023, conditional accept)
-
-*Zu-Ming Jiang, Si Liu, Manuel Rigger, Zhendong Su*
-
 ## Supported DBMSs
 - MySQL
 - MariaDB
@@ -57,18 +51,18 @@ The following options are supported:
 
 | Option | Description |
 |----------|----------|
-| `--mysql-db` | target MySQL database | 
+| `--mysql-db` | Target MySQL database | 
 | `--mysql-port` | MySQL server port number | 
-| `--mariadb-db` | target MariaDB database |
+| `--mariadb-db` | Target MariaDB database |
 | `--mariadb-port` | Mariadb server port number |
-| `--tidb-db` | target TiDB database |
+| `--tidb-db` | Target TiDB database |
 | `--tidb-port` | TiDB server port number |
-| `--output-or-affect-num` | generated statement should output or affect at least a specific number of rows |
-| `--reproduce-sql` | a SQL file recording the executed statements (needed for reproducing)|
-| `--reproduce-tid` | a file recording the transaction id of each statement (needed for reproducing)|
-| `--reproduce-usage` | a file recording the type of each statement (needed for reproducing)|
-| `--reproduce-backup` | a backup file (needed for reproducing)|
-| `--min` | minimize the bug-triggering test case|
+| `--output-or-affect-num` | Generated statement should output or affect at least a specific number of rows |
+| `--reproduce-sql` | A SQL file recording the executed statements (needed for reproducing)|
+| `--reproduce-tid` | A file recording the transaction id of each statement (needed for reproducing)|
+| `--reproduce-usage` | A file recording the type of each statement (needed for reproducing)|
+| `--reproduce-backup` | A backup file (needed for reproducing)|
+| `--min` | Minimize the bug-triggering test case|
 
 ***Note***
 
@@ -76,7 +70,29 @@ Both target database and the server port number should be specified (e.g., when 
 
 The options `--reproduce-sql`, `--reproduce-tid`, `--reproduce-usage`, and `--reproduce-backup` should be specified when TxCheck is used to reproduce a found bug. The files used are the files stored in the directory `found_bugs`. The option `--min` can work only when the options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` and `--reproduce-backup` are specified.
 
-## Found bugs
+## Source Code Structure
+
+| Source File | Description |
+|----------|----------|
+| `instrument.cc (.hh)` | SQL-level instrumentation to dependency information |
+| `dependency_analyzer.cc (.hh)` | Build statement dependency graphs, maintain graph-related meta data (e.g. topological sorting on graphs, graph decycling)
+| `transaction_test.cc (.hh)` | Manage the whole transaction-testing procedure, including transaction test-case generation, blocking scheduling, transaction-oracle checking, e.t.c.|
+| `general_process.cc (.hh)` | Provide general functionality (e.g., hash functions, result-comparison methonds, SQL statement generation) |
+| `dbms_info.cc (.hh)` | Maintain the information of supported DBMSs (e.g., tested db, server port number)
+| `transfuzz.cc` | Maintain the program entry |
+| `mysql.cc (.hh)` | Provide the functionality related to MySQL |
+| `mariadb.cc (.hh)` | Provide the functionality related to MariaDB |
+| `tidb.cc (.hh)` | Provide the functionality related to TiDB |
+| Others | Similar to the ones in SQLsmith. We support more SQL features in `grammar.cc (.hh)` and `expr.cc (.hh)`|
+
+
+
+
+
+
+
+
+## Found Bugs
 - [Reported bugs in MySQL](./docs/mysql_bugs.md)
 - [Reported bugs in MariaDB](./docs/mariadb_bugs.md)
 - [Reported bugs in TiDB](./docs/tidb_bugs.md)
