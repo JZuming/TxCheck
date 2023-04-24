@@ -77,7 +77,7 @@ The options `--reproduce-sql`, `--reproduce-tid`, `--reproduce-usage`, and `--re
 
 | Source File | Description |
 |----------|----------|
-| `instrument.cc (.hh)` | SQL-level instrumentation to extract dependency information |
+| `instrumentor.cc (.hh)` | SQL-level instrumentation to extract dependency information |
 | `dependency_analyzer.cc (.hh)` | Build statement dependency graphs, maintain graph-related meta data (e.g. topological sorting on graphs, graph decycling)
 | `transaction_test.cc (.hh)` | Manage the whole transaction-testing procedure, including transaction test-case generation, blocking scheduling, transaction-oracle checking, e.t.c.|
 | `general_process.cc (.hh)` | Provide general functionality (e.g., hash functions, result-comparison methonds, SQL statement generation) |
