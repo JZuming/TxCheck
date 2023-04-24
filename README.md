@@ -11,7 +11,7 @@ TxCheck is a tool for finding transactional bugs in database management systems.
 
 ## Video
 
-We provide a video introducing the tool. The video is available in the [artifact](https://zenodo.org/) stored in Zenodo.
+We provide a video introducing the tool. The video is available in the [artifact](https://zenodo.org/record/7859034#.ZEbk2s5By4Q) stored in Zenodo.
 
 ## Quick Start or Evaluation (in Docker)
 
