@@ -2,21 +2,24 @@
 
 ## Description
 
-TxCheck is a tool for finding transctional bugs in database management systems. It uses SQL-level instrumentation to capture statement-level dependencies and construct transactional oracle to find bugs in transaction supports of DBMSs. We implemented TxCheck on the top of SQLsmith (https://github.com/anse1/sqlsmith).
+TxCheck is a tool for finding transactional bugs in database management systems. It uses SQL-level instrumentation to capture statement-level dependencies and construct transactional oracle to find bugs in transaction supports of DBMSs. We implemented TxCheck on the top of SQLsmith (https://github.com/anse1/sqlsmith).
 
 ## Supported DBMSs
 - MySQL
 - MariaDB
 - TiDB
 
-## Build TxCheck
+## Quick Start or Evaluation (in Docker)
 
-### Building and Testing in Docker (Recommanded)
-- [Test MySQL](./docs/mysql_test.md)
-- [Test MariaDB](./docs/mariadb_test.md)
-- [Test TiDB](./docs/tidb_test.md)
+We provide scripts to quickly set up the necessary environments and test specific DBMSs using TxCheck. We recommend you follow the instructions in the scripts to evaluate TxCheck or familiarize yourself with TxCheck.
 
-### Building in Debian
+- [Test MySQL 8.0.28](./docs/mysql_test.md)
+- [Test MariaDB 10.8.3](./docs/mariadb_test.md)
+- [Test TiDB 5.4.0](./docs/tidb_test.md)
+
+By following the scripts, TxCheck can find the bugs listed in [Found Bugs](#found-bugs) (given enough time). For example, using the above MySQL script, TxCheck might find a transactional bug in MySQL 8.0.28 within 10 minutes.
+
+## Build TxCheck in Debian
 
 ```shell
 apt-get install -y g++ build-essential autoconf autoconf-archive libboost-regex-dev
@@ -45,9 +48,9 @@ make -j
             --reproduce-backup=mysql_bk.sql \
             --min
 ```
-The bugs found are stored in the directory `found_bugs`. TxCheck only support testing local database engines now.
+The bugs found are stored in the directory `found_bugs`. TxCheck only supports testing local database engines now.
 
-The following options are supported:
+### Supported Options
 
 | Option | Description |
 |----------|----------|
@@ -68,13 +71,13 @@ The following options are supported:
 
 Both target database and the server port number should be specified (e.g., when testing MySQL or reproducing a bug in MySQL, `--mysql-db` and `--mysql-port` should be specified).
 
-The options `--reproduce-sql`, `--reproduce-tid`, `--reproduce-usage`, and `--reproduce-backup` should be specified when TxCheck is used to reproduce a found bug. The files used are the files stored in the directory `found_bugs`. The option `--min` can work only when the options `--reproduce-sql`, `--reproduce-tid`, and `--reproduce-usage` and `--reproduce-backup` are specified.
+The options `--reproduce-sql`, `--reproduce-tid`, `--reproduce-usage`, and `--reproduce-backup` should be specified when TxCheck is used to reproduce a found bug. The files used are the files stored in the directory `found_bugs`. The option `--min` can work only when the options `--reproduce-sql`, `--reproduce-tid`, `--reproduce-usage` and `--reproduce-backup` are specified.
 
 ## Source Code Structure
 
 | Source File | Description |
 |----------|----------|
-| `instrument.cc (.hh)` | SQL-level instrumentation to dependency information |
+| `instrument.cc (.hh)` | SQL-level instrumentation to extract dependency information |
 | `dependency_analyzer.cc (.hh)` | Build statement dependency graphs, maintain graph-related meta data (e.g. topological sorting on graphs, graph decycling)
 | `transaction_test.cc (.hh)` | Manage the whole transaction-testing procedure, including transaction test-case generation, blocking scheduling, transaction-oracle checking, e.t.c.|
 | `general_process.cc (.hh)` | Provide general functionality (e.g., hash functions, result-comparison methonds, SQL statement generation) |
@@ -84,12 +87,6 @@ The options `--reproduce-sql`, `--reproduce-tid`, `--reproduce-usage`, and `--re
 | `mariadb.cc (.hh)` | Provide the functionality related to MariaDB |
 | `tidb.cc (.hh)` | Provide the functionality related to TiDB |
 | Others | Similar to the ones in SQLsmith. We support more SQL features in `grammar.cc (.hh)` and `expr.cc (.hh)`|
-
-
-
-
-
-
 
 
 ## Found Bugs
