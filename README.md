@@ -2,12 +2,16 @@
 
 ## Description
 
-TxCheck is a tool for finding transactional bugs in database management systems. It uses SQL-level instrumentation to capture statement-level dependencies and construct transactional oracle to find bugs in transaction supports of DBMSs. We implemented TxCheck on the top of SQLsmith (https://github.com/anse1/sqlsmith).
+TxCheck is a tool for finding transactional bugs in database management systems. It uses SQL-level instrumentation to capture statement-level dependencies and construct transactional oracle to find bugs in transaction supports of DBMSs. We implemented TxCheck on the top of [SQLsmith](https://github.com/anse1/sqlsmith).
 
 ## Supported DBMSs
 - MySQL
 - MariaDB
 - TiDB
+
+## Video
+
+We provide a video introducing the tool. The video is available in the [artifact](https://zenodo.org/) stored in Zenodo.
 
 ## Quick Start or Evaluation (in Docker)
 
@@ -17,7 +21,7 @@ We provide scripts to quickly set up the necessary environments and test specifi
 - [Test MariaDB 10.8.3](./docs/mariadb_test.md)
 - [Test TiDB 5.4.0](./docs/tidb_test.md)
 
-By following the scripts, TxCheck can find the bugs listed in [Found Bugs](#found-bugs) (given enough time). For example, using the above MySQL script, TxCheck might find a transactional bug in MySQL 8.0.28 within 10 minutes.
+By following the scripts, TxCheck can find the bugs listed in [Found Bugs](#found-bugs) (given enough time). For example, using the above MySQL script, TxCheck might find a transactional bug in MySQL 8.0.28 within 15 minutes.
 
 ## Build TxCheck in Debian
 
