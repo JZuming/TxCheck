@@ -21,7 +21,7 @@ We provide scripts to quickly set up the necessary environments and test specifi
 - [Test MariaDB 10.8.3](./docs/mariadb_test.md)
 - [Test TiDB 5.4.0](./docs/tidb_test.md)
 
-By following the scripts, TxCheck can find the bugs listed in [Found Bugs](#found-bugs) (given enough time). For example, using the above MySQL script, TxCheck might find a transactional bug in MySQL 8.0.28 within 15 minutes.
+By following the scripts, TxCheck can find the bugs listed in [Found Bugs](#found-bugs) (given enough time). For quick evaluation, you could use the above MySQL script to set up the testing, where TxCheck might find a transactional bug in MySQL 8.0.28 within 15 minutes. 
 
 ## Build TxCheck in Debian
 
