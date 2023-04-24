@@ -38,6 +38,9 @@
 - TiDB (with tikv) hangs when processing SELECT statement
   - Link: https://github.com/pingcap/tidb/issues/34043
   - Status: Confirmed
+- ROLLBACK transaction affects the result of COMMIT transaction in TiDB (with TiKV)
+  - Link: https://github.com/pingcap/tidb/issues/34110
+  - Status: Unconfirmed
 - "Lost connection to MySQL server during query" after UPDATE statement
   - Link: https://github.com/pingcap/tidb/issues/34217
   - Status: Confirmed
@@ -59,9 +62,9 @@
 - Lost connection to MySQL server during query (tidb/executor.(*baseJoiner).makeJoinRowToChunk)
   - Link: https://github.com/pingcap/tidb/issues/38167
   - Status: Confirmed
-- TiDB produces different results for SELECT statements (runtime error: index out of range [0] with length 0)
-  - Link: https://github.com/pingcap/tidb/issues/38209
-  - Status: Confirmed
 - Undetermined results of the SELECT statement with CTE
   - Link: https://github.com/pingcap/tidb/issues/38170
   - Status: Fixed
+- TiDB produces different results for SELECT statements (runtime error: index out of range [0] with length 0)
+  - Link: https://github.com/pingcap/tidb/issues/38209
+  - Status: Confirmed
