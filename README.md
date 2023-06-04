@@ -4,6 +4,8 @@
 
 TxCheck is a tool for finding transactional bugs in database management systems. It uses SQL-level instrumentation to capture statement-level dependencies and construct transactional oracle to find bugs in transaction supports of DBMSs. We implemented TxCheck on the top of [SQLsmith](https://github.com/anse1/sqlsmith).
 
+The [paper](https://jzuming.github.io/paper/osdi23-jiang.pdf) based on this tool has been accepted by [OSDI 2023](https://www.usenix.org/conference/osdi23/presentation/jiang).
+
 ## Supported DBMSs
 - MySQL
 - MariaDB
